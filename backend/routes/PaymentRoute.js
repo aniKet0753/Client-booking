@@ -13,10 +13,14 @@ router.post('/', async (req, res) => {
     console.log("Req body:", req.body);
     console.log(tourStartDate);
     console.log( (tourPricePerHead * tourGivenOccupancy) * ((100+GST)/100) * 100);
-    console.log(tourID);
-    console.log(GST);
+
+    const totalAmount = tourPricePerHead * Number(tourGivenOccupancy); // in ₹
+    const gstAmount = (totalAmount * GST) / 100;
+    const finalAmount = totalAmount + gstAmount;
+
     const response = await razorpay.paymentLink.create({
-      amount: (tourPricePerHead * tourGivenOccupancy) * ((100+GST)/100) * 100,
+      // amount: (tourPricePerHead * tourGivenOccupancy) * ((100+GST)/100) * 100,
+      amount: Math.round(finalAmount * 100), //amount in paise
       currency: 'INR',
       description: `Booking for ${tourName}`,
       customer: {
