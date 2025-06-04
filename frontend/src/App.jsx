@@ -19,11 +19,8 @@ import Register from './pages/Register';
 import TourPrograms from './pages/TourPrograms';
 import TourItinerary from './pages/TourItinerary';
 import CustomerDashboard from './pages/CustomerDashboard';
-<<<<<<< HEAD
 import TravelExperience from './pages/TravelExperience';
-=======
 import EditTour from './components/EditTour';
->>>>>>> 8c5c3364ff08bab1832feca7aa27bd0404eb361c
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem("Token"));
