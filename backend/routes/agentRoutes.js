@@ -40,6 +40,36 @@ const authenticate = (req, res, next) => {
     }
 };
 
+function formatTourForResponse(tour) {
+    return {
+        tourID: tour._id,
+        name: tour.name,
+        // image: tour.image,
+        image: tour.image ? `data:image/jpeg;base64,${tour.image}` : null,
+        categoryType: tour.categoryType,
+        country: tour.country,
+        tourType: tour.tourType,
+        pricePerHead: tour.pricePerHead,
+        GST: tour.GST,
+        duration: tour.duration,
+        occupancy: tour.occupancy,
+        remainingOccupancy: tour.remainingOccupancy,
+        startDate: tour.startDate,
+        description: tour.description,
+        highlights: tour.highlights,
+        inclusions: tour.inclusions,
+        exclusions: tour.exclusions,
+        thingsToPack: tour.thingsToPack,
+        itinerary: tour.itinerary,
+         // Map gallery array to ensure each image string has the data URI prefix
+        gallery: tour.gallery && Array.isArray(tour.gallery)
+                   ? tour.gallery.map(imgBase64 => `data:image/jpeg;base64,${imgBase64}`)
+                   : [],
+        createdAt: tour.createdAt,
+        updatedAt: tour.updatedAt
+    };
+}
+
 function incrementCode(code) {
   const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   let arr = code.split('');
@@ -232,7 +262,7 @@ router.post('/login', async (req, res) => {
                     
                 return res.status(400).json({ error: 'Invalid SuperAdmin credentials!' });
                 }
-                const token = jwt.sign({ id: superadmin._id, role: 'superadmin' }, process.env.JWT_SECRET, { expiresIn: '1h' });
+                const token = jwt.sign({ id: superadmin._id, role: 'superadmin' }, process.env.JWT_SECRET, { expiresIn: '5h' });
                 // console.log("ll");
                 
                 return res.json({
@@ -257,7 +287,7 @@ router.post('/login', async (req, res) => {
         if(agent.status != 'active'){
           return res.status(400).json({ error: 'Your ID is inactive. Wait till your ID is getting active'});
         }
-        const token = jwt.sign({ id: agent._id, role: 'agent' }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        const token = jwt.sign({ id: agent._id, role: 'agent' }, process.env.JWT_SECRET, { expiresIn: '5h' });
         res.json({ message: 'Login successful!', token, role: 'agent', agent, agentID: agent.agentID });
     } catch (error) {
         console.error("Error Occured while login:",error);
@@ -279,7 +309,7 @@ router.get('/money-history', async (req, res) => {
   });
   
 router.get('/profile', authenticate, async (req, res) => {
-//   console.log("Agent profile route hit");
+  // console.log("Agent profile route hit");
     try {
         const agent = await Agent.findById(req.user.id).lean();
         if (!agent) {
@@ -337,40 +367,103 @@ router.put('/profile', authenticate, upload.single('photo'), async (req, res) =>
 //     }
 // });
   
+// router.get('/tours', authenticate, async (req, res) => {
+//   try {
+//     const agent = await Agent.findById(req.user.id).lean();
+//     if (!agent) {
+//         return res.status(404).json({ message: 'Agent not found' });
+//     }
+  
+//     if (agent.status !== 'active') {
+//     return res.status(403).json({ message: 'Inactive user' });
+//     }
+//     const tourDocs = await Tour.find();
+
+//     const formattedTours = tourDocs.flatMap((tourDoc) =>
+//       tourDoc.packages.map((pkg) => ({
+//         tourID: tourDoc._id,
+//         name: pkg.name,
+//         country: pkg.country,
+//         pricePerHead: pkg.pricePerHead,
+//         duration: pkg.duration,
+//         startDate: pkg.startDate,
+//         description: pkg.description,
+//         remainingOccupancy: pkg.remainingOccupancy,
+//         occupancy: pkg.occupancy,
+//         tourType: pkg.tourType,
+//         image: pkg.image ? `data:image/jpeg;base64,${pkg.image}` : null,
+//         categoryType: tourDoc.categoryType,
+//       }))
+//     );
+
+//     res.json({ tours: formattedTours });
+//   } catch (error) {
+//     console.error('Error fetching tours:', error);
+//     res.status(500).json({ message: 'Server error while fetching tours', error });
+//   }
+// });
+
 router.get('/tours', authenticate, async (req, res) => {
   try {
-    const agent = await Agent.findById(req.user.id).lean();
-    if (!agent) {
-        return res.status(404).json({ message: 'Agent not found' });
-    }
-  
-    if (agent.status !== 'active') {
-    return res.status(403).json({ message: 'Inactive user' });
-    }
-    const tourDocs = await Tour.find();
+    const tourDocs = await Tour.find({});
 
-    const formattedTours = tourDocs.flatMap((tourDoc) =>
-      tourDoc.packages.map((pkg) => ({
-        tourID: tourDoc._id,
-        name: pkg.name,
-        country: pkg.country,
-        pricePerHead: pkg.pricePerHead,
-        duration: pkg.duration,
-        startDate: pkg.startDate,
-        description: pkg.description,
-        remainingOccupancy: pkg.remainingOccupancy,
-        occupancy: pkg.occupancy,
-        tourType: pkg.tourType,
-        image: pkg.image ? `data:image/jpeg;base64,${pkg.image}` : null,
+    const formattedTours = tourDocs.map((tourDoc) => {
+      return {
+        tourID: tourDoc._id, 
+        name: tourDoc.name,
+        country: tourDoc.country,
+        pricePerHead: tourDoc.pricePerHead,
+        GST: tourDoc.GST,
+        duration: tourDoc.duration,
+        startDate: tourDoc.startDate,
+        description: tourDoc.description,
+        occupancy: tourDoc.occupancy,
+        remainingOccupancy: tourDoc.remainingOccupancy,
+        tourType: tourDoc.tourType,
         categoryType: tourDoc.categoryType,
-      }))
-    );
+        
+        image: tourDoc.image ? `data:image/jpeg;base64,${tourDoc.image}` : null,
+        
+        highlights: tourDoc.highlights || [], 
+        inclusions: tourDoc.inclusions || [],
+        exclusions: tourDoc.exclusions || [],
+        thingsToPack: tourDoc.thingsToPack || [],
+
+        // Itinerary is an array of objects
+        itinerary: tourDoc.itinerary || [],
+
+        // Gallery: Map each Base64 string in the gallery array to a data URL
+        gallery: tourDoc.gallery && Array.isArray(tourDoc.gallery) 
+                   ? tourDoc.gallery.map(imgBase64 => `data:image/jpeg;base64,${imgBase64}`) 
+                   : [],
+      };
+    });
 
     res.json({ tours: formattedTours });
   } catch (error) {
     console.error('Error fetching tours:', error);
     res.status(500).json({ message: 'Server error while fetching tours', error });
   }
+});
+
+router.get('/tours/:_id', authenticate, async (req, res) => {
+  // console.log(req.params._id)
+    try {
+        const tour = await Tour.findById(req.params._id);
+
+        if (!tour) {
+            return res.status(404).json({ message: 'Tour not found.' });
+        }
+
+        res.json({ tour: formatTourForResponse(tour) });
+
+    } catch (error) {
+        console.error('Error fetching single tour:', error);
+        if (error.name === 'CastError') {
+            return res.status(400).json({ message: 'Invalid tour ID format.' }); 
+        }
+        res.status(500).json({ message: 'Internal server error' });
+    }
 });
 
 router.get('/booking-history',authenticate, async (req, res) => {
@@ -516,6 +609,19 @@ router.get('/:id', authenticate, async (req, res) => {
     if (!agent) return res.status(404).json({ message: 'Agent not found' });
 
     res.json(agent);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.get('/verify-agentID/:id', authenticate, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const agent = await Agent.findOne({agentID:id}).select('-earnings');
+    if (!agent) return res.status(404).json({ message: 'Invalid AgentID!! Agent not found' });
+
+    res.status(200).json(agent);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });

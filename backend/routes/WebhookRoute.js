@@ -187,6 +187,7 @@ const transferCommission = async (agent_id, amount, updatedPercentage, commissio
 //   }
 // });
 router.post('/', express.json(), async (req, res) => {
+  console.log("webhook hit")
   const razorpaySignature = req.headers['x-razorpay-signature'];
   const payload = req.rawBody;
 
@@ -213,7 +214,8 @@ router.post('/', express.json(), async (req, res) => {
       tourPricePerHead,
       tourActualOccupancy,
       tourGivenOccupancy,
-      tourStartDate
+      tourStartDate,
+      GST
     } = payment.notes;
 
     const transactionId = payment.id;
@@ -232,6 +234,7 @@ router.post('/', express.json(), async (req, res) => {
         commissions: commissionRecords,
       });
 
+      console.log("Direct transaction through customer saved successfully. No agent involved")
       await newTransaction.save();
       const tour = await Tours.findById(tourID);
       if (!tour) {  

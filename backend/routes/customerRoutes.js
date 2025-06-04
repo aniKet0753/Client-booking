@@ -9,6 +9,11 @@ const jwt = require("jsonwebtoken");
 const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret";
 
 const authenticate = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Unauthorized: No token" });
+    }
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
         return res.status(401).json({ error: 'Unauthorized: No token provided' });
@@ -22,6 +27,36 @@ const authenticate = (req, res, next) => {
         return res.status(401).json({ error: 'Unauthorized: Invalid token' });
     }
 };
+
+function formatTourForResponse(tour) {
+    return {
+        tourID: tour._id,
+        name: tour.name,
+        // image: tour.image,
+        image: tour.image ? `data:image/jpeg;base64,${tour.image}` : null,
+        categoryType: tour.categoryType,
+        country: tour.country,
+        tourType: tour.tourType,
+        pricePerHead: tour.pricePerHead,
+        GST: tour.GST,
+        duration: tour.duration,
+        occupancy: tour.occupancy,
+        remainingOccupancy: tour.remainingOccupancy,
+        startDate: tour.startDate,
+        description: tour.description,
+        highlights: tour.highlights,
+        inclusions: tour.inclusions,
+        exclusions: tour.exclusions,
+        thingsToPack: tour.thingsToPack,
+        itinerary: tour.itinerary,
+         // Map gallery array to ensure each image string has the data URI prefix
+        gallery: tour.gallery && Array.isArray(tour.gallery)
+                   ? tour.gallery.map(imgBase64 => `data:image/jpeg;base64,${imgBase64}`)
+                   : [],
+        createdAt: tour.createdAt,
+        updatedAt: tour.updatedAt
+    };
+}
 
 // Customer Login
 router.post("/login", async (req, res) => {
@@ -38,20 +73,20 @@ router.post("/login", async (req, res) => {
     });
 
     if (!customer) {
-      return res.status(404).json({ error: "Customer not found" });
+      return res.status(404).json({ error: "User not found" });
     }
 
     // Compare passwords
     const isMatch = await bcrypt.compare(password, customer.password);
     if (!isMatch) {
-      return res.status(401).json({ error: "Invalid password" });
+      return res.status(401).json({ error: "Invalid credentials!" });
     }
 
     // Generate JWT
     const token = jwt.sign(
       { id: customer._id, role: "customer", email: customer.email },
       JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "5h" }
     );
 
     res.json({
@@ -110,37 +145,114 @@ router.post("/register", async (req, res) => {
   }
 });
 
+// router.get('/tours', authenticate, async (req, res) => {
+//   try {
+//     const customer = await Customer.findById(req.user.id).lean();
+//     if (!customer) {
+//         return res.status(404).json({ message: 'Customer not found' });
+//     }
+  
+//     const tourDocs = await Tour.find();
+
+//     const formattedTours = tourDocs.flatMap((tourDoc) =>
+//       tourDoc.packages.map((pkg) => ({
+//         tourID: tourDoc._id,
+//         name: pkg.name,
+//         country: pkg.country,
+//         pricePerHead: pkg.pricePerHead,
+//         duration: pkg.duration,
+//         startDate: pkg.startDate,
+//         description: pkg.description,
+//         remainingOccupancy: pkg.remainingOccupancy,
+//         occupancy: pkg.occupancy,
+//         tourType: pkg.tourType,
+//         image: pkg.image ? `data:image/jpeg;base64,${pkg.image}` : null,
+//         categoryType: tourDoc.categoryType,
+//       }))
+//     );
+
+//     res.json({ tours: formattedTours });
+//   } catch (error) {
+//     console.error('Error fetching tours:', error);
+//     res.status(500).json({ message: 'Server error while fetching tours', error });
+//   }
+// });
+
 router.get('/tours', authenticate, async (req, res) => {
   try {
-    const customer = await Customer.findById(req.user.id).lean();
-    if (!customer) {
-        return res.status(404).json({ message: 'Customer not found' });
-    }
-  
-    const tourDocs = await Tour.find();
+    const tourDocs = await Tour.find({});
 
-    const formattedTours = tourDocs.flatMap((tourDoc) =>
-      tourDoc.packages.map((pkg) => ({
-        tourID: tourDoc._id,
-        name: pkg.name,
-        country: pkg.country,
-        pricePerHead: pkg.pricePerHead,
-        duration: pkg.duration,
-        startDate: pkg.startDate,
-        description: pkg.description,
-        remainingOccupancy: pkg.remainingOccupancy,
-        occupancy: pkg.occupancy,
-        tourType: pkg.tourType,
-        image: pkg.image ? `data:image/jpeg;base64,${pkg.image}` : null,
+    const formattedTours = tourDocs.map((tourDoc) => {
+      return {
+        tourID: tourDoc._id, 
+        name: tourDoc.name,
+        country: tourDoc.country,
+        pricePerHead: tourDoc.pricePerHead,
+        GST: tourDoc.GST,
+        duration: tourDoc.duration,
+        startDate: tourDoc.startDate,
+        description: tourDoc.description,
+        occupancy: tourDoc.occupancy,
+        remainingOccupancy: tourDoc.remainingOccupancy,
+        tourType: tourDoc.tourType,
         categoryType: tourDoc.categoryType,
-      }))
-    );
+        
+        image: tourDoc.image ? `data:image/jpeg;base64,${tourDoc.image}` : null,
+        
+        highlights: tourDoc.highlights || [], 
+        inclusions: tourDoc.inclusions || [],
+        exclusions: tourDoc.exclusions || [],
+        thingsToPack: tourDoc.thingsToPack || [],
+
+        // Itinerary is an array of objects
+        itinerary: tourDoc.itinerary || [],
+
+        // Gallery: Map each Base64 string in the gallery array to a data URL
+        gallery: tourDoc.gallery && Array.isArray(tourDoc.gallery) 
+                   ? tourDoc.gallery.map(imgBase64 => `data:image/jpeg;base64,${imgBase64}`) 
+                   : [],
+      };
+    });
 
     res.json({ tours: formattedTours });
   } catch (error) {
     console.error('Error fetching tours:', error);
     res.status(500).json({ message: 'Server error while fetching tours', error });
   }
+});
+
+router.get('/profile', authenticate, async (req, res) => {
+  // console.log("Customer profile route hit");
+    try {
+        const customer = await Customer.findById(req.user.id).lean();
+        if (!customer) {
+            return res.status(404).json({ error: 'customer not found' });
+        }
+        res.json(customer);
+    } catch (error) {
+        console.error("Error fetching profile: ", error);
+        res.status(500).json({ error: 'Failed to fetch profile' });
+    }
+});
+
+router.get('/tours/:_id', authenticate, async (req, res) => {
+  // console.log(req.params._id)
+    try {
+        const tour = await Tour.findById(req.params._id);
+
+        if (!tour) {
+            return res.status(404).json({ message: 'Tour not found.' });
+        }
+
+        res.json({ tour: formatTourForResponse(tour) });
+
+    } catch (error) {
+        console.error('Error fetching single tour:', error);
+        if (error.name === 'CastError') {
+            return res.status(400).json({ message: 'Invalid tour ID format.' }); 
+        }
+        res.status(500).json({ message: 'Internal server error' });
+    }
 });
 
 module.exports = router;

@@ -39,8 +39,7 @@ function SuperAdmin() {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('Token');
-    localStorage.removeItem('role');
+    localStorage.clear();
     navigate('/');
   };
 

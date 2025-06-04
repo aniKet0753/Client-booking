@@ -4,9 +4,11 @@ import TopNav from '../components/TopNav';
 import MainContent from '../components/MainContent';
 import AddTour from '../components/AddTour';
 import FetchTours from '../components/FetchTours';
+import EditAnyTour from '../components/EditAnyTour';
 import AgentRequests from '../components/AgentRequest';
 import Account from '../components/Account';
 import CancellationRequests from '../components/CancellationRequests';
+
 function Dashboard() {
   const [view, setView] = useState('dashboard');
   const [collapsed, setCollapsed] = useState(false);
@@ -19,6 +21,8 @@ function Dashboard() {
         return <AddTour />;
       case 'FetchTours':
         return <FetchTours />;
+      case 'EditTours':
+        return <EditAnyTour/>;
       case 'requests':
         return <AgentRequests />;
       case 'account':

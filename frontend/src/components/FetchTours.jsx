@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-// import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import axios from '../api';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -13,7 +13,7 @@ import {
 // import { Link } from 'react-router-dom';
 
 function FetchTours() {
-  // const navigate = useNavigate();
+  const navigate = useNavigate();
   const [tours, setTours] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -91,16 +91,33 @@ function FetchTours() {
     setKycLink('');
     
     const tourStartDate = new Date(selectedTour.startDate).toLocaleDateString();
+    // const query = new URLSearchParams({
+    //   agentID: profile?.agentID,
+    //   tourName: selectedTour.name,
+    //   tourID: selectedTour.tourID,
+    //   tourPricePerHead: selectedTour.pricePerHead,
+    //   tourActualOccupancy: selectedTour.occupancy,
+    //   tourGivenOccupancy: givenOccupancy,
+    //   tourStartDate: encodeURIComponent(tourStartDate)
+    // }).toString();
     const query = new URLSearchParams({
-      agentID: profile?.agentID,
-      tourName: selectedTour.name,
-      tourID: selectedTour.tourID,
-      tourPricePerHead: selectedTour.pricePerHead,
-      tourActualOccupancy: selectedTour.occupancy,
-      tourGivenOccupancy: givenOccupancy,
-      tourStartDate: encodeURIComponent(tourStartDate)
-    }).toString();
-    console.log(tourStartDate)
+      a: profile?.agentID,
+      t: selectedTour.tourID,
+      p: givenOccupancy
+    })
+    // Navigate to KYC page with state (not visible in URL)
+    // navigate('/kyc', {
+    //   state: {
+    //     agentID: profile?.agentID,
+    //     tourName: selectedTour.name,
+    //     tourID: selectedTour.tourID,
+    //     tourPricePerHead: selectedTour.pricePerHead,
+    //     tourActualOccupancy: selectedTour.occupancy,
+    //     tourGivenOccupancy: givenOccupancy,
+    //     tourStartDate: encodeURIComponent(tourStartDate),
+    //   },
+    // });
+    // console.log(tourStartDate)
     setTimeout(() => {
       const fullLink = `${window.location.origin}/kyc?${query}`;
       setKycLink(fullLink);

@@ -6,10 +6,10 @@ import { HiOutlineUserGroup } from "react-icons/hi";
 import { MdOutlineAccessTime, MdOutlineTour } from "react-icons/md";
 import { IoLocationOutline } from "react-icons/io5";
 import { FaCheck, FaEye, FaUserSlash } from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams, Link, useParams } from "react-router-dom";
 import axios from "../api";
-import { Link } from "react-router-dom";
 import NeedHelp from "../components/NeedHelp";
+import Swal from "sweetalert2";
 
 // Helper function to format date
 const formatDateForDisplay = (isoDateString) => {
@@ -24,8 +24,9 @@ const formatDateForDisplay = (isoDateString) => {
 
 const TourPrograms = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams(); // Initialize useSearchParams
 
-  const [allTours, setAllTours] = useState([]);
+  const [allTours, setAllTours] = useState([]); // This will store the initially fetched & tourType-filtered tours
   const [availableMonths, setAvailableMonths] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState(null);
   const [toursForSelectedMonth, setToursForSelectedMonth] = useState([]);
@@ -38,14 +39,22 @@ const TourPrograms = () => {
   const [tooltipText, setTooltipText] = useState("");
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
 
-  // States for the booking modal
+  // States for the booking modal (kept for completeness, though Link is used now)
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [numberOfPeople, setNumberOfPeople] = useState("");
   const [agentReferralId, setAgentReferralId] = useState("");
   const [bookingError, setBookingError] = useState("");
   const [bookingSuccessMessage, setBookingSuccessMessage] = useState("");
+
   const token = localStorage.getItem('Token');
   const role = localStorage.getItem('role');
+
+  const {tourType} =  useParams();
+  const tourTypeFromUrl = tourType;
+  const pageTitleTourType = tourTypeFromUrl ? tourTypeFromUrl.replace(/%20/g, ' ') : 'All';
+
+  // console.log(tourTypeFromUrl)
+
   useEffect(() => {
     const fetchTourData = async () => {
       setLoading(true);
@@ -67,9 +76,24 @@ const TourPrograms = () => {
           },
         });
 
-        const toursData = res.data.tours;
+        let toursData = res.data.tours;
         console.log("Fetched all tours data:", toursData);
-        setAllTours(toursData);
+
+        // --- NEW: Filter by tourType from URL ---
+        if (tourTypeFromUrl) {
+          const normalizedTourType = tourTypeFromUrl.toLowerCase();
+          toursData = toursData.filter(tour =>
+            tour.tourType && tour.tourType.toLowerCase() === normalizedTourType
+          );
+          if (toursData.length === 0) {
+            setError(`No tours found for type: "${tourTypeFromUrl}".`);
+            setLoading(false);
+            return; // Exit if no tours of this type
+          }
+        }
+        // --- END NEW ---
+
+        setAllTours(toursData); // Set the (potentially filtered) tours
 
         const months = new Set();
         if (Array.isArray(toursData)) {
@@ -81,8 +105,8 @@ const TourPrograms = () => {
             }
           });
         } else {
-          console.warn("toursData is not an array:", toursData);
-          setError("Unexpected data format from server.");
+          console.warn("toursData is not an array after filtering:", toursData);
+          setError("Unexpected data format from server after filtering.");
         }
 
         setAvailableMonths(Array.from(months));
@@ -90,23 +114,23 @@ const TourPrograms = () => {
       } catch (err) {
         let errorMessage = '';
         const message = err?.response?.data?.message;
-        // console.log(err.response.data.error)
-        if (err.response.data.error === 'Unauthorized: Invalid token') {
-          errorMessage = 'Unauthorized access or Session expired. Please re-login again.!!';
+        if (err.response?.data?.error === 'Unauthorized: Invalid token') {
+          errorMessage = 'Unauthorized access or Session expired. Please re-login!!';
         } else if (message === 'Inactive user') {
           errorMessage = 'Your account is inactive. Please contact support.';
         } else {
-          errorMessage = 'Error fetching tours. Try again later.';
+          errorMessage = err.response?.data?.message || 'Error fetching tours. Try again later.';
         }
         setError(errorMessage);
         console.error("Error fetching tour data:", err);
+        Swal.fire('Error', errorMessage, 'error'); // Use Swal for error display
       } finally {
         setLoading(false);
       }
     };
 
     fetchTourData();
-  }, []);
+  }, [token, role, tourTypeFromUrl]); // Add tourTypeFromUrl to dependency array
 
   useEffect(() => {
     if (selectedMonth && allTours.length > 0) {
@@ -126,7 +150,7 @@ const TourPrograms = () => {
 
   const handleMonthClick = (month) => {
     if (!availableMonths.includes(month)) {
-      return;
+      return; // Prevent selection of unavailable months
     }
     console.log(`Clicked on month: ${month}`);
     setSelectedMonth(month);
@@ -141,101 +165,25 @@ const TourPrograms = () => {
     setBookingSuccessMessage(""); // Clear any previous success message
   };
 
+  // This handleContinue is now less critical as you are using Link directly
   const handleContinue = () => {
     if (selectedTourDate) {
+      // If you still want a modal before navigating, re-enable this.
+      // For now, the Link component handles navigation directly.
       setIsBookingModalOpen(true);
     } else {
-      alert("Please select a tour date to continue.");
+      Swal.fire('Oops!', 'Please select a tour date to continue.', 'warning');
     }
   };
 
-  // const handleModalContinue = async () => {
-  //   const numPeople = parseInt(numberOfPeople, 10);
-
-  //   setBookingError("");
-  //   setBookingSuccessMessage("");
-
-  //   if (isNaN(numPeople) || numPeople <= 0) {
-  //     setBookingError("Please enter a valid number of people (greater than 0).");
-  //     return;
-  //   }
-
-  //   if (!selectedTourDate) {
-  //     setBookingError("No tour selected. Please close and try again.");
-  //     return;
-  //   }
-
-  //   if (numPeople > selectedTourDate.remainingOccupancy) {
-  //     setBookingError(`Only ${selectedTourDate.remainingOccupancy} seats available. Please enter a lower number.`);
-  //     return;
-  //   }
-
-  //   const message = `Booking ${numPeople} people for ${selectedTourDate.name}. Redirecting to KYC page...`;
-  //   setBookingSuccessMessage(message);
-
-  //   // Prepare data for URL parameters
-  //   if (agentReferralId) {
-  //     try {
-  //       const res = await axios.get(`/api/agents/${agentReferralId.trim()}`, {
-  //         headers: {
-  //           Authorization: `Bearer ${token}`,
-  //           Role: role,
-  //         },
-  //       });
-  //       // Assuming your API returns a success status or agent details if valid
-  //       if (res.status !== 200) {
-  //         setBookingError("Invalid Agent Referral ID. Please check and try again.");
-  //         return;
-  //       }
-  //     } catch (err) {
-  //       // --- CHANGE STARTS HERE ---
-  //       console.error("Full Axios Error Object:", err); // This will print the entire error object
-  //       if (err.response && err.response.data && err.response.data.message) {
-  //         setBookingError(err.response.data.message);
-  //       } else {
-  //         setBookingError("Agent Referral ID validation failed. Please try again.");
-  //       }
-  //       return;
-  //     }
-  //   }
-  //   // console.log(agentDetails)
-  //   const agentID = agentReferralId.trim();
-  //   const tourName = selectedTourDate.name;
-  //   const tourID = selectedTourDate.tourID;
-  //   const tourPricePerHead = selectedTourDate.pricePerHead;
-  //   const tourActualOccupancy = selectedTourDate.occupancy;
-  //   const tourGivenOccupancy = numPeople;
-  //   // Ensure startDate is formatted correctly for URL, if it's an ISO string, encode it
-  //   const tourStartDate = selectedTourDate.startDate ? new Date(selectedTourDate.startDate).toISOString() : '';
-
-  //   const query = new URLSearchParams({
-  //     agentID: agentID ? agentID : '',
-  //     tourName: tourName,
-  //     tourID: tourID,
-  //     tourPricePerHead: tourPricePerHead,
-  //     tourActualOccupancy: tourActualOccupancy,
-  //     tourGivenOccupancy: tourGivenOccupancy,
-  //     tourStartDate: tourStartDate
-  //   }).toString();
-
-  //   // Log the full link for debugging
-  //   const fullLink = `/kyc?${query}`;
-  //   console.log("Navigating to:", fullLink);
-
-
-  //   setTimeout(() => {
-  //     setIsBookingModalOpen(false);
-  //     navigate(fullLink);
-  //   }, 3000);
-  // };
-
-
-  // Tooltip handlers
+  const handleModalContinue = () => {
+    console.log("Booking logic would go here for selectedTourDate:", selectedTourDate);
+  };
 
   const handleMouseEnterMonth = (month, event) => {
     if (!availableMonths.includes(month)) {
       setIsTooltipVisible(true);
-      setTooltipText("Not Available Now");
+      setTooltipText("No tours available for this month (for selected type)"); // More specific tooltip
       setTooltipPosition({ x: event.clientX + 10, y: event.clientY + 10 });
     }
   };
@@ -270,14 +218,23 @@ const TourPrograms = () => {
     <div className="flex flex-col min-h-screen relative">
       <main className="flex-grow container mx-auto px-4 py-12">
         <h1 className="text-4xl font-bold text-gray-800 mb-1.5">
-          Select Your Travel Dates
+          Select Your Travel Dates for <span className="text-blue-600">{pageTitleTourType}</span> Tours
         </h1>
         <p className="text-gray-600 mb-10">
           Select your preferred month and available dates
         </p>
 
-        {loading && <div className="text-center text-blue-500">Loading available tour dates...</div>}
-        {error && <div className="text-center text-lg text-red-500">{error}</div>}
+        {loading && (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500"></div>
+            <p className="ml-4 text-lg text-blue-600">Loading available tour dates...</p>
+          </div>
+        )}
+        {error && (
+          <div className="text-center text-lg text-red-500 bg-red-100 p-4 rounded-md border border-red-200">
+            {error}
+          </div>
+        )}
 
         {!loading && !error && (
           <div className="bg-white p-8 rounded-lg shadow-md border border-gray-200">
@@ -373,7 +330,7 @@ const TourPrograms = () => {
                           </div>
                           <span className="flex items-center text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
                             <MdOutlineTour className="mr-1" />
-                            {tour.tourType} Tour Type
+                            {tour.tourType}
                           </span>
                         </div>
 
@@ -433,7 +390,7 @@ const TourPrograms = () => {
 
             {selectedMonth && toursForSelectedMonth.length === 0 && (
               <div className="mt-12 text-center text-gray-600">
-                No tours found for {selectedMonth}. Please select another month.
+                No tours found for {selectedMonth} with the current filters. Please select another month or clear tour type filter.
               </div>
             )}
 
@@ -449,15 +406,6 @@ const TourPrograms = () => {
                   <span>Selected</span>
                 </div>
               </div>
-              {/* <button
-                className={`bg-blue-700 text-white px-8 py-3 rounded-lg font-medium hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 ${
-                  !selectedTourDate ? "opacity-50 cursor-not-allowed" : ""
-                }`}
-                disabled={!selectedTourDate}
-                onClick={handleContinue}
-              >
-                Continue
-              </button> */}
               {selectedTourDate ? (
                 <Link
                   to={`/tour-itinerary/${selectedTourDate.tourID}`}
@@ -496,7 +444,7 @@ const TourPrograms = () => {
         </div>
       )}
 
-      {/* Booking Modal */}
+      {/* Booking Modal (Potentially unused if using Link directly) */}
       {isBookingModalOpen && selectedTourDate && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md mx-4">

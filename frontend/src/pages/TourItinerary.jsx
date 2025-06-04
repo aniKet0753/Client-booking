@@ -1,4 +1,3 @@
-// src/components/TourItinerary.jsx
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Footer from "../components/Footer";
@@ -8,141 +7,143 @@ import { MdOutlineAccessTime } from 'react-icons/md';
 import { HiOutlineUserGroup } from 'react-icons/hi';
 import { SlCalender } from 'react-icons/sl';
 import { FaArrowLeft, FaMapMarkerAlt, FaHotel, FaUtensils, FaBus, FaHiking, FaCamera, FaChevronDown, FaChevronUp } from 'react-icons/fa';
-import axios from 'axios';
+import axios from '../api'; 
 import NeedHelp from '../components/NeedHelp';
-
-const dummyTour = {
-    tourID: "1",
-    name: "Majestic Himalayas Adventure",
-    image: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80",
-    categoryType: "Adventure",
-    country: "India",
-    tourType: "Group Tour",
-    pricePerHead: 24999,
-    duration: 7,
-    occupancy: 20,
-    remainingOccupancy: 8,
-    startDate: "2025-06-15",
-    description: "Experience the breathtaking beauty of the Himalayas with our 7-day adventure tour. Enjoy trekking, sightseeing, and cultural experiences in the heart of the mountains.",
-    highlights: [
-        "Trek to scenic viewpoints",
-        "Visit ancient monasteries",
-        "Local cuisine tasting",
-        "Guided city tour"
-    ],
-    inclusions: [
-        "Accommodation",
-        "Meals (Breakfast & Dinner)",
-        "All transfers",
-        "Sightseeing tours",
-        "Guide services"
-    ],
-    exclusions: [
-        "Airfare",
-        "Personal expenses",
-        "Lunch",
-        "Travel insurance"
-    ],
-    thingsToPack: [
-        "Warm clothes",
-        "Trekking shoes",
-        "Sunscreen",
-        "Camera"
-    ],
-    itinerary: [
-        {
-            title: "Arrival & Acclimatization",
-            description: "Arrive at the base city, meet your guide, and acclimatize to the altitude.",
-            activities: [
-                { type: "travel", title: "Airport Pickup", description: "Transfer from airport to hotel.", time: "10:00 AM" },
-                { type: "accommodation", title: "Hotel Check-in", description: "Relax and settle in at the hotel." },
-                { type: "meal", title: "Welcome Dinner", description: "Enjoy a traditional welcome dinner." }
-            ]
-        },
-        {
-            title: "Trek to Valley Viewpoint",
-            description: "Start your trek to the famous valley viewpoint and enjoy panoramic mountain views.",
-            activities: [
-                { type: "hiking", title: "Morning Trek", description: "Trek through scenic trails.", time: "8:00 AM" },
-                { type: "sightseeing", title: "Photography", description: "Capture the stunning landscapes." },
-                { type: "meal", title: "Packed Lunch", description: "Lunch on the trail." }
-            ]
-        }
-        // Add more days as needed
-    ],
-    gallery: [
-        "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=400&q=80",
-        "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=400&q=80",
-        "https://images.unsplash.com/photo-1465101178521-c1a9136a3b99?auto=format&fit=crop&w=400&q=80"
-    ]
-};
+import Swal from 'sweetalert2'; // For better alert messages
 
 const TourItinerary = () => {
-    const { tourId } = useParams();
+    const { tourID } = useParams();
     const navigate = useNavigate();
     const [tour, setTour] = useState(null);
     const [loading, setLoading] = useState(true);
+    // activeDay = 0 for Overview, 1 for Day 1, 2 for Day 2, etc.
     const [activeDay, setActiveDay] = useState(0);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
-    const [selectedTourDate, setSelectedTourDate] = useState(null);
+    const [selectedTourDate, setSelectedTourDate] = useState(null); // Will hold the full tour object for booking
     const [numberOfPeople, setNumberOfPeople] = useState(1);
     const [agentReferralId, setAgentReferralId] = useState('');
     const [bookingError, setBookingError] = useState('');
     const [bookingSuccessMessage, setBookingSuccessMessage] = useState('');
 
-    useEffect(() => {
-        // Simulate API call with dummy data
-        setLoading(true);
-        setTimeout(() => {
-            // Commented out actual API call
-            // const fetchTour = async () => {
-            //     try {
-            //         const response = await fetch(`/api/tours/${tourId}`);
-            //         const data = await response.json();
-            //         setTour(data);
-            //     } catch (error) {
-            //         console.error('Error fetching tour:', error);
-            //     } finally {
-            //         setLoading(false);
-            //     }
-            // };
-            // fetchTour();
+    const token = localStorage.getItem('Token');
+    const role = localStorage.getItem('role');
 
-            setTour(dummyTour);
-            setLoading(false);
-        }, 500);
-    }, [tourId]);
+    useEffect(() => {
+        const fetchTour = async () => {
+            try {
+                setLoading(true);
+                // Use the actual API call
+                const FetchToursRoute = role === 'superadmin' ? 'api/admin/tours' : role === 'customer' ? 'api/customer/tours' : 'api/agents/tours';
+                const response = await axios.get(`${FetchToursRoute}/${tourID}`,{
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        Role: role,
+                    },
+                });
+                // Ensure data.tour is directly used as your backend sends { tour: tourObject }
+                setTour(response.data.tour);
+            } catch (error) {
+                console.error('Error fetching tour:', error);
+                Swal.fire('Error', error?.response?.data?.message || 'Failed to load tour details.', 'error');
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchTour();
+    }, [tourID, token, role]);
 
     const formatDateForDisplay = (dateString) => {
-        const options = { year: 'numeric', month: 'long', day: 'numeric' };
-        return new Date(dateString).toLocaleDateString(undefined, options);
+        if (!dateString) return 'N/A';
+        try {
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            return new Date(dateString).toLocaleDateString(undefined, options);
+        } catch (e) {
+            console.error("Invalid date string:", dateString, e);
+            return 'Invalid Date';
+        }
     };
+
+    const handleModalContinue = async () => {
+        const numPeople = parseInt(numberOfPeople, 10);
+
+        setBookingError("");
+        setBookingSuccessMessage("");
+
+        if (isNaN(numPeople) || numPeople <= 0) {
+            setBookingError("Please enter a valid number of people (greater than 0).");
+            return;
+        }
+
+        if (!selectedTourDate) {
+            setBookingError("No tour selected. Please close and try again.");
+            return;
+        }
+
+        if (numPeople > selectedTourDate.remainingOccupancy) {
+            setBookingError(`Only ${selectedTourDate.remainingOccupancy} seats available. Please enter a lower number.`);
+            return;
+        }
+
+        // Agent Referral ID validation (API call)
+        if (agentReferralId) {
+            try {
+                const res = await axios.get(`/api/agents/verify-agentID/${agentReferralId.trim()}`, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        Role: role,
+                    },
+                });
+                // If status is not 200, it means validation failed, but Axios throws error for non-2xx
+                // So, if we reach here, it's valid.
+                console.log("Agent validation successful:", res.data);
+            } catch (err) {
+                console.error("Agent validation error:", err);
+                if (err.response && err.response.data && err.response.data.message) {
+                    setBookingError(err.response.data.message);
+                } else {
+                    setBookingError("Agent Referral ID validation failed. Please try again.");
+                }
+                return;
+            }
+        }
+
+        const agentID = agentReferralId ? agentReferralId.trim() : '';
+        const tourID = selectedTourDate.tourID; // Use the actual tourID from fetched data
+
+        const message = `Booking ${numPeople} people for ${selectedTourDate.name}. Redirecting to KYC page...`;
+        setBookingSuccessMessage(message);
+
+        const query = new URLSearchParams();
+        if (agentID) query.append('a', agentID);  // 'a' for agent
+        query.append('t', tourID);                // 't' for tour
+        query.append('p', numPeople);             // 'p' for people
+
+        const fullLink = `/kyc?${query.toString()}`;
+        console.log("Navigating to:", fullLink);
+
+        setTimeout(() => {
+            setIsBookingModalOpen(false);
+            navigate(fullLink);
+        }, 1500); // Shorter timeout for better UX
+    };
+
 
     if (loading) {
         return (
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <div className="animate-pulse space-y-6">
-                    {/* Back button placeholder */}
                     <div className="h-6 w-24 bg-gray-200 rounded"></div>
-
-                    {/* Image placeholder */}
                     <div className="h-64 sm:h-80 md:h-96 bg-gray-200 rounded-xl"></div>
-
-                    {/* Title and price placeholders */}
                     <div className="space-y-2">
                         <div className="h-8 bg-gray-200 rounded w-3/4"></div>
                         <div className="h-4 bg-gray-200 rounded w-1/2"></div>
                     </div>
-
-                    {/* Stats grid placeholder */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                         {[1, 2, 3, 4].map((i) => (
                             <div key={i} className="h-20 bg-gray-200 rounded-lg"></div>
                         ))}
                     </div>
-
-                    {/* Description placeholders */}
                     <div className="space-y-2">
                         <div className="h-4 bg-gray-200 rounded w-full"></div>
                         <div className="h-4 bg-gray-200 rounded w-5/6"></div>
@@ -166,72 +167,6 @@ const TourItinerary = () => {
             </div>
         );
     }
-
-    const handleModalContinue = async () => {
-        const numPeople = parseInt(numberOfPeople, 10);
-
-        setBookingError("");
-        setBookingSuccessMessage("");
-
-        if (isNaN(numPeople) || numPeople <= 0) {
-            setBookingError("Please enter a valid number of people (greater than 0).");
-            return;
-        }
-
-        if (!selectedTourDate) {
-            setBookingError("No tour selected. Please close and try again.");
-            return;
-        }
-
-        if (numPeople > selectedTourDate.remainingOccupancy) {
-            setBookingError(`Only ${selectedTourDate.remainingOccupancy} seats available. Please enter a lower number.`);
-            return;
-        }
-
-        const message = `Booking ${numPeople} people for ${selectedTourDate.name}. Redirecting to KYC page...`;
-        setBookingSuccessMessage(message);
-
-        // Agent Referral ID validation (dummy API call)
-        if (agentReferralId) {
-            try {
-                const res = await axios.get(`/api/agents/${agentReferralId.trim()}`, {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        Role: role,
-                    },
-                });
-                if (res.status !== 200) {
-                    setBookingError("Invalid Agent Referral ID. Please check and try again.");
-                    return;
-                }
-            } catch (err) {
-                console.error("Full Axios Error Object:", err);
-                if (err.response && err.response.data && err.response.data.message) {
-                    setBookingError(err.response.data.message);
-                } else {
-                    setBookingError("Agent Referral ID validation failed. Please try again.");
-                }
-                return;
-            }
-        }
-
-        const agentID = agentReferralId ? agentReferralId.trim() : '';
-        const tourID = selectedTourDate.tourID;
-
-        // Create a more compact URL with just IDs
-        const query = new URLSearchParams();
-        if (agentID) query.append('a', agentID);  // 'a' for agent
-        query.append('t', tourID);                // 't' for tour
-        query.append('p', numPeople);             // 'p' for people
-
-        const fullLink = `/kyc?${query.toString()}`;
-        console.log("Navigating to:", fullLink);
-
-        setTimeout(() => {
-            setIsBookingModalOpen(false);
-            navigate(fullLink);
-        }, 3000);
-    };
 
     return (
         <>
@@ -332,7 +267,7 @@ const TourItinerary = () => {
                         className="w-full flex justify-between items-center p-4 bg-white border border-gray-200 rounded-lg shadow-sm"
                     >
                         <span className="font-medium text-gray-700">
-                            {activeDay === 0 ? 'Overview' : `Day ${activeDay}`}
+                            {activeDay === 0 ? 'Overview' : `Day ${tour.itinerary[activeDay - 1]?.dayNumber || activeDay}`}
                         </span>
                         {mobileMenuOpen ? (
                             <FaChevronUp className="text-gray-500" />
@@ -361,7 +296,7 @@ const TourItinerary = () => {
                                     }}
                                     className={`w-full text-left px-4 py-3 border-t border-gray-200 ${activeDay === index + 1 ? 'bg-blue-50 text-blue-600' : 'text-gray-700'}`}
                                 >
-                                    Day {index + 1}
+                                    Day {day.dayNumber || (index + 1)}
                                 </button>
                             ))}
                         </div>
@@ -385,7 +320,7 @@ const TourItinerary = () => {
                                     onClick={() => setActiveDay(index + 1)}
                                     className={`py-3 px-4 sm:py-4 sm:px-6 text-center border-b-2 font-medium text-sm ${activeDay === index + 1 ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
                                 >
-                                    Day {index + 1}
+                                    Day {day.dayNumber || (index + 1)} {/* Use dayNumber from backend if available, else index+1 */}
                                 </button>
                             ))}
                         </nav>
@@ -420,7 +355,7 @@ const TourItinerary = () => {
                                     </div>
                                 </div>
 
-                                {tour.thingsToPack && (
+                                {tour.thingsToPack && tour.thingsToPack.length > 0 && ( // Added check for thingsToPack length
                                     <div className="mt-4 sm:mt-6">
                                         <h3 className="text-base sm:text-lg font-semibold text-gray-700 mb-2 sm:mb-3">Things to Pack</h3>
                                         <div className="flex flex-wrap gap-2">
@@ -437,39 +372,55 @@ const TourItinerary = () => {
                                 )}
                             </div>
                         ) : (
-                            <div>
-                                <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 sm:mb-3">
-                                    Day {activeDay}: {tour.itinerary[activeDay - 1].title}
-                                </h2>
-                                <p className="text-gray-600 text-sm sm:text-base mb-3 sm:mb-4">
-                                    {tour.itinerary[activeDay - 1].description}
-                                </p>
+                            // Ensure tour.itinerary[activeDay - 1] exists before trying to access its properties
+                            tour.itinerary[activeDay - 1] ? (
+                                <div>
+                                    <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 sm:mb-3">
+                                        Day {tour.itinerary[activeDay - 1].dayNumber || activeDay}: {tour.itinerary[activeDay - 1].title}
+                                    </h2>
+                                    <p className="text-gray-600 text-sm sm:text-base mb-3 sm:mb-4">
+                                        {tour.itinerary[activeDay - 1].description}
+                                    </p>
 
-                                <div className="space-y-3 sm:space-y-4">
-                                    {tour.itinerary[activeDay - 1].activities?.map((activity, index) => (
-                                        <div key={index} className="flex items-start">
-                                            <div className="flex-shrink-0 mt-0.5 sm:mt-1">
-                                                {activity.type === 'travel' && <FaBus className="text-blue-500 mr-3 text-sm sm:text-base" />}
-                                                {activity.type === 'sightseeing' && <FaCamera className="text-purple-500 mr-3 text-sm sm:text-base" />}
-                                                {activity.type === 'meal' && <FaUtensils className="text-yellow-500 mr-3 text-sm sm:text-base" />}
-                                                {activity.type === 'accommodation' && <FaHotel className="text-green-500 mr-3 text-sm sm:text-base" />}
-                                                {activity.type === 'hiking' && <FaHiking className="text-red-500 mr-3 text-sm sm:text-base" />}
-                                                {activity.type === 'location' && <FaMapMarkerAlt className="text-blue-500 mr-3 text-sm sm:text-base" />}
+                                    <div className="space-y-3 sm:space-y-4">
+                                        {tour.itinerary[activeDay - 1].activities?.map((activity, index) => (
+                                            <div key={index} className="flex items-start">
+                                                <div className="flex-shrink-0 mt-0.5 sm:mt-1">
+                                                    {/* Using switch for more readable activity type icons */}
+                                                    {(() => {
+                                                        switch (activity.type?.toLowerCase()) {
+                                                            case 'travel': return <FaBus className="text-blue-500 mr-3 text-sm sm:text-base" />;
+                                                            case 'sightseeing': return <FaCamera className="text-purple-500 mr-3 text-sm sm:text-base" />;
+                                                            case 'meal': return <FaUtensils className="text-yellow-500 mr-3 text-sm sm:text-base" />;
+                                                            case 'accommodation': return <FaHotel className="text-green-500 mr-3 text-sm sm:text-base" />;
+                                                            case 'hiking': return <FaHiking className="text-red-500 mr-3 text-sm sm:text-base" />;
+                                                            case 'location': return <FaMapMarkerAlt className="text-blue-500 mr-3 text-sm sm:text-base" />;
+                                                            default: return <FaMapMarkerAlt className="text-gray-500 mr-3 text-sm sm:text-base" />; // Default icon
+                                                        }
+                                                    })()}
+                                                </div>
+                                                <div>
+                                                    <h4 className="font-medium text-gray-800 text-sm sm:text-base">{activity.title}</h4>
+                                                    {activity.description && ( // Only show description if it exists
+                                                        <p className="text-gray-600 text-xs sm:text-sm">{activity.description}</p>
+                                                    )}
+                                                    {activity.time && (
+                                                        <p className="text-gray-500 text-xs mt-1">
+                                                            <MdOutlineAccessTime className="inline mr-1" />
+                                                            {activity.time}
+                                                        </p>
+                                                    )}
+                                                </div>
                                             </div>
-                                            <div>
-                                                <h4 className="font-medium text-gray-800 text-sm sm:text-base">{activity.title}</h4>
-                                                <p className="text-gray-600 text-xs sm:text-sm">{activity.description}</p>
-                                                {activity.time && (
-                                                    <p className="text-gray-500 text-xs mt-1">
-                                                        <MdOutlineAccessTime className="inline mr-1" />
-                                                        {activity.time}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
+                                        ))}
+                                        {tour.itinerary[activeDay - 1].activities?.length === 0 && (
+                                            <p className="text-gray-500 text-sm">No activities listed for this day.</p>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
+                            ) : (
+                                <p className="text-red-500">Itinerary details for this day are missing.</p>
+                            )
                         )}
                     </div>
                 </div>
@@ -513,7 +464,7 @@ const TourItinerary = () => {
                         <button
                             className="w-full sm:w-auto px-4 py-2 sm:py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-300 text-sm sm:text-base"
                             onClick={() => {
-                                setSelectedTourDate(tour);
+                                setSelectedTourDate(tour); // Pass the entire tour object
                                 setIsBookingModalOpen(true);
                                 setNumberOfPeople(1);
                                 setAgentReferralId('');
@@ -527,9 +478,16 @@ const TourItinerary = () => {
                 </div>
 
                 {isBookingModalOpen && selectedTourDate && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                        <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md mx-4">
-                            <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"> {/* Added p-4 for mobile spacing */}
+                        <div className="bg-white p-6 sm:p-8 rounded-lg shadow-xl w-full max-w-md mx-auto relative"> {/* Added relative for potential close button */}
+                            <button
+                                onClick={() => setIsBookingModalOpen(false)}
+                                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-lg"
+                                aria-label="Close booking modal"
+                            >
+                                &times;
+                            </button>
+                            <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">
                                 Enter Booking Details for: {selectedTourDate.name}
                             </h2>
                             <div className="mb-4">
@@ -565,20 +523,38 @@ const TourItinerary = () => {
                                     <p className="text-green-600 text-sm mt-2 font-medium">{bookingSuccessMessage}</p>
                                 )}
                             </div>
-                            <div className="flex justify-end gap-3">
-                                <button
-                                    onClick={() => setIsBookingModalOpen(false)}
-                                    className="bg-gray-300 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-400"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={handleModalContinue}
-                                    className={`bg-blue-700 text-white px-4 py-2 rounded-lg hover:bg-blue-800 ${bookingSuccessMessage ? "opacity-50 cursor-not-allowed" : ""}`}
-                                    disabled={!!bookingSuccessMessage}
-                                >
-                                    Continue
-                                </button>
+                            <div className="flex flex-col sm:flex-row justify-end items-center gap-4 mt-6 pt-4 border-t border-gray-200">
+                                {/* Detailed Price Breakdown */}
+                                {numberOfPeople > 0 && tour.pricePerHead && (
+                                    <p className="text-base sm:text-lg font-medium text-gray-800 text-center sm:text-right flex-grow">
+                                        Subtotal: ₹{(tour.pricePerHead * numberOfPeople).toLocaleString()}
+                                        {tour.GST !== undefined && tour.GST !== null && (
+                                            <span className="block sm:inline-block sm:ml-2">
+                                                + {tour.GST}% GST (₹{((tour.pricePerHead * numberOfPeople * tour.GST) / 100).toLocaleString()})
+                                            </span>
+                                        )}
+                                        <span className="block sm:inline-block text-lg sm:text-xl font-bold text-blue-700 mt-1 sm:mt-0">
+                                            = ₹{(tour.pricePerHead * numberOfPeople * (1 + (tour.GST / 100))).toLocaleString()}
+                                        </span>
+                                    </p>
+                                )}
+
+                                {/* Buttons */}
+                                <div className="flex gap-3 w-full sm:w-auto">
+                                    <button
+                                        onClick={() => setIsBookingModalOpen(false)}
+                                        className="flex-1 sm:flex-none bg-gray-200 text-gray-700 px-6 py-2.5 rounded-lg hover:bg-gray-300 transition-colors duration-200 text-base font-medium shadow-sm"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleModalContinue}
+                                        className={`flex-1 sm:flex-none bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 transition-colors duration-200 text-base font-medium shadow-md ${bookingSuccessMessage || numberOfPeople <= 0 ? "opacity-50 cursor-not-allowed" : ""}`}
+                                        disabled={!!bookingSuccessMessage}
+                                    >
+                                        Continue
+                                    </button>
+                            </div>
                             </div>
                         </div>
                     </div>
@@ -586,9 +562,7 @@ const TourItinerary = () => {
             </div>
 
             <NeedHelp />
-
             <Footer />
-
         </>
     );
 };

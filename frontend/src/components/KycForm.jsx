@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import MainLogo from '../../public/main-logo.png';
 import { motion } from 'framer-motion';
 import axios from '../api';
@@ -41,6 +41,7 @@ const sectionCSchema = z.object({
 
 const CustomerForm = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [searchParams] = useSearchParams();
     const [formData, setFormData] = useState({
         // Section A
@@ -94,43 +95,66 @@ const CustomerForm = () => {
     const [buttonDisabled, setButtonDisabled] = useState(false);
     const [error, setError] = useState(false);
     const [errorData, setErrorData] = useState(null);
+    const [tour, setTour] = useState(null);
+    const token = localStorage.getItem('Token');
+    const role = localStorage.getItem('role');
+    const tourID = searchParams.get('t');
+    
+    const getTourDetails = async()=>{
+        console.log("getTourDetails function is running");
+        const FetchToursRoute = role === 'superadmin' ? 'api/admin/tours' : role === 'customer' ? 'api/customer/tours' : 'api/agents/tours';
+        const res = await axios.get(`${FetchToursRoute}/${tourID}`,{
+             headers: {
+                Authorization: `Bearer ${token}`,
+                Role: role,
+            },
+        });
+        console.log(res.data.tour);
+        setTour(res.data.tour);
+    }
 
-    const generateTermsAndPaymentLink = async ({
-        agentID = searchParams.get('agentID'),
-        tourName = searchParams.get('tourName'),
-        tourPricePerHead = searchParams.get('tourPricePerHead'),
-        tourActualOccupancy = searchParams.get('tourActualOccupancy'),
-        tourGivenOccupancy = searchParams.get('tourGivenOccupancy'),
-        tourStartDate = searchParams.get('tourStartDate'),
-        tourID = searchParams.get('tourID')
-    }) => {
+    useEffect(()=>{
+        getTourDetails();
+    },[tourID, token, role]);
+
+    const generateTermsAndPaymentLink = async () => {
+        const givenOccupancy = searchParams.get('p');
+        // Get from searchParams or fallback to location.state
+        // console.log(location.state);
+        const agentID = searchParams.get('a') || '';
+        const tourName = tour.name;
+        const tourPricePerHead = tour.pricePerHead;
+        const tourActualOccupancy = tour.occupancy;
+        const tourGivenOccupancy = givenOccupancy;
+        const tourStartDate = tour.startDate;
         setGenerating(true);
         setButtonDisabled(true);
         setError(false);
         try {
-            const response = await axios.post(
-                '/api/generate-payment-link',
-                {
-                    tourID,
-                    agentID,
-                    tourName,
-                    tourPricePerHead,
-                    tourActualOccupancy,
-                    tourGivenOccupancy,
-                    tourStartDate
-                },
-                {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${localStorage.getItem('Token')}`,
-                    },
-                }
-            );
-
-            const paymentUrl = response.data.url;
-            const uniqueId = crypto.randomUUID();
-            const termsUrl = `https://frontend-agent-management-system.onrender.com/terms/${uniqueId}?redirect=${encodeURIComponent(paymentUrl)}`;
-            setTermsLink(termsUrl);
+          const response = await axios.post(
+            '/api/generate-payment-link',
+            {
+              tourID,
+              agentID,
+              tourName,
+              tourPricePerHead,
+              tourActualOccupancy,
+              tourGivenOccupancy,
+              tourStartDate,
+              GST : tour.GST
+            },
+            {
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${localStorage.getItem('Token')}`,
+              },
+            }
+          );
+      
+          const paymentUrl = response.data.url;
+          const uniqueId = crypto.randomUUID();
+          const termsUrl = `${window.origin}/terms/${uniqueId}?redirect=${encodeURIComponent(paymentUrl)}`;
+          setTermsLink(termsUrl);
         } catch (error) {
             console.error('Error generating payment link:', error.response.data.error);
             setError(true);
@@ -320,9 +344,9 @@ const CustomerForm = () => {
                                     type="button"
                                     onClick={() => handleSectionClick(section)}
                                     className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg 
-                ${currentSection === section ? 'bg-blue-600 scale-110' :
-                (section < currentSection ? 'bg-green-500' : 'bg-gray-400')}
-                transition-all duration-300 shadow-md`}
+                                    ${currentSection === section ? 'bg-blue-600 scale-110' :
+                                    (section < currentSection ? 'bg-green-500' : 'bg-gray-400')}
+                                    transition-all duration-300 shadow-md`}
                                 >
                                     {section}
                                 </button>
@@ -429,6 +453,7 @@ const CustomerForm = () => {
                                                     placeholder="Primary contact number"
                                                 />
                                                 <p className="text-xs text-gray-500 mt-1">(for official communication)</p>
+                                                {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
                                             </div>
 
                                             <div>

@@ -104,6 +104,7 @@ const Sidebar = ({ collapsed, setCollapsed, setView }) => {
             { icon: faThLarge, label: 'Dashboard', view: 'dashboard'},
             { icon: faTasks, label: 'Add Tour', view: 'addTour' },
             { icon: faChartBar, label: 'View Tours', view: 'FetchTours' },
+            { icon: faChartBar, label: 'Edit Tours', view: 'EditTours' },
             // { icon: faChartBar, label: 'Analytics', view: 'analytics' },
             // { icon: faUsers, label: 'Teams' },
           ].map(item => (

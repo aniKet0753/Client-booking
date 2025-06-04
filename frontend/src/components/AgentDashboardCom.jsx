@@ -123,7 +123,7 @@ function AgentDashboard() {
     };
 
     const handleLogout = () => {
-        localStorage.removeItem('Token');
+        localStorage.clear();
         navigate('/');
     };
 

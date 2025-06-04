@@ -3,24 +3,55 @@ import { Link, NavLink, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import MainLogo from '../../public/Images/main-logo-02-new.png';
 import { FaUser, FaBars, FaTimes } from "react-icons/fa";
+import axios from '../api';
 
 const Navbar = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [profile, setProfile] = useState(null);
   const dropdownRef = useRef(null);
 
   useEffect(() => {
-    // Simply check if token exists
-    const token = localStorage.getItem("Token");
-    if (token) {
-      // Assume logged in, but you may want to store user info in localStorage or context to show name
-      setUser({ name: "User" }); // Placeholder name, replace with actual user data if available
+  const token = localStorage.getItem("Token");
+  const role = localStorage.getItem("role");
+
+    if (token && token !== 'null' && token !== 'undefined') { // Crucial check!
+      fetchProfile(token, role);
     } else {
       setUser(null);
     }
   }, []);
+
+
+  const fetchProfile = async (token, role) => {
+     if (!token || token === 'null' || token === 'undefined') {
+        console.warn("Attempted to fetch profile with an invalid token string. Aborting.");
+        setUser(null);
+        setProfile(null);
+        return; // Exit early if token is invalid
+    }
+
+  try {
+    const route = role === 'superadmin' ? 'api/admin/profile' : role === 'customer' ? 'api/customer/profile' : 'api/agents/profile';
+
+    const res = await axios.get(route, {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        role,
+      },
+    });
+    console.log(res.data);
+    setProfile(res.data);
+    setUser({ name: res.data.name });
+  } catch (err) {
+    // const message = 'Error: ' + (err.response?.data?.error || 'Failed to fetch profile');
+    // alert(message);
+    console.log(err);
+  }
+};
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -43,7 +74,7 @@ const Navbar = () => {
   }, [isDropdownOpen]);
 
   const logout = () => {
-    localStorage.removeItem("Token");
+    localStorage.clear();
     setUser(null);
     toast.success("Logged out successfully");
     navigate("/login");
@@ -54,8 +85,8 @@ const Navbar = () => {
       {[
         { path: "/", label: "Home" },
         { path: "/About", label: "About Us" },
-        { path: "/leisure-tour", label: "Leisure Tour" },
-        { path: "/MedicalTourismSection", label: "Medical Tour" },
+        { path: "/tour-programs/leisure tour", label: "Leisure Tour" },
+        { path: "/tour-programs/Medical Tour", label: "Medical Tour" },
         { path: "/l2g-services", label: "L2G ad services" },
         { path: "/customer-forum", label: "Customer Forum" },
         { path: "/community-services", label: "Community Services" },

@@ -1,7 +1,7 @@
 import React from "react";
 import { Link, } from "react-router-dom";
-import contactBg from "../../public/images/contact-bg-01.jpg";
-
+// import contactBg from "../../public/images/contact-bg-01.jpg";
+import contactBg from '../../public/Images/contact-bg-01.jpg';
 
 const ContactPage = () => {
 

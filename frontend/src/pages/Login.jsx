@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import { toast,ToastContainer } from "react-toastify";
 import axios from "../api"; // Assuming this axios instance is configured for your API base URL
 import Loginbg from '../../public/Images/login-bg.jpg';
 
@@ -41,39 +41,46 @@ const Login = () => {
       localStorage.setItem('role', agentResponse.data.role);
       localStorage.setItem('agentID', agentResponse.data.agentID);
 
-      toast.success("Agent login successful!");
+      toast.success("Login successful!");
       reset(); 
       setTimeout(() => {
         if (agentResponse.data.role === 'superadmin') {
           navigate("/superadmin/dashboard");
         } else {
           navigate(location?.state ? location.state : "/agent/dashboard");
+            window.location.reload(true);
         }
-      }, 500); // Shorter timeout for better UX
+      }, 2000); // Shorter timeout for better UX
 
     } catch (agentError) {
       // If agent login fails, attempt Customer Login
-      try {
-        const customerResponse = await axios.post("/api/customer/login", payload, {
-          headers: { "Content-Type": "application/json" }
-        });
+      console.log(agentError.response.data.error)
+      if(agentError.response.data.error !== 'User not found!'){
+        toast.error(agentError.response.data.error);
+      } else if(agentError.response.data.error === 'User not found!'){
+          try {
+          const customerResponse = await axios.post("/api/customer/login", payload, {
+            headers: { "Content-Type": "application/json" }
+          });
 
-        // Customer login successful
-        localStorage.setItem("Token", customerResponse.data.token); // Store customer token
-        localStorage.setItem("role", "customer");
-        localStorage.setItem("customerID", customerResponse.data.customerID);
+          // Customer login successful
+          localStorage.setItem("Token", customerResponse.data.token); // Store customer token
+          localStorage.setItem("role", "customer");
+          localStorage.setItem("customerID", customerResponse.data.customerID);
 
-        toast.success("Customer login successful!");
-        reset(); // Clear form fields
-        setTimeout(() => {
-          navigate("/"); // Navigate to customer dashboard or home
-        }, 500); // Shorter timeout
+          toast.success("Login successful!");
+          reset(); // Clear form fields
+          setTimeout(() => {
+            navigate("/"); // Navigate to customer dashboard or home
+            window.location.reload(true);
+          }, 2000);
 
-      } catch (customerError) {
-        // Both agent and customer login failed
-        const errorMsg = customerError.response?.data?.error || "Login failed! Please check your credentials.";
-        setErrorMessage(errorMsg);
-        toast.error(errorMsg);
+        } catch (customerError) {
+          // Both agent and customer login failed
+          const errorMsg = customerError.response?.data?.error || "Login failed! Please check your credentials.";
+          setErrorMessage(errorMsg);
+          toast.error(errorMsg);
+        }
       }
     } finally {
       setLoading(false); 
@@ -82,6 +89,7 @@ const Login = () => {
 
   return (
     <>
+      <ToastContainer />
       <div className="bg-[#E8F3FF] p-4 pt-7 min-h-screen flex items-center justify-center">
         <div className="bg-white rounded-lg shadow-lg flex flex-col md:flex-row max-w-[1440px] w-full overflow-hidden">
           {/* Left Side Image - Hidden on mobile, flex on md and up */}

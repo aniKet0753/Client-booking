@@ -9,19 +9,21 @@ const razorpay = new Razorpay({
 
 router.post('/', async (req, res) => {
   try {
-    const { tourID, agentID, tourName, tourPricePerHead, tourActualOccupancy, tourGivenOccupancy, tourStartDate } = req.body;
-    // console.log(tourStartDate)
-    // console.log(tourPricePerHead * tourGivenOccupancy * 100)
-    // console.log(tourID)
+    const { tourID, agentID, tourName, tourPricePerHead, tourActualOccupancy, tourGivenOccupancy, tourStartDate, GST } = req.body;
+    console.log("Req body:", req.body);
+    console.log(tourStartDate);
+    console.log( (tourPricePerHead * tourGivenOccupancy) * ((100+GST)/100) * 100);
+    console.log(tourID);
+    console.log(GST);
     const response = await razorpay.paymentLink.create({
-      amount: tourPricePerHead * tourGivenOccupancy * 100,// in paise
+      amount: (tourPricePerHead * tourGivenOccupancy) * ((100+GST)/100) * 100,
       currency: 'INR',
       description: `Booking for ${tourName}`,
       customer: {
         name: `Agent ${agentID}`,
-        contact: req.body.contact || '9111111111', // dummy fallback
+        contact: req.body.contact || '9111111111', 
         email: req.body.email || 'no-reply@example.com'
-      },      
+      },       
       notes: {
         tourID,
         agentID,
@@ -29,9 +31,10 @@ router.post('/', async (req, res) => {
         tourPricePerHead,
         tourActualOccupancy,
         tourGivenOccupancy,
-        tourStartDate
+        tourStartDate,
+        GST
       },
-      callback_url: 'https://frontend-agent-management-system.onrender.com/thank-you',
+      callback_url: `${req.headers.origin}/thank-you`,
       callback_method: 'get'
     });
 
