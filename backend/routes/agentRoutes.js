@@ -5,6 +5,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const LastCode = require('../models/LastCode');
 const Agent = require('../models/Agent');
+const Customer = require('../models/Customer');
 const Transaction = require('../models/Transaction');
 const Superadmin = require('../models/Superadmin');
 const Tour = require('../models/Tour');
@@ -142,8 +143,8 @@ router.post('/register', multiUpload, async (req, res) => {
         const existingAgentByEmail = await Agent.findOne({ email: trimmedEmail });
         const existingAgentByAdharNum = await Agent.findOne({ aadhar_card: trimmedAadhar });
         
-        const existingCustomerByEmail = await Customer.findOne({email});
-        const existingCustomerByPhone = await Customer.findOne({phone});
+        const existingCustomerByEmail = await Customer.findOne({email: trimmedEmail});
+        const existingCustomerByPhone = await Customer.findOne({phone: trimmedPhone});
         
         if (existingAgentByPhone || existingCustomerByPhone) {
           return res.status(400).json({ error: 'An account with this phone number already exists.' });
