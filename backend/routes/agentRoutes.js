@@ -496,12 +496,14 @@ router.put('/cancel-booking/:transactionId', authenticate, async (req, res) => {
     const { transactionId } = req.params;
 
     const transaction = await Transaction.findOne({ transactionId });
-
+    console.log(transactionId)
     if (!transaction) {
       return res.status(404).json({ message: 'Booking not found' });
     }
-    console.log(transaction.agentID, req.user.id);
+    // console.log(transaction.agentID, req.user.id, agent.agentID);
     const agent = await Agent.findById(req.user.id);
+    console.log(transaction.agentID, req.user.id, agent.agentID);
+    
     if (!agent || transaction.agentID !== agent.agentID) {
       return res.status(403).json({ message: 'Unauthorized: This booking does not belong to you.' });
     }

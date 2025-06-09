@@ -5,7 +5,8 @@ const commissionSchema = new mongoose.Schema({
   agentID: String,
   level: Number,
   commissionAmount: Number,
-  commissionRate: Number
+  commissionRate: Number,
+  commissionDeductionAmount: {type:Number, default: 0}
 }, { _id: false });
 
 const transactionSchema = new mongoose.Schema({

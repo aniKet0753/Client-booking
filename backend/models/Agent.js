@@ -10,7 +10,7 @@ const agentSchema = new mongoose.Schema({
     age: Number,
     phone_calling: {type: String, unique: true},
     phone_whatsapp: String,
-    email: {type: String, unique: true},
+    email: {type: String, unique: true}, 
     aadhar_card: {type: String, unique: true},
     aadhaarPhotoFront: String,
     aadhaarPhotoBack: String,

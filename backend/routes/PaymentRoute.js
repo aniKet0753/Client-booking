@@ -36,7 +36,8 @@ router.post('/', async (req, res) => {
         tourActualOccupancy,
         tourGivenOccupancy,
         tourStartDate,
-        GST
+        GST,
+        totalAmount
       },
       callback_url: `${req.headers.origin}/thank-you`,
       callback_method: 'get'

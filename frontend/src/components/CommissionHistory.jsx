@@ -63,12 +63,21 @@ const CommissionHistory = () => {
               (sum, txn) => sum + txn.tourPricePerHead * txn.tourGivenOccupancy,
               0
             );
+            // const totalAgentCommission = txns.reduce((sum, txn) => {
+            //   return (
+            //     sum +
+            //     txn.commissions
+            //       .filter((c) => c.agentID === currentAgentID)
+            //       .reduce((s, c) => s + c.commissionAmount, 0)
+            //   );
+            // }, 0);
+
             const totalAgentCommission = txns.reduce((sum, txn) => {
               return (
                 sum +
                 txn.commissions
                   .filter((c) => c.agentID === currentAgentID)
-                  .reduce((s, c) => s + c.commissionAmount, 0)
+                  .reduce((s, c) => s + (c.commissionAmount - (c.commissionDeductionAmount || 0)), 0)
               );
             }, 0);
 
@@ -131,7 +140,7 @@ const CommissionHistory = () => {
                             <div className="text-gray-500">No commissions recorded for you.</div>
                           ) : (
                             <div className="space-y-2">
-                              {txn.commissions
+                              {/* {txn.commissions
                                 .filter(c => c.agentID === currentAgentID)
                                 .map((c, i) => (
                                   <div
@@ -148,6 +157,36 @@ const CommissionHistory = () => {
                                       <>
                                         💼 Level {c.level}: ₹{c.commissionAmount.toFixed(2)} ({c.commissionRate}%) via <span className="font-semibold">{txn.agentID} ({txn.agentName})</span>
                                       </>
+                                    )}
+                                  </div>
+                                ))} */}
+                                {txn.commissions
+                                .filter(c => c.agentID === currentAgentID)
+                                .map((c, i) => (
+                                  <div
+                                    key={i}
+                                    className={`px-4 py-2 rounded-lg w-fit max-w-full text-sm shadow-sm ${
+                                      c.level === 1
+                                        ? 'bg-indigo-100 text-indigo-900 font-medium'
+                                        : 'bg-gray-100 text-gray-700'
+                                    }`}
+                                  >
+                                    {c.level === 1 ? (
+                                      <>
+                                        💼 Level 1: ₹{c.commissionAmount.toFixed(2)} ({c.commissionRate}% of booking)
+                                      </>
+                                    ) : (
+                                      <>
+                                        💼 Level {c.level}: ₹{c.commissionAmount.toFixed(2)} ({c.commissionRate}%) via{" "}
+                                        <span className="font-semibold">
+                                          {txn.agentID} ({txn.agentName})
+                                        </span>
+                                      </>
+                                    )}
+                                    {c.commissionDeductionAmount > 0 && (
+                                      <div className="text-red-600 font-semibold ml-1 mt-1">
+                                        -₹{c.commissionDeductionAmount.toFixed(2)} (deducted on cancellation)
+                                      </div>
                                     )}
                                   </div>
                                 ))}

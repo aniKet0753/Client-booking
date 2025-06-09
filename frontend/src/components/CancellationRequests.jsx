@@ -8,18 +8,61 @@ const CancellationRequests = () => {
   const [deduction, setDeduction] = useState(10);
   const [cancellations, setCancellations] = useState([]);
   const token = localStorage.getItem('Token');
+  // const fetchRequests = async () => {
+  //   setLoading(true);
+  //   try {
+  //     const res = await axios.get("/api/admin/pending-cancellations",
+  //        { headers: { Authorization: `Bearer ${token}` } }
+  //     );
+  //     console.log(res.data.pending)
+  //     setRequests(res.data.pending);
+  //   } catch (err) {
+  //     console.error("Error fetching cancellations:", err);
+  //   }
+  //   setLoading(false);
+  // };
+
   const fetchRequests = async () => {
-    setLoading(true);
-    try {
-      const res = await axios.get("/api/admin/pending-cancellations",
-         { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setRequests(res.data.pending);
-    } catch (err) {
-      console.error("Error fetching cancellations:", err);
-    }
-    setLoading(false);
-  };
+  setLoading(true);
+  try {
+    const res = await axios.get("/api/admin/pending-cancellations", {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    const pending = res.data.pending;
+
+    // Fetch tour details for each transaction in parallel
+    const enrichedRequests = await Promise.all(
+      pending.map(async (txn) => {
+        try {
+          const tourRes = await axios.get(`/api/admin/tours/${txn.tourID}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+
+          const tour = tourRes.data.tour;
+
+          return {
+            ...txn,
+            tourName: tour.name || "Unknown",
+            totalPriceTour: tour.price || 0
+          };
+        } catch (tourErr) {
+          console.error("Error fetching tour details for:", txn.tourID, tourErr);
+          return {
+            ...txn,
+            tourName: "Unknown",
+            totalPriceTour: 0
+          };
+        }
+      })
+    );
+
+    setRequests(enrichedRequests);
+  } catch (err) {
+    console.error("Error fetching cancellations:", err);
+  }
+  setLoading(false);
+};
 
   useEffect(() => {
     fetchRequests();

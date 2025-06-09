@@ -678,36 +678,89 @@ router.get('/pending-cancellations', authenticateSuperAdmin, async (req, res) =>
   }
 });
 
-router.put('/approve-cancellation/:transactionId', authenticateSuperAdmin, async (req, res) => {
-  // if (req.user.role !== 'superadmin') return res.status(403).json({ message: 'Forbidden' });
+// router.put('/approve-cancellation/:transactionId', authenticateSuperAdmin, async (req, res) => {
+//   // if (req.user.role !== 'superadmin') return res.status(403).json({ message: 'Forbidden' });
 
+//   const { transactionId } = req.params;
+//   const { deductionPercentage } = req.body;
+
+//   const transaction = await Transaction.findOne({ transactionId });
+//   if (!transaction) return res.status(404).json({ message: 'Transaction not found' });
+
+//   if (transaction.cancellationApproved || transaction.cancellationRejected) {
+//     return res.status(400).json({ message: 'Already processed' });
+//   }
+//   const totalPriceTour = transaction.tourGivenOccupancy * transaction.tourPricePerHead;
+//   const refundAmount = totalPriceTour * ((100 - deductionPercentage) / 100);
+//   transaction.cancellationApproved = true;
+//   transaction.refundAmount = refundAmount;
+//   transaction.deductionPercentage = deductionPercentage;
+
+//   const tour = await Tour.findById(transaction.tourID);
+//     tour.remainingOccupancy += transaction.tourGivenOccupancy;
+//     await tour.save();
+
+//   await transaction.save();
+
+//   // TODO: Add refund payment processing logic here (e.g., Razorpay refund or wallet credit)
+
+//   res.status(200).json({ message: 'Cancellation approved and refund processed', refundAmount });
+// });
+
+router.put('/approve-cancellation/:transactionId', authenticateSuperAdmin, async (req, res) => {
   const { transactionId } = req.params;
   const { deductionPercentage } = req.body;
 
-  const transaction = await Transaction.findOne({ transactionId });
-  if (!transaction) return res.status(404).json({ message: 'Transaction not found' });
+  try {
+    const transaction = await Transaction.findOne({ transactionId });
 
-  if (transaction.cancellationApproved || transaction.cancellationRejected) {
-    return res.status(400).json({ message: 'Already processed' });
+    if (!transaction) return res.status(404).json({ message: 'Transaction not found' });
+
+    if (transaction.cancellationApproved || transaction.cancellationRejected) {
+      return res.status(400).json({ message: 'Already processed' });
+    }
+
+    const totalPriceTour = transaction.tourGivenOccupancy * transaction.tourPricePerHead;
+    const refundAmount = totalPriceTour * ((100 - deductionPercentage) / 100);
+
+    transaction.cancellationApproved = true;
+    transaction.refundAmount = refundAmount;
+    transaction.deductionPercentage = deductionPercentage;
+
+    // Restore tour occupancy
+    const tour = await Tour.findById(transaction.tourID);
+    if (tour) {
+      tour.remainingOccupancy += transaction.tourGivenOccupancy;
+      await tour.save();
+    }
+
+    // Deduct commission from agents
+    for (let commission of transaction.commissions) {
+      const { agentID, commissionAmount } = commission;
+
+      const agent = await Agent.findOneAndUpdate(
+        { agentID },
+        { $inc: { walletBalance: -commissionAmount } },
+        { new: true }
+      );
+
+      commission.commissionDeductionAmount = commissionAmount;
+
+      console.log(`Deducted ₹${commissionAmount} from agent ${agentID}'s wallet (${agent?.name || 'Unknown'})`);
+    }
+
+    await transaction.save();
+
+    // TODO: Optional - Razorpay refund or wallet refund to customer
+
+    res.status(200).json({
+      message: 'Cancellation approved, refund processed, commissions reversed',
+      refundAmount
+    });
+  } catch (error) {
+    console.error('Error processing cancellation:', error);
+    res.status(500).json({ message: 'Internal server error' });
   }
-  const totalPriceTour = transaction.tourGivenOccupancy * transaction.tourPricePerHead;
-  const refundAmount = totalPriceTour * ((100 - deductionPercentage) / 100);
-  transaction.cancellationApproved = true;
-  transaction.refundAmount = refundAmount;
-  transaction.deductionPercentage = deductionPercentage;
-
-  const tour = await Tour.findById(transaction.tourID);
-  const pkg = tour?.packages[0];
-  if (pkg) {
-    pkg.remainingOccupancy += transaction.tourGivenOccupancy;
-    await tour.save();
-  }
-
-  await transaction.save();
-
-  // TODO: Add refund payment processing logic here (e.g., Razorpay refund or wallet credit)
-
-  res.status(200).json({ message: 'Cancellation approved and refund processed', refundAmount });
 });
 
 router.put('/reject-cancellation/:transactionId', authenticateSuperAdmin, async (req, res) => {

@@ -215,7 +215,8 @@ router.post('/', express.json(), async (req, res) => {
       tourActualOccupancy,
       tourGivenOccupancy,
       tourStartDate,
-      GST
+      GST,
+      totalAmount
     } = payment.notes;
 
     const transactionId = payment.id;
@@ -236,6 +237,7 @@ router.post('/', express.json(), async (req, res) => {
         tourGivenOccupancy,
         tourStartDate: formattedDate,
         commissions: commissionRecords,
+        totalAmount
       });
 
       console.log("Direct transaction through customer saved successfully. No agent involved")
@@ -309,6 +311,7 @@ router.post('/', express.json(), async (req, res) => {
         tourGivenOccupancy,
         tourStartDate: formattedDate,
         commissions: commissionRecords,
+        totalAmount
       });
 
       await newTransaction.save();
@@ -328,8 +331,9 @@ router.post('/', express.json(), async (req, res) => {
       await tour.save();
 
       console.log("Transaction saved successfully");
+      console.log(commissionRecords);
       for (const record of commissionRecords) {
-        await Agent.findOneAndUpdate(
+        const agent = await Agent.findOneAndUpdate(
           { agentID: record.agentID },
           { $inc: { walletBalance: record.commissionAmount } }
         );
