@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
 import { Link, useNavigate } from "react-router-dom";
@@ -46,14 +46,30 @@ const Register = () => {
       });
   };
 
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   return (
     <div className="bg-gray-100 p-4 pt-7">
     <ToastContainer autoClose={3000} />
 
       <div className="bg-white rounded-lg shadow-lg flex max-w-[1440px] w-full overflow-hidden">
         {/* Left Side Image */}
-        <div className="hidden md:flex flex-1 items-center justify-center p-6 bg-white">
+        <div className="hidden md:flex flex-1 items-center justify-center p-6 bg-white flex-col">
           <img className="max-w-xs" src={Loginbg} alt="Register Illustration" />
+          <div className="mt-10 p-6 border-2 border-green-600 rounded-lg bg-green-50 text-center">
+            <h3 className="text-3xl font-extrabold text-green-700 mb-4">Want to become an agent?</h3>
+            {/* <p className="text-green-800 mb-6 text-lg">
+              Join our network of expert travel agents. Help others book unforgettable journeys while you grow!
+            </p> */}
+            <Link
+              to="/agent-register"
+              className="inline-block px-8 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition"
+            >
+              Become an Agent
+            </Link>
+          </div>
         </div>
 
         {/* Right Side Form */}
@@ -137,20 +153,6 @@ const Register = () => {
           <p className="text-sm text-center mt-4">
             Already have an account? <Link to="/login" className="text-blue-600 font-semibold">Login</Link>
           </p>
-
-          {/* Call to Action */}
-          <div className="mt-10 p-6 border-2 border-green-600 rounded-lg bg-green-50 text-center">
-            <h3 className="text-3xl font-extrabold text-green-700 mb-4">Want to become an agent?</h3>
-            <p className="text-green-800 mb-6 text-lg">
-              Join our network of expert travel agents. Help others book unforgettable journeys while you grow!
-            </p>
-            <Link
-              to="/agent-register"
-              className="inline-block px-8 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition"
-            >
-              Become an Agent
-            </Link>
-          </div>
         </div>
       </div>
     </div>

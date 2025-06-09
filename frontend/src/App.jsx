@@ -21,6 +21,7 @@ import TourItinerary from './pages/TourItinerary';
 import CustomerDashboard from './pages/CustomerDashboard';
 import TravelExperience from './pages/TravelExperience';
 import EditTour from './components/EditTour';
+import CustomerForum from './pages/CustomerForum';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem("Token"));
@@ -95,6 +96,8 @@ function App() {
         <Route path="/customer-dashboard" element={<CustomerDashboard />} />
 
         <Route path="/travel-experience" element={<TravelExperience />} />
+
+        <Route path="/customer-forum" element={<CustomerForum />} />
 
       </Routes>
     </BrowserRouter>

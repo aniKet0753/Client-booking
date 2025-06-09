@@ -115,7 +115,7 @@ const Navbar = () => {
       <div className="flex justify-between items-center px-4 sm:px-6 lg:px-12 py-3 relative z-50">
         <div className="flex-shrink-0">
           <Link to='/' className="block">
-            <img src={MainLogo} alt="Main Logo" className="h-12 sm:h-16" />
+            <img src={MainLogo} alt="Main Logo" className="h-12 lg:h-[100px]" />
           </Link>
         </div>
 

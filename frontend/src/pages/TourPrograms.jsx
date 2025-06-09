@@ -12,6 +12,7 @@ import NeedHelp from "../components/NeedHelp";
 import Swal from "sweetalert2";
 import { useLocation } from "react-router-dom";
 import InnerBanner from "../components/InnerBanner";
+import LoginPrompt from "../components/LoginPrompt";
 
 // Helper function to format date
 const formatDateForDisplay = (isoDateString) => {
@@ -65,7 +66,7 @@ const TourPrograms = () => {
 
       try {
         if (!token || !role) {
-          setError("You need to login first to view this section.");
+          setError(<LoginPrompt />);
           setLoading(false);
           return;
         }

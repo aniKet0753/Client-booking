@@ -1,4 +1,4 @@
-import React, { useState,useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from '../api';
 // const [loading, setLoading] = useState(false);
@@ -90,16 +90,16 @@ function AgentForm() {
   useEffect(() => {
     if (message) {
       window.scrollTo({ top: 0, behavior: 'smooth' });
-  
+
       const timeout = setTimeout(() => {
         setMessage('');
-      }, 3000); 
-  
+      }, 3000);
+
       return () => clearTimeout(timeout);
     }
   }, [message]);
-  
-  
+
+
   const handleChange = (e) => {
     const { name, value } = e.target;
 
@@ -149,7 +149,7 @@ function AgentForm() {
       }
       setFormData(prev => ({ ...prev, [name]: file }));
     }
-  };  
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -159,7 +159,7 @@ function AgentForm() {
       setMessage("You must accept the Terms and Conditions to proceed.");
       return;
     }
-    
+
     const data = new FormData();
     Object.keys(formData).forEach(key => {
       if (key === 'photo' || key === 'aadhaarPhotoFront' || key === 'aadhaarPhotoBack' || key === 'panCardPhoto') {
@@ -194,7 +194,14 @@ function AgentForm() {
   return (
     <>
       <div className="max-w-6xl mx-auto p-8 bg-white rounded-2xl shadow-xl space-y-8 mt-[100px] mb-10">
-        <span className='main_logo block text-center -mt-[90px]'><img src={MainLogo} alt=""  className='inline-block bg-white p-4 rounded-full border border-gray-200 shadow-md'/></span>
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="mb-4 px-4 py-1 text-blue-700 rounded hover:bg-blue-200 font-medium"
+        >
+          &larr; Back
+        </button>
+        <span className='main_logo block text-center -mt-[90px]'><img src={MainLogo} alt="" className='inline-block bg-white p-4 rounded-full border border-gray-200 shadow-md' /></span>
         <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">Registration Form</h2>
         {message && (
           <p
@@ -320,7 +327,7 @@ function AgentForm() {
                 required
               />
               <span className="text-sm text-gray-700">
-                I agree to the 
+                I agree to the
                 <button
                   type="button"
                   onClick={() => setShowTermsModal(true)}
