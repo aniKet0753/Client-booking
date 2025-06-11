@@ -1,13 +1,12 @@
 const mongoose = require('mongoose');
 
-// Define the ReplySchema first
 const ReplySchema = new mongoose.Schema({
-    user: { // Reference to the User who made the reply
+    user: { 
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         required: true
     },
-    author: { // Store the username/name of the replier directly for easy access
+    author: { 
         type: String,
         required: true
     },
@@ -29,7 +28,7 @@ ReplySchema.add({
 
 
 const PostSchema = new mongoose.Schema({
-    user: { // Reference to the User who created the post
+    user: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
     },

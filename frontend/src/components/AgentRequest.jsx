@@ -309,7 +309,7 @@ const AgentRequests = () => {
             type="text"
             placeholder={
               filterBy === 'location'
-                ? `Search by ${filterBy}: village, district`
+                ? `Search by ${filterBy}: village, district, state`
                 : `Search by ${filterBy}`
             }
             className="border rounded-md p-2 w-full md:w-1/2"
@@ -344,7 +344,8 @@ const AgentRequests = () => {
                   } else if (filterBy === 'location') {
                     return (
                       user.permanent_address?.village?.toLowerCase().includes(searchValue) ||
-                      user.permanent_address?.district?.toLowerCase().includes(searchValue)
+                      user.permanent_address?.district?.toLowerCase().includes(searchValue) ||
+                      user.permanent_address?.state?.toLowerCase().includes(searchValue)
                     );
                   } else if (filterBy === 'phone') {
                     return (
