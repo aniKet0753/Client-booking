@@ -16,6 +16,7 @@ import {
   faUser,
   faChevronLeft,
   faChevronRight,
+  faFileContract, // Add this icon for Terms & Conditions
 } from '@fortawesome/free-solid-svg-icons';
 import { Link } from 'react-router-dom';
 import AgentRequests from './AgentRequest';
@@ -24,6 +25,7 @@ const Sidebar = ({ collapsed, setCollapsed, setView }) => {
   const [activeView, setActiveView] = useState('dashboard');
   const [inactiveCount, setInactiveCount] = useState(0);
   const token = localStorage.getItem('Token');
+  const role = localStorage.getItem('role'); // Get user role
 
   useEffect(() => {
     const fetchInactiveUsers = async () => {
@@ -169,6 +171,36 @@ const Sidebar = ({ collapsed, setCollapsed, setView }) => {
                 )}
               </Link>
             ))}
+            {/* Terms & Conditions tab for superadmin only */}
+            {role === 'superadmin' && (
+              <div
+                onClick={() => {
+                  setActiveView('terms');
+                  setView?.('terms');
+                }}
+                className={`sidebar-item px-2 py-2 text-white flex items-center hover:bg-[#ffffff29] rounded-xl mb-2 w-full relative cursor-pointer ${activeView === 'terms' ? 'active-menu-item' : ''}`}
+              >
+                <div className="h-8 w-8 rounded-md bg-indigo-500 bg-opacity-30 flex items-center justify-center mr-3">
+                  <FontAwesomeIcon icon={faFileContract} />
+                </div>
+                {!collapsed && <span>Terms & Conditions</span>}
+              </div>
+            )}
+            {/* Check Booking tab for superadmin only */}
+            {role === 'superadmin' && (
+              <div
+                onClick={() => {
+                  setActiveView('checkBooking');
+                  setView?.('checkBooking');
+                }}
+                className={`sidebar-item px-2 py-2 text-white flex items-center hover:bg-[#ffffff29] rounded-xl mb-2 w-full relative cursor-pointer ${activeView === 'checkBooking' ? 'active-menu-item' : ''}`}
+              >
+                <div className="h-8 w-8 rounded-md bg-indigo-500 bg-opacity-30 flex items-center justify-center mr-3">
+                  <FontAwesomeIcon icon={faChartBar} />
+                </div>
+                {!collapsed && <span>Check Booking</span>}
+              </div>
+            )}
           </div>
 
           {!collapsed && (
@@ -201,7 +233,6 @@ const Sidebar = ({ collapsed, setCollapsed, setView }) => {
               {!collapsed && <span>{item.label}</span>}
             </div>
           ))}
-
         </nav>
       </div>
 

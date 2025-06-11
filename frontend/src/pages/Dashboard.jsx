@@ -8,6 +8,8 @@ import EditAnyTour from '../components/EditAnyTour';
 import AgentRequests from '../components/AgentRequest';
 import Account from '../components/Account';
 import CancellationRequests from '../components/CancellationRequests';
+import TermsAndConditionsNew from '../pages/EditTermsAndConditions';
+import CheckBooking from '../components/CheckBooking';
 
 function Dashboard() {
   const [view, setView] = useState('dashboard');
@@ -29,6 +31,10 @@ function Dashboard() {
         return <Account/>
       case 'cancellations':
         return <CancellationRequests />;
+      case 'terms':
+        return <TermsAndConditionsNew />;
+      case 'checkBooking':
+        return <CheckBooking />;
       default:
         return <MainContent />;
     }
