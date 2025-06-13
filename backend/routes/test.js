@@ -45,12 +45,12 @@ const samplePayload = {
           // Also, ensure `travelers` is stringified if the webhook expects a string.
           // Based on your previous error, it seems to be expecting a JSON string for `travelers`.
           
-          // travelers: [
-          //   { name: 'Rajesh Ghosh', age: 20, gender: 'male' },
-          //   { name: 'Megha Ghosh', age: 32, gender: 'female' }
-          // ]
+          travelers: [
+            { name: 'Rajesh Ghosh', age: 20, gender: 'male' },
+            { name: 'Megha Ghosh', age: 32, gender: 'female' }
+          ]
 
-          travelers: [{"name":"Rajesh Ghosh","age":25,"gender":"male"},{"name":"Megha Ghosh","age":27,"gender":"female"}]
+          // travelers: [{"name":"Rajesh Ghosh","age":25,"gender":"male"},{"name":"Megha Ghosh","age":27,"gender":"female"}]
         }
       }
     }
