@@ -237,6 +237,7 @@ router.post('/', express.json(), async (req, res) => {
 
       // Prepare common booking data
       console.log("payment:", payment);
+      console.log("Travelers:",travelers)
       const commonBookingData = {
           bookingID: bookingId,
           status: 'confirmed',
