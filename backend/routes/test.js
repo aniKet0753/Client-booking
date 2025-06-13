@@ -11,6 +11,38 @@ const totalAmount = tourPricePerHead * Number(tourGivenOccupancy); // in ₹
 const GST = 18;
 const gstAmount = (totalAmount * GST) / 100;
 const finalAmount = totalAmount + gstAmount;
+const currentUnixTimestamp = Math.floor(Date.now() / 1000);
+// const samplePayload = {
+//   event: 'payment.captured',
+//   payload: {
+//     payment: {
+//       entity: {
+//         id: 'pay_MOCK123458',
+//         email: 'testuser@example.com',
+//         notes: {
+//           agentID: '',
+//           tourID: '683ed99b3a44a7ade21e2d31', 
+//           tourPricePerHead,
+//           tourActualOccupancy,
+//           tourGivenOccupancy,
+//           tourStartDate: '2025-08-12T00:00:00.000Z',
+//           GST,
+//           finalAmount,
+//           customer: {
+//             name: 'Rajesh Kumar',
+//             email: 'rajeshghosh8292@gmail.con',
+//             phone: '7890234590',
+//             address: 'Sodpur, panihati'
+//           },
+//           travelers: [
+//             { name: 'Rajesh Ghosh', age: 20, gender: 'M' },
+//             { name: 'Megha Ghosh', age: 32, gender: 'F' }
+//           ]
+//         }
+//       }
+//     }
+//   }
+// };
 
 const samplePayload = {
   event: 'payment.captured',
@@ -18,32 +50,40 @@ const samplePayload = {
     payment: {
       entity: {
         id: 'pay_MOCK123458',
+        amount: finalAmount * 100, // Corrected: Razorpay amount is in smallest unit (paise), so multiply by 100
+        currency: 'INR', // Added: Razorpay always includes currency
+        status: 'captured', // Added: Razorpay includes payment status
+        method: 'card', // Added: Example payment method
+        created_at: currentUnixTimestamp, // Corrected: Add created_at as Unix timestamp in seconds
         email: 'testuser@example.com',
+        contact: '9876543210', // Added: Example contact number (often phone)
         notes: {
           agentID: '',
           tourID: '683ed99b3a44a7ade21e2d31', 
-          tourPricePerHead,
-          tourActualOccupancy,
-          tourGivenOccupancy,
+          tourPricePerHead: String(tourPricePerHead), // Ensure these are strings if passed from notes as such
+          tourActualOccupancy: String(tourActualOccupancy), // String conversion for consistency with how notes might store numbers
+          tourGivenOccupancy: String(tourGivenOccupancy),
           tourStartDate: '2025-08-12T00:00:00.000Z',
-          GST,
-          finalAmount,
+          GST: String(GST), // String conversion
+          finalAmount: String(finalAmount), // String conversion
           customer: {
             name: 'Rajesh Kumar',
-            email: 'rajeshghosh8292@gmail.con',
+            email: 'rajeshghosh8292@gmail.com', // Corrected typo: .con -> .com
             phone: '7890234590',
             address: 'Sodpur, panihati'
           },
+          // Corrected: Travelers gender to 'male' and 'female' (lowercase)
+          // Also, ensure `travelers` is stringified if the webhook expects a string.
+          // Based on your previous error, it seems to be expecting a JSON string for `travelers`.
           travelers: [
-            { name: 'Rajesh Ghosh', age: 20, gender: 'M' },
-            { name: 'Megha Ghosh', age: 32, gender: 'F' }
+            { name: 'Rajesh Ghosh', age: 20, gender: 'male' },
+            { name: 'Megha Ghosh', age: 32, gender: 'female' }
           ]
         }
       }
     }
   }
 };
-
 const generateSignature = (body, secret) => {
   return crypto.createHmac('sha256', secret)
     .update(body)

@@ -40,7 +40,7 @@ router.post('/', async (req, res) => {
         GST,
         finalAmount,
         customer,
-        travelers
+        travelers : JSON.stringify(travelers)
       },
       callback_url: `${req.headers.origin}/thank-you`,
       callback_method: 'get'
