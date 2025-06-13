@@ -225,52 +225,20 @@ router.post('/', express.json(), async (req, res) => {
     const transactionId = payment.id;
     const customerEmail = customer.email || 'unknown@example.com';
     const paymentMethod = payment.method;
-    let processedTravelers = [];
 
+    
     try {
       dayjs.extend(customParseFormat);
       // const rawDate = tourStartDate;
       const formattedDate = dayjs(tourStartDate).format('YYYY-MM-DD');
       console.log(formattedDate);  // Output: '2025-06-02'
 
-      let parsedTravelers = JSON.parse(travelersRaw);
-
-      // This nested parse handles cases where Razorpay might have double-escaped
-      // or if the original stringification was already applied.
-      if (typeof parsedTravelers === 'string') {
-          try {
-              console.warn("Attempting second JSON.parse for travelersRaw, as first parse returned a string.");
-              parsedTravelers = JSON.parse(parsedTravelers);
-          } catch (e2) {
-              console.error("Second JSON.parse failed for travelers:", parsedTravelers, e2);
-              // Fallback after second parse failure
-              parsedTravelers = [];
-          }
-      }
-
-      if (Array.isArray(parsedTravelers)) {
-        processedTravelers = parsedTravelers.map(t => {
-            const validGenders = ['male', 'female', 'other'];
-            const gender = t.gender ? String(t.gender).toLowerCase() : 'unknown';
-            const finalGender = validGenders.includes(gender) ? gender : 'unknown';
-
-            return {
-                name: t.name || 'N/A',
-                age: t.age ? parseInt(t.age) : 0,
-                gender: finalGender
-            };
-        }); 
-      } else {
-          console.warn('travelersRaw, after parsing (and potential re-parsing), is not an array:', parsedTravelers);
-          processedTravelers = [{ name: customerData.name, age: 0, gender: 'unknown' }];
-      }
-      
       const bookingId = `BKG-${Date.now()}`;
 
       // Prepare common booking data
       console.log("payment:", payment);
-      console.log("Travelers:",travelers)
-
+      console.log("Travelers:", travelers);
+      
       const commonBookingData = {
           bookingID: bookingId,
           status: 'confirmed',
