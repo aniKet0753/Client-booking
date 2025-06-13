@@ -29,19 +29,19 @@ const authenticateSuperAdmin = (req, res, next) => {
 
 function formatTourForResponse(tour) {
     return {
-        tourID: tour._id,
-        name: tour.name,
+        tourID: tour._id,//done
+        name: tour.name,//done
         // image: tour.image,
         image: tour.image ? `data:image/jpeg;base64,${tour.image}` : null,
         categoryType: tour.categoryType,
         country: tour.country,
         tourType: tour.tourType,
-        pricePerHead: tour.pricePerHead,
+        pricePerHead: tour.pricePerHead,//done
         GST: tour.GST,
         duration: tour.duration,
-        occupancy: tour.occupancy,
+        occupancy: tour.occupancy,//done
         remainingOccupancy: tour.remainingOccupancy,
-        startDate: tour.startDate,
+        startDate: tour.startDate,//done
         description: tour.description,
         highlights: tour.highlights,
         inclusions: tour.inclusions,

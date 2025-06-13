@@ -127,6 +127,39 @@ const CustomerForm = () => {
         const tourActualOccupancy = tour.occupancy;
         const tourGivenOccupancy = givenOccupancy;
         const tourStartDate = tour.startDate;
+
+        // const tourSchema = {
+        //     tourID: tour._id,
+        //     name: tour.name,
+        //     // image: tour.image,
+        //     categoryType: tour.categoryType,
+        //     country: tour.country,
+        //     tourType: tour.tourType,
+        //     pricePerHead: tour.pricePerHead,
+        //     GST: tour.GST,
+        //     duration: tour.duration,
+        //     occupancy: tour.occupancy,
+        //     remainingOccupancy: tour.remainingOccupancy,
+        //     startDate: tour.startDate,
+        //     description: tour.description,
+        //     highlights: tour.highlights,
+        //     inclusions: tour.inclusions,
+        //     exclusions: tour.exclusions,
+        //     thingsToPack: tour.thingsToPack,
+        //     itinerary: tour.itinerary,
+        //     // gallery: tour.gallery,
+        //     createdAt: tour.createdAt,
+        //     updatedAt: tour.updatedAt
+        // };
+        // console.log(tourSchema);
+
+        const customerData = {
+            name: formData.name,
+            email: formData.email,
+            phone: formData.phone,
+            address: formData.homeAddress,
+        };
+
         setGenerating(true);
         setButtonDisabled(true);
         setError(false);
@@ -134,14 +167,20 @@ const CustomerForm = () => {
           const response = await axios.post(
             '/api/generate-payment-link',
             {
-              tourID,
               agentID,
+              tourID,
               tourName,
               tourPricePerHead,
               tourActualOccupancy,
               tourGivenOccupancy,
               tourStartDate,
-              GST : tour.GST
+              GST : tour.GST,
+              customer: customerData,
+              travelers: formData.passengers.slice(0, Number(formData.numPersons) || 0).map(p => ({
+                  name: p.name,
+                  age: Number(p.age),
+                  gender: p.gender,
+              })), 
             },
             {
               headers: {
@@ -156,7 +195,7 @@ const CustomerForm = () => {
           const termsUrl = `${window.origin}/terms/${uniqueId}?redirect=${encodeURIComponent(paymentUrl)}`;
           setTermsLink(termsUrl);
         } catch (error) {
-            console.error('Error generating payment link:', error.response.data.error);
+            console.error('Error generating payment link:', error);
             setError(true);
             setErrorData(error.response.data.error);
             //   alert('Failed to generate payment link');
@@ -595,6 +634,7 @@ const CustomerForm = () => {
                                     <label className="block text-gray-700 font-medium mb-2">Aadhar Front Image*</label>
                                     <input
                                         type="file"
+                                        accept='image/*'
                                         name="aadharFront"
                                         onChange={handleFileChange}
                                         className={`w-full px-4 py-2 border ${errors.aadharFront ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
@@ -605,6 +645,7 @@ const CustomerForm = () => {
                                     <label className="block text-gray-700 font-medium mb-2">Aadhar Back Image*</label>
                                     <input
                                         type="file"
+                                        accept='image/*'
                                         name="aadharBack"
                                         onChange={handleFileChange}
                                         className={`w-full px-4 py-2 border ${errors.aadharBack ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
@@ -615,6 +656,7 @@ const CustomerForm = () => {
                                     <label className="block text-gray-700 font-medium mb-2">PAN Card Image*</label>
                                     <input
                                         type="file"
+                                        accept='image/*'
                                         name="panCard"
                                         onChange={handleFileChange}
                                         className={`w-full px-4 py-2 border ${errors.panCard ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}

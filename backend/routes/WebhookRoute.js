@@ -4,6 +4,7 @@ const dayjs = require('dayjs');
 const customParseFormat = require('dayjs/plugin/customParseFormat');
 const router = express.Router();
 const Transaction = require('../models/Transaction');
+const Booking = require('../models/Booking');
 const Agent = require('../models/Agent'); 
 const AgentTourStats = require('../models/AgentTourStats');
 const Tours = require('../models/Tour');
@@ -205,7 +206,7 @@ router.post('/', express.json(), async (req, res) => {
 
   if (event.event === 'payment.captured') {
     const payment = event.payload.payment.entity;
-    if (!payment.notes || !payment.notes.agentID || !payment.notes.tourID) {
+    if (!payment.notes || !payment.notes.tourID) {
       return res.status(400).json({ error: "Missing payment notes data" });
     }
     const {
@@ -216,130 +217,187 @@ router.post('/', express.json(), async (req, res) => {
       tourGivenOccupancy,
       tourStartDate,
       GST,
-      totalAmount
+      finalAmount,
+      customer,
+      travelers
     } = payment.notes;
 
     const transactionId = payment.id;
-    const customerEmail = payment.email || 'unknown@example.com';
+    const customerEmail = customer.email || 'unknown@example.com';
+    const paymentMethod = payment.method;
 
-    if(agentID === ''){
-      dayjs.extend(customParseFormat);
-      const rawDate = tourStartDate;
-      const formattedDate = dayjs(rawDate).format('YYYY-MM-DD');
-      console.log(formattedDate);  // Output: '2025-06-02'
-      const newTransaction = new Transaction({
-        tourID,
-        agentID,
-        customerEmail,
-        transactionId,
-        tourPricePerHead,
-        tourActualOccupancy,
-        tourGivenOccupancy,
-        tourStartDate: formattedDate,
-        commissions: commissionRecords,
-        totalAmount
-      });
-
-      console.log("Direct transaction through customer saved successfully. No agent involved")
-      await newTransaction.save();
-      const tour = await Tours.findById(tourID);
-      if (!tour) {  
-        return res.status(404).json({ error: 'Tour not found' });
-      }
-
-      tour.remainingOccupancy -= parseFloat(tourGivenOccupancy);
-      if (tour.remainingOccupancy < 0) {
-        tour.remainingOccupancy = 0;
-      }
-
-      await tour.save();
-
-      console.log("Transaction saved successfully");
-      return;
-    }
-
+    
     try {
-      const agent = await Agent.findOne({ agentID });
-      if (!agent) return res.status(404).json({ error: 'Agent not found' });
-
-      const agent_id = agent._id;
-      const statsKey = { agentID, tourStartDate, tourID };
-
-      let stats = await AgentTourStats.findOne(statsKey);
-      if (!stats) {
-        stats = new AgentTourStats(statsKey);
-      }
-
-      // Update stats
-      const givenCustomerCount = parseFloat(tourGivenOccupancy);
-      const addedAmount = givenCustomerCount * parseFloat(tourPricePerHead);
-      const newCustomerGiven = stats.customerGiven + givenCustomerCount;
-      const updatedPercentage = (newCustomerGiven / parseFloat(tourActualOccupancy)) * 100;
-
-      const newTotalAmount = stats.totalAmount + addedAmount;
-      const level = 1;
-      const newCommissionRate = getCommissionRate(updatedPercentage, level);
-      const newTotalEligibleCommission = (newTotalAmount * newCommissionRate) / 100;
-      const commissionDelta = newTotalEligibleCommission - stats.commissionReceived;
-
-      const commissionRecords = [];
-
-      if (commissionDelta > 0) {
-        await transferCommission(agent_id, newTotalAmount, updatedPercentage, commissionDelta, level, commissionRecords, tourID);
-      }
-
-      // Save updated stats
-      stats.customerGiven = newCustomerGiven;
-      stats.totalAmount = newTotalAmount;
-      stats.commissionReceived = newTotalEligibleCommission;
-      await stats.save();
-
-      // Save transaction
       dayjs.extend(customParseFormat);
-      const rawDate = tourStartDate;
-      const formattedDate = dayjs(rawDate).format('YYYY-MM-DD');
+      // const rawDate = tourStartDate;
+      const formattedDate = dayjs(tourStartDate).format('YYYY-MM-DD');
       console.log(formattedDate);  // Output: '2025-06-02'
 
-      // const tourStartDateISO = new Date(tourStartDate).toISOString().split("T")[0];
-      const newTransaction = new Transaction({
-        tourID,
-        agentID,
-        customerEmail,
-        transactionId,
-        tourPricePerHead,
-        tourActualOccupancy,
-        tourGivenOccupancy,
-        tourStartDate: formattedDate,
-        commissions: commissionRecords,
-        totalAmount
-      });
+      const bookingId = `BKG-${Date.now()}`;
 
-      await newTransaction.save();
-      const tour = await Tours.findById(tourID);
-      if (!tour) {
-        return res.status(404).json({ error: 'Tour not found' });
-      }
+      // Prepare common booking data
+      console.log("payment:", payment);
+      const commonBookingData = {
+          bookingID: bookingId,
+          status: 'confirmed',
+          bookingDate: new Date(),
+          tour: {
+              tourId: tourID,
+          },
+          customer: {
+              name: customer.name|| 'N/A',
+              email: customerEmail,
+              phone: customer.phone || 'N/A',
+              address: customer.address
+          },
+          travelers,
+          payment: {
+              totalAmount: parseFloat(finalAmount), // Total for this transaction
+              paidAmount: parseFloat(payment.amount) / 100, // Razorpay amount is in smallest unit
+              paymentStatus: 'Paid',
+              paymentMethod: paymentMethod,
+              transactionId: transactionId,
+              paymentDate: new Date(payment.created_at * 1000), // Convert Unix timestamp to Date object
+              breakdown: [
+                  { item: `Base Price (${tourGivenOccupancy} pax)`, amount: parseFloat(tourPricePerHead) * parseFloat(tourGivenOccupancy) },
+                  { item: 'GST', amount: parseFloat(GST) }
+              ]
+          }
+      };
 
-      // If packages is an array, find the correct one to update
-      // const pkgIndex = tour.packages.findIndex(p => p._id.toString() === tourID);
-      // if (pkgIndex !== -1) {
+      if(agentID === '') {
+        // Direct customer booking
+        const newBooking = new Booking(commonBookingData);
+        await newBooking.save();
+        console.log("Direct customer booking saved successfully:", bookingId);
+
+        const commissionRecords = [];
+        
+        const newTransaction = new Transaction({
+          tourID,
+          agentID,
+          customerEmail,
+          transactionId,
+          tourPricePerHead,
+          tourActualOccupancy,
+          tourGivenOccupancy,
+          tourStartDate: formattedDate,
+          commissions: commissionRecords,
+          finalAmount
+        });
+
+        console.log("Direct transaction through customer saved successfully. No agent involved")
+        await newTransaction.save();
+        const tour = await Tours.findById(tourID);
+        if (!tour) {  
+          return res.status(404).json({ error: 'Tour not found' });
+        }
+
         tour.remainingOccupancy -= parseFloat(tourGivenOccupancy);
         if (tour.remainingOccupancy < 0) {
           tour.remainingOccupancy = 0;
         }
-      // }
-      await tour.save();
 
-      console.log("Transaction saved successfully");
-      console.log(commissionRecords);
-      for (const record of commissionRecords) {
-        const agent = await Agent.findOneAndUpdate(
-          { agentID: record.agentID },
-          { $inc: { walletBalance: record.commissionAmount } }
-        );
-        console.log(`Successfully added ${record.commissionAmount} to the wallet of  ${agent.agentID}(${agent.name})`);
+        await tour.save();
+
+        console.log("Transaction saved successfully");
+        return;
+      } else {
+        //Booking via agent
+        const agent = await Agent.findOne({ agentID });
+        if (!agent) return res.status(404).json({ error: 'Agent not found' });
+
+        const agent_id = agent._id;
+        const statsKey = { agentID, tourStartDate, tourID };
+
+        let stats = await AgentTourStats.findOne(statsKey);
+        if (!stats) {
+          stats = new AgentTourStats(statsKey);
+        }
+
+        // Update stats
+        const givenCustomerCount = parseFloat(tourGivenOccupancy);
+        const addedAmount = givenCustomerCount * parseFloat(tourPricePerHead);
+        const newCustomerGiven = stats.customerGiven + givenCustomerCount;
+        const updatedPercentage = (newCustomerGiven / parseFloat(tourActualOccupancy)) * 100;
+
+        const newTotalAmount = stats.finalAmount + addedAmount;
+        const level = 1;
+        const newCommissionRate = getCommissionRate(updatedPercentage, level);
+        const newTotalEligibleCommission = (newTotalAmount * newCommissionRate) / 100;
+        const commissionDelta = newTotalEligibleCommission - stats.commissionReceived;
+
+        const commissionRecords = [];
+
+        if (commissionDelta > 0) {
+          await transferCommission(agent_id, newTotalAmount, updatedPercentage, commissionDelta, level, commissionRecords, tourID);
+        }
+
+        // Save updated stats
+        stats.customerGiven = newCustomerGiven;
+        stats.finalAmount = newTotalAmount;
+        stats.commissionReceived = newTotalEligibleCommission;
+        await stats.save();
+
+        // Save transaction
+        // dayjs.extend(customParseFormat);
+        // const rawDate = tourStartDate;
+        // const formattedDate = dayjs(rawDate).format('YYYY-MM-DD');
+        // console.log(formattedDate);  // Output: '2025-06-02'
+
+        // const tourStartDateISO = new Date(tourStartDate).toISOString().split("T")[0];
+
+         const newBooking = new Booking({
+            ...commonBookingData,
+            agent: {
+                agentId: agentID,
+                name: agent.name, // Assuming agent model has a 'name' field
+                commission: commissionRecords.find(rec => rec.agentID === agentID)?.commissionAmount || 0 // Commission for the direct agent
+            }
+        });
+        await newBooking.save();
+        console.log("Agent booking saved successfully:", bookingId);
+        
+        const newTransaction = new Transaction({
+          tourID,
+          agentID,
+          customerEmail,
+          transactionId,
+          tourPricePerHead,
+          tourActualOccupancy,
+          tourGivenOccupancy,
+          tourStartDate: formattedDate,
+          commissions: commissionRecords,
+          finalAmount
+        });
+
+        await newTransaction.save();
+        const tour = await Tours.findById(tourID);
+        if (!tour) {
+          return res.status(404).json({ error: 'Tour not found' });
+        }
+
+        // If packages is an array, find the correct one to update
+        // const pkgIndex = tour.packages.findIndex(p => p._id.toString() === tourID);
+        // if (pkgIndex !== -1) {
+          tour.remainingOccupancy -= parseFloat(tourGivenOccupancy);
+          if (tour.remainingOccupancy < 0) {
+            tour.remainingOccupancy = 0;
+          }
+        // }
+        await tour.save();
+
+        console.log("Transaction saved successfully");
+        console.log(commissionRecords);
+        for (const record of commissionRecords) {
+          const agent = await Agent.findOneAndUpdate(
+            { agentID: record.agentID },
+            { $inc: { walletBalance: record.commissionAmount } }
+          );
+          console.log(`Successfully added ${record.commissionAmount} to the wallet of  ${agent.agentID}(${agent.name})`);
+        }
+        res.status(200).json({ received: true });
       }
-      res.status(200).json({ received: true });
     } catch (err) {
       console.error('Error processing transaction:', err);
       res.status(500).json({ error: 'Webhook error' });
