@@ -5,44 +5,13 @@ require('dotenv').config();
 const webhookURL = 'http://localhost:5001/webhook'; 
 
 const tourPricePerHead = 9000;
-const tourGivenOccupancy = 15 ;
+const tourGivenOccupancy = 1 ;
 const tourActualOccupancy = 50;
 const totalAmount = tourPricePerHead * Number(tourGivenOccupancy); // in ₹
 const GST = 18;
 const gstAmount = (totalAmount * GST) / 100;
 const finalAmount = totalAmount + gstAmount;
 const currentUnixTimestamp = Math.floor(Date.now() / 1000);
-// const samplePayload = {
-//   event: 'payment.captured',
-//   payload: {
-//     payment: {
-//       entity: {
-//         id: 'pay_MOCK123458',
-//         email: 'testuser@example.com',
-//         notes: {
-//           agentID: '',
-//           tourID: '683ed99b3a44a7ade21e2d31', 
-//           tourPricePerHead,
-//           tourActualOccupancy,
-//           tourGivenOccupancy,
-//           tourStartDate: '2025-08-12T00:00:00.000Z',
-//           GST,
-//           finalAmount,
-//           customer: {
-//             name: 'Rajesh Kumar',
-//             email: 'rajeshghosh8292@gmail.con',
-//             phone: '7890234590',
-//             address: 'Sodpur, panihati'
-//           },
-//           travelers: [
-//             { name: 'Rajesh Ghosh', age: 20, gender: 'M' },
-//             { name: 'Megha Ghosh', age: 32, gender: 'F' }
-//           ]
-//         }
-//       }
-//     }
-//   }
-// };
 
 const samplePayload = {
   event: 'payment.captured',
@@ -75,10 +44,13 @@ const samplePayload = {
           // Corrected: Travelers gender to 'male' and 'female' (lowercase)
           // Also, ensure `travelers` is stringified if the webhook expects a string.
           // Based on your previous error, it seems to be expecting a JSON string for `travelers`.
-          travelers: [
-            { name: 'Rajesh Ghosh', age: 20, gender: 'male' },
-            { name: 'Megha Ghosh', age: 32, gender: 'female' }
-          ]
+          
+          // travelers: [
+          //   { name: 'Rajesh Ghosh', age: 20, gender: 'male' },
+          //   { name: 'Megha Ghosh', age: 32, gender: 'female' }
+          // ]
+
+          travelers: [{"name":"Rajesh Ghosh","age":25,"gender":"male"},{"name":"Megha Ghosh","age":27,"gender":"female"}]
         }
       }
     }
@@ -111,6 +83,41 @@ const generateSignature = (body, secret) => {
     console.error('Error sending webhook:', error.response?.data || error.message);
   }
 })();
+
+
+
+
+// const samplePayload = {
+//   event: 'payment.captured',
+//   payload: {
+//     payment: {
+//       entity: {
+//         id: 'pay_MOCK123458',
+//         email: 'testuser@example.com',
+//         notes: {
+//           agentID: '',
+//           tourID: '683ed99b3a44a7ade21e2d31', 
+//           tourPricePerHead,
+//           tourActualOccupancy,
+//           tourGivenOccupancy,
+//           tourStartDate: '2025-08-12T00:00:00.000Z',
+//           GST,
+//           finalAmount,
+//           customer: {
+//             name: 'Rajesh Kumar',
+//             email: 'rajeshghosh8292@gmail.con',
+//             phone: '7890234590',
+//             address: 'Sodpur, panihati'
+//           },
+//           travelers: [
+//             { name: 'Rajesh Ghosh', age: 20, gender: 'M' },
+//             { name: 'Megha Ghosh', age: 32, gender: 'F' }
+//           ]
+//         }
+//       }
+//     }
+//   }
+// };
 
 
 // const mongoose = require('mongoose');

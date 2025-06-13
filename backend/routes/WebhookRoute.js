@@ -192,6 +192,8 @@ router.post('/', express.json(), async (req, res) => {
   const razorpaySignature = req.headers['x-razorpay-signature'];
   const payload = req.rawBody;
 
+  console.log(payload);
+
   const expectedSignature = crypto
     .createHmac('sha256', RAZORPAY_WEBHOOK_SECRET)
     .update(payload)
@@ -238,7 +240,7 @@ router.post('/', express.json(), async (req, res) => {
       // Prepare common booking data
       console.log("payment:", payment);
       console.log("Travelers:", travelers);
-      
+
       const commonBookingData = {
           bookingID: bookingId,
           status: 'confirmed',
