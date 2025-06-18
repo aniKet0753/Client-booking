@@ -12,7 +12,7 @@ const bookingSchema = new mongoose.Schema({
         type: String,
         required: true,
         enum: ['confirmed', 'pending', 'cancelled', 'completed'],
-        default: 'pending', // Adjusted default to 'pending' as per frontend flow
+        default: 'pending',
         description: "Status of the booking"
     },
     bookingDate: {
@@ -22,16 +22,39 @@ const bookingSchema = new mongoose.Schema({
         description: "Date and time the booking was made"
     },
     tour: {
-        tourId: {
-            type: String,
-            required: true,
-            description: "ID of the booked tour"
-        },
-        name: { // Added tour name as per discussion, required
-            type: String,
-            required: true,
-            description: "Name of the booked tour"
+        tourID: { type: mongoose.Schema.Types.ObjectId, required: true }, // Tour ID reference
+        name: { type: String, required: true },
+        image: { type: String, required: true },
+        categoryType: { type: String, required: true },
+        country: { type: String, required: true },
+        tourType: { type: String, required: true },
+        pricePerHead: { type: Number, required: true },
+        GST: { type: Number, required: true },
+        duration: { type: Number, required: true },
+        occupancy: { type: Number, required: true },
+        remainingOccupancy: { type: Number, required: true },
+        startDate: { type: Date, required: true },
+        description: { type: String, required: true },
+        highlights: [{ type: String }],
+        inclusions: [{ type: String }],
+        exclusions: [{ type: String }],
+        thingsToPack: [{ type: String }],
+        itinerary: [
+        {
+            dayNumber: { type: Number, required: true },
+            title: { type: String, required: true },
+            description: { type: String },
+            activities: [ // Array of activity objects
+            {
+                type: { type: String, required: true },
+                title: { type: String, required: true },
+                description: String,
+                time: String
+            }
+            ]
         }
+        ],
+        gallery: [{ type: String }]
     },
     customer: {
         id:{ type: mongoose.Schema.Types.ObjectId , required: true},
@@ -64,13 +87,11 @@ const bookingSchema = new mongoose.Schema({
         medicalCondition: String,
         medicalInsurance: String,
     },
-    travelers: [ // This array stores all individuals (adults and children) travelling
+    travelers: [
         {
             name: { type: String, required: true },
-            age: { type: Number, required: true }, // Age should be required for a traveler
-            gender: { type: String, enum: ['male', 'female', 'other'], required: true }, // Gender should be required for a traveler
-            // ID details are part of travelers on the frontend, but not in this schema for individual travelers.
-            // If you need to store them per traveler in the backend, add:
+            age: { type: Number, required: true },
+            gender: { type: String, enum: ['male', 'female', 'other'], required: true },
             idType: { type: String },
             idNumber: { type: String },
         }
@@ -78,40 +99,39 @@ const bookingSchema = new mongoose.Schema({
     payment: {
         totalAmount: {
             type: Number,
-            required: false, // Made optional for initial booking creation
+            required: false,
             description: "Total amount of the booking"
         },
         paidAmount: {
             type: Number,
-            required: false, // Made optional for initial booking creation
+            required: false,
             description: "Amount already paid by the customer"
         },
         paymentStatus: {
             type: String,
-            required: false, // Made optional for initial booking creation
+            required: false,
             enum: ['Paid', 'Pending', 'Refunded', 'Failed'],
-            // default: 'paid', // Removed default here as status is 'pending' initially
             description: "Status of the payment"
         },
         paymentMethod: {
             type: String,
-            required: false, // Made optional for initial booking creation
+            required: false,
             description: "Method used for payment (e.g., Credit Card, Bank Transfer)"
         },
         transactionId: {
             type: String,
-            required: false, // Made optional for initial booking creation
+            required: false,
             description: "Unique transaction ID from the payment gateway"
         },
         paymentDate: {
             type: Date,
-            required: false, // Made optional for initial booking creation
+            required: false,
             description: "Date and time of the payment"
         },
         breakdown: [
             {
-                item: { type: String, required: false }, // Made optional if not sent on initial save
-                amount: { type: Number, required: false } // Made optional if not sent on initial save
+                item: { type: String, required: false },
+                amount: { type: Number, required: false }
             }
         ]
     },
@@ -124,11 +144,11 @@ const bookingSchema = new mongoose.Schema({
             type: String,
             description: "Name of the booking agent/agency"
         },
-        commission: { // This field is not sent by frontend's saveBooking
+        commission: {
             type: Number,
             description: "Commission amount for the agent"
         }
     }
-}, { timestamps: true }); // Add timestamps for createdAt and updatedAt fields automatically
+}, { timestamps: true });
 
 module.exports = mongoose.model('Booking', bookingSchema);

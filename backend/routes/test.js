@@ -6,7 +6,7 @@ const webhookURL = 'http://localhost:5001/webhook';
 
 // --- IMPORTANT: REPLACE WITH AN ACTUAL BOOKING ID FROM YOUR DATABASE ---
 // This booking ID must exist in your MongoDB for the webhook to find and update it.
-const TEST_BOOKING_ID = 'BKG48020'; // <--- YOU MUST CHANGE THIS TO A REAL BOOKING ID
+const TEST_BOOKING_ID = 'BKG48020'; // <--- MUST CHANGE THIS TO A REAL BOOKING ID
 
 const tourPricePerHead = 9000;
 const tourGivenOccupancy = 1 ;

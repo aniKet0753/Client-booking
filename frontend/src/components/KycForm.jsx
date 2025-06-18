@@ -318,10 +318,7 @@ useEffect(() => {
                 // bookingID: ,
                 status: 'pending',
                 bookingDate: new Date().toISOString(),
-                tour: {
-                    name : tour.name,
-                    tourId: tourID,
-                },
+                tour,
                 customer: {
                     name: formData.name,
                     email: formData.email,
