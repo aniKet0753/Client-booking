@@ -5,6 +5,7 @@ const Agent = require('../models/Agent');
 const Transaction = require('../models/Transaction');
 const Superadmin = require('../models/Superadmin');
 const Tour = require('../models/Tour');
+const Booking = require('../models/Booking');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
@@ -125,8 +126,6 @@ router.get('/inactive-count',authenticateSuperAdmin, async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
-
-module.exports = router;
 
 router.post('/update-status', authenticateSuperAdmin, async (req, res) => {
   const { userId, status } = req.body;
@@ -646,131 +645,138 @@ router.delete('/tours/:_id', authenticateSuperAdmin, async (req, res) => {
         res.status(500).json({ message: 'Internal server error' });
     }
 });
-
+// MODIFIED: GET /pending-cancellations
+// This endpoint now fetches Booking documents where at least one traveler has cancellationRequested: true
 router.get('/pending-cancellations', authenticateSuperAdmin, async (req, res) => {
   try {
-    const pending = await Transaction.find({ 
-      cancellationRequested: true, 
-      cancellationApproved: false, 
-      cancellationRejected: false 
-    });
-    
-    return res.json({ pending });
+    // Find bookings that have at least one traveler requesting cancellation
+    const pendingBookings = await Booking.find({
+      'travelers.cancellationRequested': true,
+      'travelers.cancellationApproved': false,
+      'travelers.cancellationRejected': false
+    }).sort({ bookingDate: -1 });
+    // Filter to only include bookings where some travelers are actually pending
+    const filteredPendingBookings = pendingBookings.filter(booking => 
+        booking.travelers.some(traveler => traveler.cancellationRequested && !traveler.cancellationApproved && !traveler.cancellationRejected)
+    );
+
+    // Return the full booking details, frontend will extract traveler-specific info
+    return res.status(200).json({ pending: filteredPendingBookings });
+
   } catch (error) {
     console.error("Error fetching pending cancellations:", error);
-    return res.status(500).json({ error: "Failed to fetch pending cancellations." });
+    return res.status(500).json({ error: "Failed to fetch pending cancellations.", details: error.message });
   }
 });
 
-// router.put('/approve-cancellation/:transactionId', authenticateSuperAdmin, async (req, res) => {
-//   // if (req.user.role !== 'superadmin') return res.status(403).json({ message: 'Forbidden' });
 
-//   const { transactionId } = req.params;
-//   const { deductionPercentage } = req.body;
-
-//   const transaction = await Transaction.findOne({ transactionId });
-//   if (!transaction) return res.status(404).json({ message: 'Transaction not found' });
-
-//   if (transaction.cancellationApproved || transaction.cancellationRejected) {
-//     return res.status(400).json({ message: 'Already processed' });
-//   }
-//   const totalPriceTour = transaction.tourGivenOccupancy * transaction.tourPricePerHead;
-//   const refundAmount = totalPriceTour * ((100 - deductionPercentage) / 100);
-//   transaction.cancellationApproved = true;
-//   transaction.refundAmount = refundAmount;
-//   transaction.deductionPercentage = deductionPercentage;
-
-//   const tour = await Tour.findById(transaction.tourID);
-//     tour.remainingOccupancy += transaction.tourGivenOccupancy;
-//     await tour.save();
-
-//   await transaction.save();
-
-//   // TODO: Add refund payment processing logic here (e.g., Razorpay refund or wallet credit)
-
-//   res.status(200).json({ message: 'Cancellation approved and refund processed', refundAmount });
-// });
-
-router.put('/approve-cancellation/:transactionId', authenticateSuperAdmin, async (req, res) => {
-  const { transactionId } = req.params;
-  const { deductionPercentage } = req.body;
-
+// NEW CONSOLIDATED: PUT /process-cancellation/:bookingId
+// This endpoint handles both approving and rejecting individual traveler cancellations,
+// and potentially a full booking cancellation based on travelerIds array.
+router.put('/process-cancellation/:bookingId', authenticateSuperAdmin, async (req, res) => {
   try {
-    const transaction = await Transaction.findOne({ transactionId });
+    const { bookingId } = req.params;
+    const { travelerIds, action, deductionPercentage } = req.body; // action: 'approve' or 'reject'
 
-    if (!transaction) return res.status(404).json({ message: 'Transaction not found' });
-
-    if (transaction.cancellationApproved || transaction.cancellationRejected) {
-      return res.status(400).json({ message: 'Already processed' });
+    if (!action || (action !== 'approve' && action !== 'reject')) {
+        return res.status(400).json({ message: 'Invalid action specified. Must be "approve" or "reject".' });
+    }
+    if (!Array.isArray(travelerIds) || travelerIds.length === 0) {
+        return res.status(400).json({ message: 'No traveler IDs provided for processing cancellation.' });
+    }
+    if (action === 'approve' && (deductionPercentage === undefined || deductionPercentage < 0 || deductionPercentage > 100)) {
+        return res.status(400).json({ message: 'Deduction percentage is required for approval and must be between 0 and 100.' });
     }
 
-    const totalPriceTour = transaction.tourGivenOccupancy * transaction.tourPricePerHead;
-    const refundAmount = totalPriceTour * ((100 - deductionPercentage) / 100);
+    const booking = await Booking.findOne({ bookingID: bookingId });
 
-    transaction.cancellationApproved = true;
-    transaction.refundAmount = refundAmount;
-    transaction.deductionPercentage = deductionPercentage;
-
-    // Restore tour occupancy
-    const tour = await Tour.findById(transaction.tourID);
-    if (tour) {
-      tour.remainingOccupancy += transaction.tourGivenOccupancy;
-      await tour.save();
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found.' });
     }
 
-    // Deduct commission from agents
-    for (let commission of transaction.commissions) {
-      const { agentID, commissionAmount } = commission;
-
-      const agent = await Agent.findOneAndUpdate(
-        { agentID },
-        { $inc: { walletBalance: -commissionAmount } },
-        { new: true }
-      );
-
-      commission.commissionDeductionAmount = commissionAmount;
-
-      console.log(`Deducted ₹${commissionAmount} from agent ${agentID}'s wallet (${agent?.name || 'Unknown'})`);
+    const tourDate = new Date(booking.tour.startDate);
+    if (tourDate <= new Date()) {
+      return res.status(400).json({ message: 'Cannot process cancellation for past or ongoing tour bookings.' });
     }
 
-    await transaction.save();
+    const processedTravelerNames = [];
+    let totalRefundAmount = 0;
+    let anyTravelerUpdated = false;
 
-    // TODO: Optional - Razorpay refund or wallet refund to customer
+    for (const travelerId of travelerIds) {
+      const traveler = booking.travelers.id(travelerId);
+      if (traveler) {
+        // Only process if the traveler has a pending cancellation request
+        if (traveler.cancellationRequested && !traveler.cancellationApproved && !traveler.cancellationRejected) {
+          if (action === 'approve') {
+            traveler.cancellationApproved = true;
+            traveler.cancellationRequested = false; // Mark request as handled
+            // traveler.cancellationReason = cancellationReason || '';
+
+            // Calculate refund for this specific traveler
+            const travelerPrice = booking.tour.pricePerHead;
+            const refundForTraveler = travelerPrice * ((100 - deductionPercentage) / 100);
+            totalRefundAmount += refundForTraveler;
+            // You might want to store refundAmount per traveler or in a separate Transaction record
+            // For now, we'll track the sum.
+
+            processedTravelerNames.push(`${traveler.name} (Approved with ${deductionPercentage}% deduction)`);
+            anyTravelerUpdated = true;
+
+            // TODO: Logic for updating actual Transaction for this traveler's portion
+            // This is complex for partials. A robust solution needs:
+            // 1. A way to link individual traveler payments/commissions to a transaction.
+            // 2. Or, update a single transaction to reflect partial refund/commission reversal.
+            // For now, this is a placeholder. You'll need to define how commissions are handled
+            // for partial cancellations in your Transaction model.
+            // Example Placeholder: Find relevant transaction, adjust its commission for this traveler.
+            // This would likely involve finding the specific agent who booked this, and their commission on the *initial* total booking.
+            // If you need to reverse a specific commission for THIS traveler's share, that logic needs to be added here.
+            // For example:
+            // const agent = await Agent.findOne({ agentID: booking.agent.agentId });
+            // if (agent) {
+            //     const commissionToReverse = (booking.agent.commission / booking.travelers.length); // simple pro-rata
+            //     agent.walletBalance -= commissionToReverse;
+            //     await agent.save();
+            //     // You might also need to log this in a commission history
+            // }
+
+          } else if (action === 'reject') {
+            traveler.cancellationRejected = true;
+            traveler.cancellationRequested = false; // Mark request as handled
+            traveler.cancellationReason = cancellationReason || 'Rejected by Superadmin.';
+            processedTravelerNames.push(`${traveler.name} (Rejected)`);
+            anyTravelerUpdated = true;
+          }
+        } else {
+          // Traveler not in pending state or already processed
+          processedTravelerNames.push(`${traveler.name} (skipped - not pending or already processed)`);
+        }
+      } else {
+        log(`Traveler with ID ${travelerId} not found in booking ${bookingId}`);
+      }
+    }
+
+    if (!anyTravelerUpdated) {
+        return res.status(400).json({ message: 'No eligible travelers found for cancellation or their status is not pending.' });
+    }
+
+    await booking.save(); // Save the updated booking with traveler statuses
+
+    const responseMessage = `${action === 'approve' ? 'Approved' : 'Rejected'} cancellation for travelers: ${processedTravelerNames.join(', ')}.`;
 
     res.status(200).json({
-      message: 'Cancellation approved, refund processed, commissions reversed',
-      refundAmount
+      message: responseMessage,
+      updatedBooking: booking,
+      totalRefundAmount: action === 'approve' ? totalRefundAmount : 0 // Only relevant for approval
     });
+
   } catch (error) {
     console.error('Error processing cancellation:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: 'Server error while processing cancellation', details: error.message });
   }
 });
 
-router.put('/reject-cancellation/:transactionId', authenticateSuperAdmin, async (req, res) => {
-  // if (req.user.role !== 'superadmin') return res.status(403).json({ message: 'Forbidden' });
+//Rejected Cancellation code is pending 
 
-  const { transactionId } = req.params;
-  const transaction = await Transaction.findOne({ transactionId });
-
-  if (!transaction) return res.status(404).json({ message: 'Transaction not found' });
-
-  transaction.cancellationRejected = true;
-  await transaction.save();
-
-  res.status(200).json({ message: 'Cancellation request rejected' });
-});
-
-router.get('/:id', authenticateSuperAdmin, async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    const agent = await Agent.findById(id).lean();
-    if (!agent) return res.status(404).json({ message: 'Agent not found' });
-
-    res.json(agent);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
+module.exports = router;

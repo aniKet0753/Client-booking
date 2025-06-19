@@ -9,6 +9,7 @@ const Customer = require('../models/Customer');
 const Transaction = require('../models/Transaction');
 const Superadmin = require('../models/Superadmin');
 const Tour = require('../models/Tour');
+const Booking = require('../models/Booking');
 const path = require('path');
 const { log, error } = require('console');
  
@@ -467,10 +468,102 @@ router.get('/tours/:_id', async (req, res) => {
     }
 });
 
+// router.get('/booking-history',authenticate, async (req, res) => {
+//   const agent = await Agent.findById(req.user.id).lean();
+//   try {
+//     // const transactions = await Transaction.find({ 'commissions.agentID':agent.agentID && 'commissions.level':1 }).sort({ tourStartDate: -1 });
+//     const transactions = await Transaction.find({
+//       commissions: {
+//         $elemMatch: {
+//           agentID: agent.agentID,
+//           level: 1
+//         }
+//       }
+//     }).sort({ tourStartDate: -1 });
+
+//     if (!transactions || transactions.length === 0) {
+//       return res.status(404).json({ message: 'No bookings found for this agent.' });
+//     }
+
+//     res.status(200).json(transactions);
+//   } catch (error) {
+//     console.error('Error fetching booking history:', error);
+//     res.status(500).json({ error: 'Failed to fetch booking history' });
+//   }
+// });
+// // __________
+// router.put('/cancel-booking/:transactionId', authenticate, async (req, res) => {
+//   try {
+//     const { transactionId } = req.params;
+
+//     const transaction = await Transaction.findOne({ transactionId });
+//     console.log(transactionId)
+//     if (!transaction) {
+//       return res.status(404).json({ message: 'Booking not found' });
+//     }
+//     // console.log(transaction.agentID, req.user.id, agent.agentID);
+//     const agent = await Agent.findById(req.user.id);
+//     console.log(transaction.agentID, req.user.id, agent.agentID);
+    
+//     if (!agent || transaction.agentID !== agent.agentID) {
+//       return res.status(403).json({ message: 'Unauthorized: This booking does not belong to you.' });
+//     }
+
+//     const tourDate = new Date(transaction.tourStartDate);
+//     if (tourDate <= new Date()) {
+//       return res.status(400).json({ message: 'Cannot cancel past or ongoing tour bookings' });
+//     }
+
+//     // const tour = await Tour.findById(transaction.tourID);
+//     // if (tour) {
+//     //   const pkg = tour.packages.id(transaction.packageID);
+//     //   if (pkg) {
+//     //     pkg.remainingOccupancy += transaction.tourGivenOccupancy;
+//     //     // await tour.save();
+//     //   }
+//     // }
+
+//     // Delete the booking
+//     // await Transaction.deleteOne({ transactionId });
+//     if (transaction.cancellationRequested) {
+//       return res.status(400).json({ message: 'Cancellation already requested' });
+//     }
+
+//     transaction.cancellationRequested = true;
+//     await transaction.save();
+
+//     res.status(200).json({ message: 'Cancellation request submitted for approval' }); 
+//   } catch (error) {
+//     console.error('Error cancelling booking:', error);
+//     res.status(500).json({ message: 'Server error while cancelling booking' });
+//   }
+// });
+
+
+// Route to fetch full booking details for an agent
+router.get('/my-full-bookings', authenticate, async (req, res) => {
+  try {
+    const agentId = req.user.id; // User ID from authenticated token
+    const agent = await Agent.findById(agentId); // Get agent's own agentID (e.g., 'AG001')
+    if (!agent) {
+      return res.status(404).json({ message: 'Agent not found.' });
+    }
+
+    // Find Booking documents where the agent field matches the current agent's agentID.
+    const bookings = await Booking.find({ 'agent.agentID': agent.agentID }).sort({ bookingDate: -1 });
+
+    // Send 200 OK with an empty array if no bookings are found
+    return res.status(200).json(bookings); // This will send an empty array if 'bookings' is empty
+  } catch (error) {
+    console.error('Error fetching full agent bookings:', error);
+    res.status(500).json({ message: 'Failed to fetch full agent bookings', details: error.message });
+  }
+});
+
+// Original /booking-history (likely for transactions/commissions) - kept as is if separate purpose
 router.get('/booking-history',authenticate, async (req, res) => {
   const agent = await Agent.findById(req.user.id).lean();
   try {
-    // const transactions = await Transaction.find({ 'commissions.agentID':agent.agentID && 'commissions.level':1 }).sort({ tourStartDate: -1 });
     const transactions = await Transaction.find({
       commissions: {
         $elemMatch: {
@@ -481,60 +574,105 @@ router.get('/booking-history',authenticate, async (req, res) => {
     }).sort({ tourStartDate: -1 });
 
     if (!transactions || transactions.length === 0) {
-      return res.status(404).json({ message: 'No bookings found for this agent.' });
+      // If no transactions, still return 200 OK with an empty array
+      return res.status(200).json([]);
     }
 
     res.status(200).json(transactions);
   } catch (error) {
-    console.error('Error fetching booking history:', error);
-    res.status(500).json({ error: 'Failed to fetch booking history' });
+    console.error('Error fetching booking history (transactions):', error);
+    res.status(500).json({ error: 'Failed to fetch booking history (transactions)' });
   }
 });
 
-router.put('/cancel-booking/:transactionId', authenticate, async (req, res) => {
+
+// Consolidated cancel-booking route to handle both full booking and partial traveler cancellation
+router.put('/cancel-booking/:bookingId', authenticate, async (req, res) => {
   try {
-    const { transactionId } = req.params;
+    const { bookingId } = req.params;
+    const { travelerIds } = req.body; // Optional: Array of traveler _ids to cancel
 
-    const transaction = await Transaction.findOne({ transactionId });
-    console.log(transactionId)
-    if (!transaction) {
-      return res.status(404).json({ message: 'Booking not found' });
-    }
-    // console.log(transaction.agentID, req.user.id, agent.agentID);
-    const agent = await Agent.findById(req.user.id);
-    console.log(transaction.agentID, req.user.id, agent.agentID);
-    
-    if (!agent || transaction.agentID !== agent.agentID) {
-      return res.status(403).json({ message: 'Unauthorized: This booking does not belong to you.' });
+    const agentMongoId = req.user.id;
+
+    const agent = await Agent.findById(agentMongoId);
+    if (!agent) {
+        return res.status(404).json({ message: 'Agent not found.' });
     }
 
-    const tourDate = new Date(transaction.tourStartDate);
+    const booking = await Booking.findOne({ 'bookingID': bookingId, 'agent.agentID': agent.agentID });
+
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found or does not belong to this agent.' });
+    }
+
+    const tourDate = new Date(booking.tour.startDate);
     if (tourDate <= new Date()) {
-      return res.status(400).json({ message: 'Cannot cancel past or ongoing tour bookings' });
+      return res.status(400).json({ message: 'Cannot cancel for past or ongoing tour bookings.' });
     }
 
-    // const tour = await Tour.findById(transaction.tourID);
-    // if (tour) {
-    //   const pkg = tour.packages.id(transaction.packageID);
-    //   if (pkg) {
-    //     pkg.remainingOccupancy += transaction.tourGivenOccupancy;
-    //     // await tour.save();
-    //   }
-    // }
+    let message = '';
+    let modifiedCount = 0;
 
-    // Delete the booking
-    // await Transaction.deleteOne({ transactionId });
-    if (transaction.cancellationRequested) {
-      return res.status(400).json({ message: 'Cancellation already requested' });
+    if (Array.isArray(travelerIds) && travelerIds.length > 0) {
+      // Logic for partial traveler cancellation
+      const updatedTravelerNames = [];
+      for (const travelerId of travelerIds) {
+        const traveler = booking.travelers.id(travelerId); // Mongoose subdocument .id() method
+        if (traveler) {
+          if (traveler.cancellationRequested || traveler.cancellationApproved || traveler.cancellationRejected) {
+            updatedTravelerNames.push(`${traveler.name} (already in cancellation process)`);
+            continue;
+          }
+          traveler.cancellationRequested = true;
+          // IMPORTANT: Set these to false when initiating a new request
+          traveler.cancellationApproved = false;
+          traveler.cancellationRejected = false;
+          updatedTravelerNames.push(traveler.name);
+          modifiedCount++;
+        } else {
+          log(`Traveler with ID ${travelerId} not found in booking ${bookingId}`);
+        }
+      }
+
+      if (modifiedCount === 0) {
+        return res.status(400).json({ message: 'No new travelers were marked for cancellation (they might already be in a cancellation state).' });
+      }
+      message = `Cancellation request submitted for selected travelers: ${updatedTravelerNames.join(', ')}.`;
+
+    } else {
+      // Logic for full booking cancellation
+      if (booking.cancellationRequested || booking.cancellationApproved || booking.cancellationRejected) {
+        return res.status(400).json({ message: 'Full booking cancellation already in progress or completed.' });
+      }
+      booking.cancellationRequested = true;
+      // IMPORTANT: Set these to false when initiating a new request
+      booking.cancellationApproved = false;
+      booking.cancellationRejected = false;
+      booking.cancellationReason = ''; // Clear any old reasons
+
+      booking.travelers.forEach(traveler => {
+        if (!traveler.cancellationRequested && !traveler.cancellationApproved && !traveler.cancellationRejected) {
+          traveler.cancellationRequested = true;
+          // IMPORTANT: Set these to false for all travelers in a full cancellation initiated by agent
+          traveler.cancellationApproved = false;
+          traveler.cancellationRejected = false;
+          traveler.cancellationReason = '';
+        }
+      });
+      modifiedCount = booking.travelers.length; // Count all travelers as modified for full cancellation
+      message = 'Full booking cancellation request submitted for approval.';
     }
 
-    transaction.cancellationRequested = true;
-    await transaction.save();
+    await booking.save();
 
-    res.status(200).json({ message: 'Cancellation request submitted for approval' }); 
+    res.status(200).json({
+      message: message,
+      updatedBooking: booking // Send back the updated booking document
+    });
+
   } catch (error) {
-    console.error('Error cancelling booking:', error);
-    res.status(500).json({ message: 'Server error while cancelling booking' });
+    console.error('Error during cancellation:', error);
+    res.status(500).json({ message: 'Server error while processing cancellation', details: error.message });
   }
 });
 
