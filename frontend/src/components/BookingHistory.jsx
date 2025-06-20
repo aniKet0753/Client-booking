@@ -1,10 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import axios from '../api';
 import { ChevronDown, ChevronUp, XCircle, CheckCircle, UserX } from 'lucide-react'; // Added UserX icon
-
-// Set the base URL for axios requests. IMPORTANT: Ensure this matches your backend's URL.
-// For example, if your backend is at http://localhost:5001
-axios.defaults.baseURL = 'http://localhost:5001';
 
 const BookingHistory = () => {
   const [filter, setFilter] = useState('active');
@@ -32,6 +28,8 @@ const BookingHistory = () => {
             Authorization: `Bearer ${localStorage.getItem('Token')}`,
           },
         });
+  console.log(res)
+
         if (Array.isArray(res.data)) {
           setBookings(res.data);
         } else {
