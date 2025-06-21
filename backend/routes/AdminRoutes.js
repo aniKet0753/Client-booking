@@ -137,6 +137,20 @@ router.post('/update-status', authenticateSuperAdmin, async (req, res) => {
   }
 });
 
+router.get('/:id', authenticateSuperAdmin, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const agent = await Agent.findById(id).lean();
+    if (!agent) return res.status(404).json({ message: 'Agent not found' });
+
+    res.json(agent);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 router.post('/agent/:id/remarks', authenticateSuperAdmin, async (req, res) => {
   const { id } = req.params;
 
@@ -778,5 +792,7 @@ router.put('/process-cancellation/:bookingId', authenticateSuperAdmin, async (re
 });
 
 //Rejected Cancellation code is pending 
+
+
 
 module.exports = router;
