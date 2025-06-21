@@ -3,8 +3,50 @@ import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import MainLogo from '../../public/main-logo.png'; // Ensure this path is correct
 import { motion } from 'framer-motion';
 import axios from '../api'; // Ensure this path is correct for your axios instance
-import { FaArrowLeft, FaArrowRight } from 'react-icons/fa';
 import { z } from 'zod';
+import {
+    FaArrowLeft,
+    FaArrowRight,
+    FaExclamationCircle,
+    FaInfoCircle,
+    FaCheckCircle,
+    FaUser,
+    FaUserAlt,
+    FaBirthdayCake,
+    FaPhone,
+    FaWhatsapp,
+    FaEnvelope,
+    FaHome,
+    FaIdCard,
+    FaPassport,
+    FaSuitcase,
+    FaUsers,
+    FaChild,
+    FaFileSignature,
+    FaCheck,
+    FaExclamationTriangle,
+    FaClipboardCheck,
+    // New icons for Section D
+    FaUserTie,
+    FaCalendarAlt,
+    FaVenusMars,
+    FaPhoneAlt,
+    FaCreditCard,
+    FaWheelchair,
+    FaHeartbeat,
+    FaShieldAlt,
+    FaMapMarkedAlt,
+    FaRoute,
+    FaGlobeAsia,
+    FaUserFriends,
+    FaUserSlash,
+    FaBaby,
+    FaSpinner,
+    FaIdBadge
+} from 'react-icons/fa';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
+import { differenceInYears, parseISO } from 'date-fns';
 
 // --- Zod Schemas ---
 const sectionASchema = z.object({
@@ -15,53 +57,84 @@ const sectionASchema = z.object({
     phone: z.string().min(1, 'Primary Phone is required'),
     aadhar: z.string().min(1, 'Aadhar Card Number is required'),
     homeAddress: z.string().min(1, 'Complete Address is required'),
-    // aadharFront: z.any().refine((file) => !!file, { message: 'Aadhar Front Image is required' }),
-    // aadharBack: z.any().refine((file) => !!file, { message: 'Aadhar Back Image is required' }),
-    // panCard: z.any().refine((file) => !!file, { message: 'PAN Card Image is required' }),
+    pin: z.string().min(1, 'PIN Number is required'), // <-- Added line
+    pan: z.string().min(1, 'PAN Card Number is required'),
+    email: z.string().email('Invalid email format').min(1, 'Email is required'),
 });
 
 const sectionBSchema = z.object({
     tourType: z.string().min(1, 'Tour Type selected is required'),
     selectedTrip: z.string().min(1, 'Selected Trip is required'),
-    // country: z.string().min(1, 'Destination is required'), // Assuming country is also required if it's part of the pre-filled package
-});
+    throughAgent: z.enum(['yes', 'no']),
+    agentID: z.string().optional(),
+}).refine(
+    (data) => {
+        if (data.throughAgent === 'yes') {
+            return !!data.agentID && data.agentID.trim() !== '';
+        }
+        return true;
+    },
+    {
+        message: 'Agent ID is required when booking through agent',
+        path: ['agentID'],
+    }
+);
 
-// Zod schema for a single passenger
+// Zod schema for a single passenger (no age restriction here)
 const passengerSchema = z.object({
     name: z.string().min(1, 'Name is required'),
-    age: z.string().min(1, 'Age is required').regex(/^\d+$/, 'Age must be a number'), // Ensure age is numeric
+    age: z.string()
+        .min(1, 'Age is required')
+        .regex(/^\d+$/, 'Age must be a number'),
     gender: z.string().min(1, 'Gender is required'),
     idType: z.string().min(1, 'ID Type is required'),
     idNumber: z.string().min(1, 'ID Number is required'),
 });
 
+const adultPassengerSchema = passengerSchema.refine(
+    p => {
+        const age = parseInt(p.age, 10);
+        return !isNaN(age) && age >= 18;
+    },
+    {
+        message: 'Age must be at least 18 for adult passengers',
+        path: ['age'], // This ensures the error attaches to the age field
+    }
+);
+
+const childPassengerSchema = passengerSchema.refine(
+    p => {
+        const age = parseInt(p.age, 10);
+        return !isNaN(age) && age < 18;
+    },
+    {
+        message: 'Age must be less than 18 for child passengers',
+        path: ['age'], // This ensures the error attaches to the age field
+    }
+);
+
+
+
+// Section C schema with custom refinements for age
 const sectionCSchema = z.object({
     numPersons: z.string()
         .min(1, 'Number of adults is required')
         .regex(/^\d+$/, 'Number of adults must be a number')
         .transform(Number)
         .refine(num => num >= 1, 'At least one adult is required'),
-    
+
     numChildren: z.string()
         .regex(/^\d*$/, 'Number of children must be a number')
         .transform(Number)
         .refine(num => num >= 0, 'Number of children cannot be negative')
         .optional(),
 
-    passengers: z.array(passengerSchema)
-        .min(1, 'At least one adult passenger is required')
-        .refine(
-            passengers => passengers.every(p => {
-                const age = parseInt(p.age, 10);
-                return !isNaN(age) && age >= 18;
-            }),
-            {
-                message: 'All adult passengers must be at least 18 years old',
-            }
-        ),
+    passengers: z.array(adultPassengerSchema)
+        .min(1, 'At least one adult passenger is required'),
 
-    childPassengers: z.array(passengerSchema)
+    childPassengers: z.array(childPassengerSchema)
 });
+
 
 const CustomerForm = () => {
     const navigate = useNavigate();
@@ -84,6 +157,7 @@ const CustomerForm = () => {
         medicalCondition: '',
         medicalInsurance: 'no',
         homeAddress: '',
+        pin: '', // <-- Added line
         // aadharFront: null,
         // aadharBack: null,
         // panCard: null,
@@ -118,7 +192,8 @@ const CustomerForm = () => {
     const token = localStorage.getItem('Token');
     const role = localStorage.getItem('role');
     const tourID = searchParams.get('t');
-    const agentIDFromURL = searchParams.get('a') || ''; 
+    const agentIDFromURL = searchParams.get('a') || '';
+    const [isUppercase, setIsUppercase] = useState(false);
     // Initialize passengers and childPassengers arrays based on numPersons/numChildren
 
     useEffect(() => {
@@ -146,7 +221,8 @@ const CustomerForm = () => {
     const getTourDetails = async () => {
         console.log("getTourDetails function is running");
         const FetchToursRoute = role === 'superadmin' ? 'api/admin/tours' : role === 'customer' ? 'api/customer/tours' : 'api/agents/tours';
-        try {console.log(FetchToursRoute);
+        try {
+            console.log(FetchToursRoute);
             const res = await axios.get(`${FetchToursRoute}/${tourID}`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -178,7 +254,7 @@ const CustomerForm = () => {
         }
     }, [tourID, token, role]);
 
-        useEffect(() => {
+    useEffect(() => {
         // Set agentID from URL when the component mounts or when the URL changes
         setFormData(prev => {
             const newFormData = { ...prev };
@@ -190,8 +266,8 @@ const CustomerForm = () => {
         });
     }, [agentIDFromURL]);
 
-    const getBooking = async() =>{
-        try{
+    const getBooking = async () => {
+        try {
             console.log(tourID);
             const response = await axios.get(`/api/bookings/my-bookings/${tourID}`, {
                 headers: {
@@ -201,115 +277,115 @@ const CustomerForm = () => {
             });
             console.log(response.data);
             setBookingData(response.data);
-        } catch(err){
+        } catch (err) {
             console.error("Failed to fetch tour details:", err);
         }
     }
 
-//     useEffect(() => {
-//     if (bookingData && bookingData.length > 0) {
-//         const data = bookingData[0]; // Use the first booking if multiple
+    //     useEffect(() => {
+    //     if (bookingData && bookingData.length > 0) {
+    //         const data = bookingData[0]; // Use the first booking if multiple
 
-//         setFormData(prev => ({
-//             ...prev,
-//             // Section A
-//             name: data.customer?.name || '',
-//             email: data.customer?.email || '',
-//             phone: data.customer?.phone || '',
-//             homeAddress: data.customer?.address || '',
+    //         setFormData(prev => ({
+    //             ...prev,
+    //             // Section A
+    //             name: data.customer?.name || '',
+    //             email: data.customer?.email || '',
+    //             phone: data.customer?.phone || '',
+    //             homeAddress: data.customer?.address || '',
 
-//             // Section B
-//             selectedTrip: data.tour?.name || '',
-//             tourType: tour?.tourType || '', // Already fetched from getTourDetails
-//             country: tour?.country || '',
-//             throughAgent: data.agent?.agentID ? 'yes' : 'no',
-//             agentID: data.agent?.agentID || '',
-//             agentName: data.agent?.name || '',
+    //             // Section B
+    //             selectedTrip: data.tour?.name || '',
+    //             tourType: tour?.tourType || '', // Already fetched from getTourDetails
+    //             country: tour?.country || '',
+    //             throughAgent: data.agent?.agentID ? 'yes' : 'no',
+    //             agentID: data.agent?.agentID || '',
+    //             agentName: data.agent?.name || '',
 
-//             // Section C
-//             numPersons: `${data.travelers?.filter(t => t.age >= 12).length || 0}`, // assume >=12 is adult
-//             numChildren: `${data.travelers?.filter(t => t.age < 12).length || 0}`,
-//             passengers: data.travelers?.filter(t => t.age >= 12).map(p => ({
-//                 name: p.name || '',
-//                 age: `${p.age || ''}`,
-//                 gender: p.gender || '',
-//                 idType: p.idType || '',
-//                 idNumber: p.idNumber || '',
-//             })) || [],
-//             childPassengers: data.travelers?.filter(t => t.age < 12).map(p => ({
-//                 name: p.name || '',
-//                 age: `${p.age || ''}`,
-//                 gender: p.gender || '',
-//                 idType: p.idType || '',
-//                 idNumber: p.idNumber || '',
-//             })) || [],
-//         }));
-//     }
-// }, [bookingData, tour]);
+    //             // Section C
+    //             numPersons: `${data.travelers?.filter(t => t.age >= 12).length || 0}`, // assume >=12 is adult
+    //             numChildren: `${data.travelers?.filter(t => t.age < 12).length || 0}`,
+    //             passengers: data.travelers?.filter(t => t.age >= 12).map(p => ({
+    //                 name: p.name || '',
+    //                 age: `${p.age || ''}`,
+    //                 gender: p.gender || '',
+    //                 idType: p.idType || '',
+    //                 idNumber: p.idNumber || '',
+    //             })) || [],
+    //             childPassengers: data.travelers?.filter(t => t.age < 12).map(p => ({
+    //                 name: p.name || '',
+    //                 age: `${p.age || ''}`,
+    //                 gender: p.gender || '',
+    //                 idType: p.idType || '',
+    //                 idNumber: p.idNumber || '',
+    //             })) || [],
+    //         }));
+    //     }
+    // }, [bookingData, tour]);
 
-useEffect(() => {
-    if (bookingData && bookingData.length > 0) {
-        const data = bookingData[0]; // Use the first booking if multiple
+    useEffect(() => {
+        if (bookingData && bookingData.length > 0) {
+            const data = bookingData[0]; // Use the first booking if multiple
 
-        const adults = data.travelers?.filter(t => t.age >= 18) || [];
-        const children = data.travelers?.filter(t => t.age < 18) || [];
+            const adults = data.travelers?.filter(t => t.age >= 18) || [];
+            const children = data.travelers?.filter(t => t.age < 18) || [];
 
-        setBookingID(data.bookingID);
-        console.log(data.bookingID);
-        setFormData(prev => ({
-            ...prev,
-            // Section A
-            bookingID: data.bookingID,
-            name: data.customer?.name || '',
-            dob: data.customer?.dob || '',
-            gender: data.customer?.gender || '',
-            age: data.customer?.age || '',
-            phone: data.customer?.phone || '',
-            altPhone: data.customer?.altPhone || '',
-            whatsapp: data.customer?.whatsapp || '',
-            email: data.customer?.email || '',
-            aadhar: data.customer?.aadhar || '',
-            pan: data.customer?.pan || '',
-            disability: data.customer?.disability || '',
-            medicalCondition: data.customer?.medicalCondition || '',
-            medicalInsurance: data.customer?.medicalInsurance || 'no',
-            homeAddress: data.customer?.address || '',
+            setBookingID(data.bookingID);
+            console.log(data.bookingID);
+            setFormData(prev => ({
+                ...prev,
+                // Section A
+                bookingID: data.bookingID,
+                name: data.customer?.name || '',
+                dob: data.customer?.dob || '',
+                gender: data.customer?.gender || '',
+                age: data.customer?.age || '',
+                phone: data.customer?.phone || '',
+                altPhone: data.customer?.altPhone || '',
+                whatsapp: data.customer?.whatsapp || '',
+                email: data.customer?.email || '',
+                aadhar: data.customer?.aadhar || '',
+                pan: data.customer?.pan || '',
+                disability: data.customer?.disability || '',
+                medicalCondition: data.customer?.medicalCondition || '',
+                medicalInsurance: data.customer?.medicalInsurance || 'no',
+                homeAddress: data.customer?.address || '',
 
-            // Section B
-            selectedTrip: data.tour?.name || '',
-            tourType: tour?.tourType || '',
-            country: tour?.country || '',
-            throughAgent: agentIDFromURL ? 'yes' : 'no',
-            agentID: agentIDFromURL || '',
-            // agentName: data.agent?.name || '',
+                // Section B
+                selectedTrip: data.tour?.name || '',
+                tourType: tour?.tourType || '',
+                country: tour?.country || '',
+                throughAgent: agentIDFromURL ? 'yes' : 'no',
+                agentID: agentIDFromURL || '',
+                // agentName: data.agent?.name || '',
 
-            // Section C
-            numPersons: `${adults.length || 1}`, // Ensure at least 1 adult
-            numChildren: `${children.length || 0}`,
-            passengers: adults.map(p => ({
-                name: p.name || '',
-                age: `${p.age || ''}`,
-                gender: p.gender || '',
-                idType: p.idType || '',
-                idNumber: p.idNumber || '',
-            })),
-            childPassengers: children.map(p => ({
-                name: p.name || '',
-                age: `${p.age || ''}`,
-                gender: p.gender || '',
-                idType: p.idType || '',
-                idNumber: p.idNumber || '',
-            })),
-        }));
-    }
-}, [bookingData, tour]);
+                // Section C
+                numPersons: `${adults.length || 1}`, // Ensure at least 1 adult
+                numChildren: `${children.length || 0}`,
+                passengers: adults.map(p => ({
+                    name: p.name || '',
+                    age: `${p.age || ''}`,
+                    gender: p.gender || '',
+                    idType: p.idType || '',
+                    idNumber: p.idNumber || '',
+                })),
+                childPassengers: children.map(p => ({
+                    name: p.name || '',
+                    age: `${p.age || ''}`,
+                    gender: p.gender || '',
+                    idType: p.idType || '',
+                    idNumber: p.idNumber || '',
+                })),
+            }));
+        }
+    }, [bookingData, tour]);
 
     useEffect(() => {
         if (tourID && token && role) {
             getBooking();
         }
     }, [tourID, token, role]);
-    
+
     const saveBooking = async () => {
         setIsSubmitting(true);
         try {
@@ -326,7 +402,7 @@ useEffect(() => {
             }));
 
             const bookingData = {
-                
+
                 bookingID: (bookingID) ? bookingID : `BKG${Math.floor(10000 + Math.random() * 90000)}`,
                 // bookingID: ,
                 status: 'pending',
@@ -379,8 +455,9 @@ useEffect(() => {
         }
 
         try {
-            await saveBooking();
-
+            const saveBookingResponse = await saveBooking();
+            console.log(saveBookingResponse.bookingID);
+            const bookingID = saveBookingResponse.bookingID;
             const givenOccupancy = searchParams.get('p');
             // const agentID = searchParams.get('a') || '';
             // const agentID = formData.throughAgent === 'yes' ? formData.agentID : '';
@@ -396,7 +473,8 @@ useEffect(() => {
 
             const response = await axios.post(
                 '/api/generate-payment-link',
-                {   bookingID,
+                {
+                    bookingID,
                     agentID: formData.throughAgent === 'yes' ? formData.agentID : '',
                     tourID,
                     tourName,
@@ -619,12 +697,12 @@ useEffect(() => {
     };
 
     const Info = ({ label, value }) => (
-    <div>
-        <p className="text-gray-600">{label}:</p>
-        <p className="font-medium">{value || 'Not provided'}</p>
-    </div>
+        <div>
+            <p className="text-gray-600">{label}:</p>
+            <p className="font-medium">{value || 'Not provided'}</p>
+        </div>
     );
-    
+
     // Redirect to login if not authenticatedAdd commentMore actions
     useEffect(() => {
         const token = localStorage.getItem('Token');
@@ -632,7 +710,7 @@ useEffect(() => {
             navigate('/login', { state: { from: location.pathname + location.search } });
         }
     }, [navigate, location]);
-    
+
     return (
         <div className="container mx-auto px-4 py-8 max-w-5xl">
             <div className="bg-white rounded-lg shadow-lg p-6">
@@ -701,121 +779,387 @@ useEffect(() => {
                             animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, x: 50 }}
                             transition={{ duration: 0.3 }}
+                            className="relative"
                         >
-                            <h2 className="text-2xl font-semibold mb-2 text-gray-700">Section A: Personal Details</h2>
-                            <p className="text-gray-500 mb-6">Please fill in your personal information</p>
+                            <div className="flex items-center mb-6">
+                                <div className="bg-blue-100 p-3 rounded-full mr-4">
+                                    <FaUser className="text-blue-600 text-xl" />
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-semibold text-gray-800">Section A: Personal Details</h2>
+                                    <p className="text-gray-500">Please fill in your personal information</p>
+                                </div>
+                            </div>
+
+                            {/* Form Progress Indicator */}
+                            <div className="mb-8 bg-gray-100 rounded-full h-2.5">
+                                <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: '25%' }}></div>
+                            </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 mb-8">
-                                <div>
-                                    <h3 className="text-lg font-semibold text-gray-700 mb-3 border-b border-gray-200 pb-2">Basic Information</h3>
-                                    <div>
-                                        <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Full Name<span className="text-red-500">*</span></label>
-                                        <input type="text" id="name" name="name" value={formData.name} onChange={handleChange} placeholder="Enter your full name" className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
-                                        {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+                                {/* Left Column */}
+                                <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+                                    <div className="flex items-center mb-4">
+                                        <FaUserAlt className="text-blue-500 mr-2" />
+                                        <h3 className="text-lg font-semibold text-gray-700">Basic Information</h3>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4 mt-4">
-                                        <div>
-                                            <label htmlFor="dob" className="block text-sm font-medium text-gray-700 mb-1">Date of Birth<span className="text-red-500">*</span></label>
-                                            <input type="date" id="dob" name="dob" value={formData.dob} onChange={handleChange} placeholder="dd/mm/yyyy" className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
-                                            {errors.dob && <p className="text-red-500 text-xs mt-1">{errors.dob}</p>}
+
+                                    <div className="space-y-4">
+                                        <div className="relative">
+                                            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                                Full Name <span className="text-red-500 ml-1">*</span>
+                                                {errors.name && <FaExclamationCircle className="ml-2 text-red-500 text-xs" />}
+                                            </label>
+                                            <div className="relative">
+                                                <input
+                                                    type="text"
+                                                    id="name"
+                                                    name="name"
+                                                    value={formData.name}
+                                                    onChange={handleChange}
+                                                    placeholder="Enter your full name"
+                                                    className={`w-full px-4 py-2 pl-10 border ${errors.name ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
+                                                />
+                                                <FaUser className="absolute left-3 top-3 text-gray-400" />
+                                            </div>
+                                            {errors.name && <p className="text-red-500 text-xs mt-1 flex items-center"><FaInfoCircle className="mr-1" /> {errors.name}</p>}
                                         </div>
-                                        <div>
-                                            <label htmlFor="age" className="block text-sm font-medium text-gray-700 mb-1">Age<span className="text-red-500">*</span></label>
-                                            <input type="text" id="age" name="age" value={formData.age} onChange={handleChange} placeholder="Your age" className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
-                                            {errors.age && <p className="text-red-500 text-xs mt-1">{errors.age}</p>}
+
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="relative">
+                                                <label htmlFor="dob" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                                    Date of Birth <span className="text-red-500 ml-1">*</span>
+                                                    {errors.dob && <FaExclamationCircle className="ml-2 text-red-500 text-xs" />}
+                                                </label>
+                                                <div className="relative">
+                                                    <DatePicker
+                                                        selected={formData.dob ? new Date(formData.dob) : null}
+                                                        onChange={(date) => {
+                                                            // Format date as yyyy-mm-dd for storage
+                                                            const formatted = date ? date.toISOString().split('T')[0] : '';
+                                                            // Calculate age
+                                                            let age = '';
+                                                            if (date) {
+                                                                const today = new Date();
+                                                                age = today.getFullYear() - date.getFullYear();
+                                                                const m = today.getMonth() - date.getMonth();
+                                                                if (m < 0 || (m === 0 && today.getDate() < date.getDate())) {
+                                                                    age--;
+                                                                }
+                                                                age = String(age);
+                                                            }
+                                                            setFormData(prev => ({
+                                                                ...prev,
+                                                                dob: formatted,
+                                                                age: age
+                                                            }));
+                                                            setErrors(prev => ({ ...prev, dob: undefined, age: undefined }));
+                                                        }}
+                                                        dateFormat="yyyy-MM-dd"
+                                                        placeholderText="Enter date of birth"
+                                                        className={`w-full px-4 py-2 pl-[35px] border ${errors.dob ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
+                                                        showYearDropdown
+                                                        yearDropdownItemNumber={100}
+                                                        scrollableYearDropdown
+                                                        maxDate={new Date()}
+                                                    />
+                                                    <FaBirthdayCake className="absolute left-3 top-3 text-gray-400" />
+                                                </div>
+                                                {errors.dob && <p className="text-red-500 text-xs mt-1 flex items-center"><FaInfoCircle className="mr-1" /> {errors.dob}</p>}
+                                            </div>
+
+                                            <div className="relative">
+                                                <label htmlFor="age" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                                    Age <span className="text-red-500 ml-1">*</span>
+                                                    {errors.age && <FaExclamationCircle className="ml-2 text-red-500 text-xs" />}
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="age"
+                                                    name="age"
+                                                    value={formData.age}
+                                                    readOnly
+                                                    placeholder="Your age"
+                                                    className={`w-full px-4 py-2 border ${errors.age ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-gray-100`}
+                                                />
+                                                {errors.age && <p className="text-red-500 text-xs mt-1 flex items-center"><FaInfoCircle className="mr-1" /> {errors.age}</p>}
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="mt-2">
-                                        <label htmlFor="gender" className="block text-sm font-medium text-gray-700 mb-1">Gender<span className="text-red-500">*</span></label>
-                                        <select id="gender" name="gender" value={formData.gender} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                                            <option value="">Select Gender</option>
-                                            <option value="male">Male</option>
-                                            <option value="female">Female</option>
-                                            <option value="other">Other</option>
-                                        </select>
-                                        {errors.gender && <p className="text-red-500 text-xs mt-1">{errors.gender}</p>}
+
+                                        <div className="relative">
+                                            <label htmlFor="gender" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                                Gender <span className="text-red-500 ml-1">*</span>
+                                                {errors.gender && <FaExclamationCircle className="ml-2 text-red-500 text-xs" />}
+                                            </label>
+                                            <select
+                                                id="gender"
+                                                name="gender"
+                                                value={formData.gender}
+                                                onChange={handleChange}
+                                                className={`w-full px-4 py-2 border ${errors.gender ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
+                                            >
+                                                <option value="">Select Gender</option>
+                                                <option value="male">Male</option>
+                                                <option value="female">Female</option>
+                                                <option value="other">Other</option>
+                                            </select>
+                                            {errors.gender && <p className="text-red-500 text-xs mt-1 flex items-center"><FaInfoCircle className="mr-1" /> {errors.gender}</p>}
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div>
-                                    <h3 className="text-lg font-semibold text-gray-700 mb-3 border-b border-gray-200 pb-2">Identification</h3>
-                                    <div>
-                                        <label htmlFor="aadhar" className="block text-sm font-medium text-gray-700 mb-1">Aadhar Card Number<span className="text-red-500">*</span></label>
-                                        <input type="text" id="aadhar" name="aadhar" value={formData.aadhar} onChange={handleChange} placeholder="12-digit Aadhar number" className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
-                                        {errors.aadhar && <p className="text-red-500 text-xs mt-1">{errors.aadhar}</p>}
+                                {/* Right Column */}
+                                <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+                                    <div className="flex items-center mb-4">
+                                        <FaIdCard className="text-blue-500 mr-2" />
+                                        <h3 className="text-lg font-semibold text-gray-700">Identification</h3>
                                     </div>
-                                    <div className="mt-4">
-                                        <label htmlFor="pan" className="block text-sm font-medium text-gray-700 mb-1">PAN Card Number</label>
-                                        <input type="text" id="pan" name="pan" value={formData.pan} onChange={handleChange} placeholder="10-digit PAN number" className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
+
+                                    <div className="space-y-4">
+                                        <div className="relative">
+                                            <label htmlFor="aadhar" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                                Aadhar Card Number <span className="text-red-500 ml-1">*</span>
+                                                {errors.aadhar && <FaExclamationCircle className="ml-2 text-red-500 text-xs" />}
+                                            </label>
+                                            <div className="relative">
+                                                <input
+                                                    type="text"
+                                                    id="aadhar"
+                                                    name="aadhar"
+                                                    value={formData.aadhar}
+                                                    onChange={handleChange}
+                                                    placeholder="12-digit Aadhar number"
+                                                    className={`w-full px-4 py-2 pl-10 border ${errors.aadhar ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
+                                                />
+                                                <FaIdCard className="absolute left-3 top-3 text-gray-400" />
+                                            </div>
+                                            {errors.aadhar && <p className="text-red-500 text-xs mt-1 flex items-center"><FaInfoCircle className="mr-1" /> {errors.aadhar}</p>}
+                                        </div>
+
+                                        <div className="relative">
+                                            <label htmlFor="pan" className="flex items-center text-sm font-medium text-gray-700 mb-1">
+                                                PAN Card Number <span className="text-red-500 ml-1">*</span>
+                                                {errors.pan && <FaExclamationCircle className="ml-2 text-red-500 text-xs" />}
+                                            </label>
+                                            <div className="relative">
+                                                <input
+                                                    type="text"
+                                                    id="pan"
+                                                    name="pan"
+                                                    value={formData.pan}
+                                                    onChange={handleChange}
+                                                    placeholder="10-digit PAN number"
+                                                    className={`w-full px-4 py-2 pl-10 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 ${formData.pan ? 'uppercase' : ''}`}
+                                                />
+                                                <FaPassport className="absolute left-3 top-3 text-gray-400" />
+                                            </div>
+                                            {errors.pan && <p className="text-red-500 text-xs mt-1 flex items-center"><FaInfoCircle className="mr-1" /> {errors.pan}</p>}
+                                        </div>
                                     </div>
-                                    <div className="mt-4">
-                                        <h3 className="text-lg font-semibold text-gray-700 mb-3 border-b border-gray-200 pb-2">Health Information</h3>
-                                        <div>
-                                            <label htmlFor="disability" className="block text-sm font-medium text-gray-700 mb-1">Disability (if any)</label>
-                                            <input type="text" id="disability" name="disability" value={formData.disability} onChange={handleChange} placeholder="Specify if any" className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
+
+                                    <div className="mt-6">
+                                        <div className="flex items-center mb-4">
+                                            <FaSuitcase className="text-blue-500 mr-2" />
+                                            <h3 className="text-lg font-semibold text-gray-700">Health Information</h3>
                                         </div>
-                                        <div className="mt-4">
-                                            <label htmlFor="medicalCondition" className="block text-sm font-medium text-gray-700 mb-1">Medical condition (if any)</label>
-                                            <input type="text" id="medicalCondition" name="medicalCondition" value={formData.medicalCondition} onChange={handleChange} placeholder="Specify if any" className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
-                                        </div>
-                                        <div className="mt-4">
-                                            <label htmlFor="medicalInsurance" className="block text-sm font-medium text-gray-700 mb-1">Medical insurance available</label>
-                                            <select id="medicalInsurance" name="medicalInsurance" value={formData.medicalInsurance} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                                                <option value="no">No</option>
-                                                <option value="yes">Yes</option>
-                                            </select>
+
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label htmlFor="disability" className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Disability (if any)
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="disability"
+                                                    name="disability"
+                                                    value={formData.disability}
+                                                    onChange={handleChange}
+                                                    placeholder="Specify if any"
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label htmlFor="medicalCondition" className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Medical condition (if any)
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="medicalCondition"
+                                                    name="medicalCondition"
+                                                    value={formData.medicalCondition}
+                                                    onChange={handleChange}
+                                                    placeholder="Specify if any"
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label htmlFor="medicalInsurance" className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Medical insurance available
+                                                </label>
+                                                <select
+                                                    id="medicalInsurance"
+                                                    name="medicalInsurance"
+                                                    value={formData.medicalInsurance}
+                                                    onChange={handleChange}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                                >
+                                                    <option value="no">No</option>
+                                                    <option value="yes">Yes</option>
+                                                </select>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
+                            {/* Contact and Address Section */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                                <div>
-                                    <h3 className="text-lg font-semibold text-gray-700 mb-3 border-b border-gray-200 pb-2">Contact Information</h3>
-                                    <div>
-                                        <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">Primary Phone<span className="text-red-500">*</span></label>
-                                        <input type="tel" id="phone" name="phone" value={formData.phone} onChange={handleChange} placeholder="Primary contact number" className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
-                                        <p className="text-xs text-gray-500 mt-1">(for official communication)</p>
-                                        {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
+                                {/* Contact Information */}
+                                <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+                                    <div className="flex items-center mb-4">
+                                        <FaPhone className="text-blue-500 mr-2" />
+                                        <h3 className="text-lg font-semibold text-gray-700">Contact Information</h3>
                                     </div>
-                                    <div className="mt-4">
-                                        <label htmlFor="altPhone" className="block text-sm font-medium text-gray-700 mb-1">Alternative Phone</label>
-                                        <input type="tel" id="altPhone" name="altPhone" value={formData.altPhone} onChange={handleChange} placeholder="Emergency contact number" className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
-                                        <p className="text-xs text-gray-500 mt-1">(medical/other traveling emergency)</p>
-                                    </div>
-                                    <div className="mt-4">
-                                        <label htmlFor="whatsapp" className="block text-sm font-medium text-gray-700 mb-1">WhatsApp Number</label>
-                                        <input type="tel" id="whatsapp" name="whatsapp" value={formData.whatsapp} onChange={handleChange} placeholder="WhatsApp number" className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
-                                    </div>
-                                    <div className="mt-4">
-                                        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-                                        <input type="email" id="email" name="email" value={formData.email} onChange={handleChange} placeholder="Your email address" className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
+
+                                    <div className="space-y-4">
+                                        <div className="relative">
+                                            <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                                Primary Phone <span className="text-red-500 ml-1">*</span>
+                                                {errors.phone && <FaExclamationCircle className="ml-2 text-red-500 text-xs" />}
+                                            </label>
+                                            <div className="relative">
+                                                <input
+                                                    type="tel"
+                                                    id="phone"
+                                                    name="phone"
+                                                    value={formData.phone}
+                                                    onChange={handleChange}
+                                                    placeholder="Primary contact number"
+                                                    className={`w-full px-4 py-2 pl-10 border ${errors.phone ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
+                                                />
+                                                <FaPhone className="absolute left-3 top-3 text-gray-400" />
+                                            </div>
+                                            <p className="text-xs text-gray-500 mt-1 flex items-center"><FaInfoCircle className="mr-1" /> For official communication</p>
+                                            {errors.phone && <p className="text-red-500 text-xs mt-1 flex items-center"><FaInfoCircle className="mr-1" /> {errors.phone}</p>}
+                                        </div>
+
+                                        <div className="relative">
+                                            <label htmlFor="altPhone" className="block text-sm font-medium text-gray-700 mb-1">
+                                                Alternative Phone
+                                            </label>
+                                            <div className="relative">
+                                                <input
+                                                    type="tel"
+                                                    id="altPhone"
+                                                    name="altPhone"
+                                                    value={formData.altPhone}
+                                                    onChange={handleChange}
+                                                    placeholder="Emergency contact number"
+                                                    className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                                />
+                                                <FaPhone className="absolute left-3 top-3 text-gray-400" />
+                                            </div>
+                                            <p className="text-xs text-gray-500 mt-1 flex items-center"><FaInfoCircle className="mr-1" /> Medical/other traveling emergency</p>
+                                        </div>
+
+                                        <div className="relative">
+                                            <label htmlFor="whatsapp" className="block text-sm font-medium text-gray-700 mb-1">
+                                                WhatsApp Number
+                                            </label>
+                                            <div className="relative">
+                                                <input
+                                                    type="tel"
+                                                    id="whatsapp"
+                                                    name="whatsapp"
+                                                    value={formData.whatsapp}
+                                                    onChange={handleChange}
+                                                    placeholder="WhatsApp number"
+                                                    className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                                />
+                                                <FaWhatsapp className="absolute left-3 top-3 text-gray-400" />
+                                            </div>
+                                        </div>
+
+                                        <div className="relative">
+                                            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                                Email Address <span className="text-red-500 ml-1">*</span>
+                                                {errors.email && <FaExclamationCircle className="ml-2 text-red-500 text-xs" />}
+                                            </label>
+                                            <div className="relative">
+                                                <input
+                                                    type="email"
+                                                    id="email"
+                                                    name="email"
+                                                    value={formData.email}
+                                                    onChange={handleChange}
+                                                    placeholder="Your email address"
+                                                    className={`w-full px-4 py-2 pl-10 border ${errors.email ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
+                                                />
+                                                <FaEnvelope className="absolute left-3 top-3 text-gray-400" />
+                                            </div>
+                                            {errors.email && <p className="text-red-500 text-xs mt-1 flex items-center"><FaInfoCircle className="mr-1" /> {errors.email}</p>}
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div>
-                                    <h3 className="text-lg font-semibold text-gray-700 mb-3 border-b border-gray-200 pb-2">Residential Address</h3>
-                                    <div>
-                                        <label htmlFor="homeAddress" className="block text-sm font-medium text-gray-700 mb-1">Complete Address<span className="text-red-500">*</span></label>
-                                        <textarea id="homeAddress" name="homeAddress" value={formData.homeAddress} onChange={handleChange} rows="4" placeholder="Your full residential address" className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"></textarea>
-                                        {errors.homeAddress && <p className="text-red-500 text-xs mt-1">{errors.homeAddress}</p>}
+                                {/* Residential Address */}
+                                <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+
+                                    <div className="flex items-center mb-4">
+                                        <FaHome className="text-blue-500 mr-2" />
+                                        <h3 className="text-lg font-semibold text-gray-700">Residential Address</h3>
                                     </div>
 
-                                    {/* <div className="mt-6">
-                                        <label htmlFor="aadharFront" className="block text-sm font-medium text-gray-700 mb-1">Aadhar Front Image<span className="text-red-500">*</span></label>
-                                        <input type="file" id="aadharFront" name="aadharFront" accept="image/*" onChange={handleFileChange} className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-                                        {errors.aadharFront && <p className="text-red-500 text-xs mt-1">{errors.aadharFront}</p>}
+                                    <div className="space-y-4">
+                                        <div className="relative">
+                                            <label htmlFor="homeAddress" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                                Complete Address <span className="text-red-500 ml-1">*</span>
+                                                {errors.homeAddress && <FaExclamationCircle className="ml-2 text-red-500 text-xs" />}
+                                            </label>
+                                            <textarea
+                                                id="homeAddress"
+                                                name="homeAddress"
+                                                value={formData.homeAddress}
+                                                onChange={handleChange}
+                                                rows="4"
+                                                placeholder="Your full residential address"
+                                                className={`w-full px-4 py-2 border ${errors.homeAddress ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
+                                            ></textarea>
+                                            {errors.homeAddress && <p className="text-red-500 text-xs mt-1 flex items-center"><FaInfoCircle className="mr-1" /> {errors.homeAddress}</p>}
+                                        </div>
+
+                                        <div className="relative">
+                                            <label htmlFor="pin" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                                PIN Code <span className="text-red-500 ml-1">*</span>
+                                                {errors.pin && <FaExclamationCircle className="ml-2 text-red-500 text-xs" />}
+                                            </label>
+                                            <div className="relative">
+                                                <input
+                                                    type="text"
+                                                    id="pin"
+                                                    name="pin"
+                                                    value={formData.pin}
+                                                    onChange={handleChange}
+                                                    placeholder="Enter your PIN code"
+                                                    className={`w-full px-4 py-2 pl-10 border ${errors.pin ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
+                                                />
+                                                <FaHome className="absolute left-3 top-3 text-gray-400" />
+                                            </div>
+                                            {errors.pin && <p className="text-red-500 text-xs mt-1 flex items-center"><FaInfoCircle className="mr-1" /> {errors.pin}</p>}
+                                        </div>
                                     </div>
-                                    <div className="mt-4">
-                                        <label htmlFor="aadharBack" className="block text-sm font-medium text-gray-700 mb-1">Aadhar Back Image<span className="text-red-500">*</span></label>
-                                        <input type="file" id="aadharBack" name="aadharBack" accept="image/*" onChange={handleFileChange} className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-                                        {errors.aadharBack && <p className="text-red-500 text-xs mt-1">{errors.aadharBack}</p>}
-                                    </div>
-                                    <div className="mt-4">
-                                        <label htmlFor="panCard" className="block text-sm font-medium text-gray-700 mb-1">PAN Card Image<span className="text-red-500">*</span></label>
-                                        <input type="file" id="panCard" name="panCard" accept="image/*" onChange={handleFileChange} className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-                                        {errors.panCard && <p className="text-red-500 text-xs mt-1">{errors.panCard}</p>}
-                                    </div> */}
+                                </div>
+                            </div>
+
+
+                            {/* Form Completion Indicator */}
+                            <div className="mt-6 bg-blue-50 border border-blue-100 rounded-md p-4 flex items-start">
+                                <FaCheckCircle className="text-blue-500 mt-1 mr-3 flex-shrink-0" />
+                                <div>
+                                    <h4 className="text-sm font-medium text-blue-800">Section A Progress</h4>
+                                    <p className="text-xs text-blue-600 mt-1">You've completed about 25% of the entire form. Keep going!</p>
                                 </div>
                             </div>
                         </motion.div>
@@ -904,97 +1248,167 @@ useEffect(() => {
                             animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, x: 50 }}
                             transition={{ duration: 0.3 }}
+                            className="relative"
                         >
-                            <h2 className="text-2xl font-semibold mb-6 text-gray-700">Section B: Package Details</h2>
-                            <p className="text-gray-500 mb-6">Information about your selected package and trip. These fields are pre-filled.</p>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label htmlFor="tourType" className="block text-sm font-medium text-gray-700 mb-1">Tour Type<span className="text-red-500">*</span></label>
-                                    <input
-                                        type="text"
-                                        id="tourType"
-                                        name="tourType"
-                                        value={formData.tourType}
-                                        readOnly // Make non-editable
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed"
-                                    />
-                                    {errors.tourType && <p className="text-red-500 text-xs mt-1">{errors.tourType}</p>}
+                            {/* Error message for Section B */}
+                            {(errors.tourType || errors.selectedTrip || errors.agentID) && (
+                                <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
+                                    Please fill all required Package Details before proceeding.
+                                </div>
+                            )}
+
+                            <div className="flex items-center mb-6">
+                                <div className="bg-blue-100 p-3 rounded-full mr-4">
+                                    <FaSuitcase className="text-blue-600 text-xl" />
                                 </div>
                                 <div>
-                                    <label htmlFor="selectedTrip" className="block text-sm font-medium text-gray-700 mb-1">Selected Trip<span className="text-red-500">*</span></label>
-                                    <input
-                                        type="text"
-                                        id="selectedTrip"
-                                        name="selectedTrip"
-                                        value={formData.selectedTrip}
-                                        readOnly // Make non-editable
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed"
-                                    />
-                                    {errors.selectedTrip && <p className="text-red-500 text-xs mt-1">{errors.selectedTrip}</p>}
+                                    <h2 className="text-2xl font-semibold text-gray-800">Section B: Package Details</h2>
+                                    <p className="text-gray-500">Information about your selected package and trip</p>
                                 </div>
-                                <div>
-                                    <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-1">Destination</label>
-                                    <input
-                                        type="text"
-                                        id="country"
-                                        name="country"
-                                        value={formData.country}
-                                        readOnly // Make non-editable
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed"
-                                    />
-                                    {errors.country && <p className="text-red-500 text-xs mt-1">{errors.country}</p>}
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Through Agent?</label>
-                                    <div className="flex items-center space-x-4">
-                                        <label className="inline-flex items-center">
-                                            <input
-                                                type="radio"
-                                                name="throughAgent"
-                                                value="yes"
-                                                // If agentIDFromURL exists, force "yes" and make it readOnly
-                                                checked={formData.throughAgent === 'yes' || !!agentIDFromURL}
-                                                onChange={handleChange}
-                                                className="form-radio text-blue-600"
-                                                disabled={!!agentIDFromURL} // Disable if agentID from URL is present
-                                            />
-                                            <span className="ml-2 text-gray-700">Yes</span>
+                            </div>
+
+                            {/* Form Progress Indicator */}
+                            <div className="mb-8 bg-gray-100 rounded-full h-2.5">
+                                <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: '50%' }}></div>
+                            </div>
+
+                            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 mb-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {/* Tour Type */}
+                                    <div className="relative">
+                                        <label htmlFor="tourType" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                            Tour Type <span className="text-red-500 ml-1">*</span>
+                                            {errors.tourType && <FaExclamationCircle className="ml-2 text-red-500 text-xs" />}
                                         </label>
-                                        <label className="inline-flex items-center">
+                                        <div className="relative">
                                             <input
-                                                type="radio"
-                                                name="throughAgent"
-                                                value="no"
-                                                // If agentIDFromURL exists, force "yes" and make this "no" unchecked and disabled
-                                                checked={formData.throughAgent === 'no' && !agentIDFromURL}
-                                                onChange={handleChange}
-                                                className="form-radio text-blue-600"
-                                                disabled={!!agentIDFromURL} // Disable if agentID from URL is present
+                                                type="text"
+                                                id="tourType"
+                                                name="tourType"
+                                                value={formData.tourType}
+                                                readOnly
+                                                className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed"
                                             />
-                                            <span className="ml-2 text-gray-700">No</span>
+                                            <FaFileSignature className="absolute left-3 top-3 text-gray-400" />
+                                        </div>
+                                        {errors.tourType && <p className="text-red-500 text-xs mt-1 flex items-center"><FaInfoCircle className="mr-1" /> {errors.tourType}</p>}
+                                    </div>
+
+                                    {/* Selected Trip */}
+                                    <div className="relative">
+                                        <label htmlFor="selectedTrip" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                            Selected Trip <span className="text-red-500 ml-1">*</span>
+                                            {errors.selectedTrip && <FaExclamationCircle className="ml-2 text-red-500 text-xs" />}
                                         </label>
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                id="selectedTrip"
+                                                name="selectedTrip"
+                                                value={formData.selectedTrip}
+                                                readOnly
+                                                className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed"
+                                            />
+                                            <FaPassport className="absolute left-3 top-3 text-gray-400" />
+                                        </div>
+                                        {errors.selectedTrip && <p className="text-red-500 text-xs mt-1 flex items-center"><FaInfoCircle className="mr-1" /> {errors.selectedTrip}</p>}
+                                    </div>
+
+                                    {/* Destination */}
+                                    <div className="relative">
+                                        <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-1">
+                                            Destination
+                                        </label>
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                id="country"
+                                                name="country"
+                                                value={formData.country}
+                                                readOnly
+                                                className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed"
+                                            />
+                                            <FaUsers className="absolute left-3 top-3 text-gray-400" />
+                                        </div>
+                                    </div>
+
+                                    {/* Through Agent */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                            Through Agent?
+                                            {errors.throughAgent && <FaExclamationCircle className="ml-2 text-red-500 text-xs" />}
+                                        </label>
+                                        <div className="flex items-center space-x-4">
+                                            <label className="inline-flex items-center">
+                                                <input
+                                                    type="radio"
+                                                    name="throughAgent"
+                                                    value="yes"
+                                                    checked={formData.throughAgent === 'yes' || !!agentIDFromURL}
+                                                    onChange={handleChange}
+                                                    className="form-radio h-4 w-4 text-blue-600 transition duration-150 ease-in-out"
+                                                    disabled={!!agentIDFromURL}
+                                                />
+                                                <span className="ml-2 text-gray-700">Yes</span>
+                                            </label>
+                                            <label className="inline-flex items-center">
+                                                <input
+                                                    type="radio"
+                                                    name="throughAgent"
+                                                    value="no"
+                                                    checked={formData.throughAgent === 'no' && !agentIDFromURL}
+                                                    onChange={handleChange}
+                                                    className="form-radio h-4 w-4 text-blue-600 transition duration-150 ease-in-out"
+                                                    disabled={!!agentIDFromURL}
+                                                />
+                                                <span className="ml-2 text-gray-700">No</span>
+                                            </label>
+                                        </div>
+                                        {errors.throughAgent && <p className="text-red-500 text-xs mt-1 flex items-center"><FaInfoCircle className="mr-1" /> {errors.throughAgent}</p>}
                                     </div>
                                 </div>
-                                {/* Display agentID field if throughAgent is 'yes' OR if agentIDFromURL is present */}
+
+                                {/* Agent ID Field - Conditionally Rendered */}
                                 {(formData.throughAgent === 'yes' || !!agentIDFromURL) && (
-                                    <div>
-                                        <label htmlFor="agentID" className="block text-sm font-medium text-gray-700 mb-1">Agent ID</label>
-                                        <input
-                                            type="text"
-                                            id="agentID"
-                                            name="agentID"
-                                            value={formData.agentID}
-                                            // Make it read-only if the value comes from the URL, otherwise it's editable
-                                            readOnly={!!agentIDFromURL}
-                                            // Apply disabled styling if read-only
-                                            className={`w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm ${!!agentIDFromURL ? 'bg-gray-100 cursor-not-allowed' : 'focus:ring-blue-500 focus:border-blue-500'}`}
-                                            // Only allow changes if not from URL
-                                            onChange={!agentIDFromURL ? handleChange : undefined}
-                                            placeholder="Enter agent's ID"
-                                        />
+                                    <div className="mt-6 relative">
+                                        <label htmlFor="agentID" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                            Agent ID <span className="text-red-500 ml-1">*</span>
+                                            {errors.agentID && <FaExclamationCircle className="ml-2 text-red-500 text-xs" />}
+                                        </label>
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                id="agentID"
+                                                name="agentID"
+                                                value={formData.agentID}
+                                                readOnly={!!agentIDFromURL}
+                                                onChange={!agentIDFromURL ? handleChange : undefined}
+                                                placeholder="Enter agent's ID"
+                                                className={`w-full px-4 py-2 pl-10 border ${errors.agentID ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm ${!!agentIDFromURL ? 'bg-gray-100 cursor-not-allowed' : 'focus:ring-blue-500 focus:border-blue-500'}`}
+                                            />
+                                            <FaUser className="absolute left-3 top-3 text-gray-400" />
+                                        </div>
+                                        {errors.agentID && (
+                                            <p className="text-red-500 text-xs mt-1 flex items-center">
+                                                <FaInfoCircle className="mr-1" /> {errors.agentID}
+                                            </p>
+                                        )}
+                                        {agentIDFromURL && (
+                                            <p className="text-xs text-gray-500 mt-1 flex items-center">
+                                                <FaInfoCircle className="mr-1" /> Agent ID is pre-filled from your referral link
+                                            </p>
+                                        )}
                                     </div>
                                 )}
-                                {/* Removed the agentName field completely  */}
+                            </div>
+
+                            {/* Form Completion Indicator */}
+                            <div className="mt-6 bg-blue-50 border border-blue-100 rounded-md p-4 flex items-start">
+                                <FaCheckCircle className="text-blue-500 mt-1 mr-3 flex-shrink-0" />
+                                <div>
+                                    <h4 className="text-sm font-medium text-blue-800">Section B Progress</h4>
+                                    <p className="text-xs text-blue-600 mt-1">You've completed about 50% of the entire form. Keep going!</p>
+                                </div>
                             </div>
                         </motion.div>
                     )}
@@ -1006,333 +1420,449 @@ useEffect(() => {
                             animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, x: 50 }}
                             transition={{ duration: 0.3 }}
+                            className="relative"
                         >
-                            <h2 className="text-2xl font-semibold mb-2 text-gray-700">Section C: Passenger Details</h2>
-                            <p className="text-gray-500 mb-6">Provide information about all passengers (adults and children)</p>
+                            {/* Error message for Section C */}
+                            {(errors.numPersons || errors.passengers) && (
+                                <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
+                                    Please fill all required Passenger Details before proceeding.
+                                </div>
+                            )}
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                                <div>
-                                    <label htmlFor="numPersons" className="block text-sm font-medium text-gray-700 mb-1">Number of Adults<span className="text-red-500">*</span></label>
-                                    <input
-                                        type="number"
-                                        id="numPersons"
-                                        name="numPersons"
-                                        value={formData.numPersons}
-                                        onChange={handleNumPersonsChange}
-                                        min="1" 
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                                    />
-                                    {errors.numPersons && <p className="text-red-500 text-xs mt-1">{errors.numPersons}</p>}
-                                    
+                            <div className="flex items-center mb-6">
+                                <div className="bg-blue-100 p-3 rounded-full mr-4">
+                                    <FaUsers className="text-blue-600 text-xl" />
                                 </div>
                                 <div>
-                                    <label htmlFor="numChildren" className="block text-sm font-medium text-gray-700 mb-1">Number of Children (below 10 years)</label>
-                                    <input
-                                        type="number"
-                                        id="numChildren"
-                                        name="numChildren"
-                                        value={formData.numChildren}
-                                        onChange={handleNumChildrenChange}
-                                        min="0"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                                    />
-                                    {errors.numChildren && <p className="text-red-500 text-xs mt-1">{errors.numChildren}</p>}
+                                    <h2 className="text-2xl font-semibold text-gray-800">Section C: Passenger Details</h2>
+                                    <p className="text-gray-500">Provide information about all passengers (adults and children)</p>
                                 </div>
                             </div>
 
-                            {Number(formData.numPersons) > 0 && (
-                                <>
-                                    <h3 className="text-lg font-semibold text-gray-700 mb-4">Details of Adult Passengers:</h3>
-                                    <div className="overflow-x-auto mb-6">
-                                        <table className="min-w-full bg-white border border-gray-200 rounded-md">
-                                            <thead>
-                                                <tr className="bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                                    <th className="py-3 px-4 border-b">S/L</th>
-                                                    <th className="py-3 px-4 border-b">Name of Passenger(s)<span className="text-red-500">*</span></th>
-                                                    <th className="py-3 px-4 border-b">Age<span className="text-red-500">*</span></th>
-                                                    <th className="py-3 px-4 border-b">Gender<span className="text-red-500">*</span></th>
-                                                    <th className="py-3 px-4 border-b">ID Type<span className="text-red-500">*</span></th>
-                                                    <th className="py-3 px-4 border-b">ID Number<span className="text-red-500">*</span></th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {Array.from({ length: Number(formData.numPersons) }).map((_, index) => (
-                                                    <tr key={`adult-${index}`} className="border-b border-gray-200 last:border-b-0">
-                                                        <td className="py-3 px-4 text-sm text-gray-800">{index + 1}</td>
-                                                        <td className="py-3 px-4">
-                                                            <input type="text" value={formData.passengers[index]?.name || ''} onChange={(e) => handleArrayChange('passengers', index, 'name', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm" />
-                                                            {errors[`passenger_${index}_name`] && <p className="text-red-500 text-xs mt-1">{errors[`passenger_${index}_name`]}</p>}
-                                                        </td>
-                                                        <td className="py-3 px-4">
-                                                            <input type="number" value={formData.passengers[index]?.age || ''} onChange={(e) => handleArrayChange('passengers', index, 'age', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm" />
-                                                            {errors[`passenger_${index}_age`] && <p className="text-red-500 text-xs mt-1">{errors[`passenger_${index}_age`]}</p>}
-                                                        </td>
-                                                        <td className="py-3 px-4">
-                                                            <select value={formData.passengers[index]?.gender || ''} onChange={(e) => handleArrayChange('passengers', index, 'gender', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm">
-                                                                <option value="">Select</option>
-                                                                <option value="male">Male</option>
-                                                                <option value="female">Female</option>
-                                                                <option value="other">Other</option>
-                                                            </select>
-                                                            {errors[`passenger_${index}_gender`] && <p className="text-red-500 text-xs mt-1">{errors[`passenger_${index}_gender`]}</p>}
-                                                        </td>
-                                                        <td className="py-3 px-4">
-                                                            <select value={formData.passengers[index]?.idType || ''} onChange={(e) => handleArrayChange('passengers', index, 'idType', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm">
-                                                                <option value="">Select</option>
-                                                                <option value="aadhar">Aadhar Card</option>
-                                                                <option value="passport">Passport</option>
-                                                                <option value="drivingLicense">Driving License</option>
-                                                                <option value="voterId">Voter ID</option>
-                                                            </select>
-                                                            {errors[`passenger_${index}_idType`] && <p className="text-red-500 text-xs mt-1">{errors[`passenger_${index}_idType`]}</p>}
-                                                        </td>
-                                                        <td className="py-3 px-4">
-                                                            <input type="text" value={formData.passengers[index]?.idNumber || ''} onChange={(e) => handleArrayChange('passengers', index, 'idNumber', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm" />
-                                                            {errors[`passenger_${index}_idNumber`] && <p className="text-red-500 text-xs mt-1">{errors[`passenger_${index}_idNumber`]}</p>}
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
+                            {/* Form Progress Indicator */}
+                            <div className="mb-8 bg-gray-100 rounded-full h-2.5">
+                                <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: '75%' }}></div>
+                            </div>
+
+                            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 mb-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                                    <div className="relative">
+                                        <label htmlFor="numPersons" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                            Number of Adults <span className="text-red-500 ml-1">*</span>
+                                            {errors.numPersons && <FaExclamationCircle className="ml-2 text-red-500 text-xs" />}
+                                        </label>
+                                        <div className="relative">
+                                            <input
+                                                type="number"
+                                                id="numPersons"
+                                                name="numPersons"
+                                                value={formData.numPersons}
+                                                onChange={handleNumPersonsChange}
+                                                min="1"
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 pl-[35px]"
+                                            />
+                                            <FaUser className="absolute left-3 top-3 text-gray-400" />
+                                        </div>
+                                        {errors.numPersons && <p className="text-red-500 text-xs mt-1 flex items-center"><FaInfoCircle className="mr-1" /> {errors.numPersons}</p>}
                                     </div>
-                                </>
-                            )}
+
+                                    <div className="relative">
+                                        <label htmlFor="numChildren" className="block text-sm font-medium text-gray-700 mb-1">
+                                            Number of Children (below 10 years)
+                                        </label>
+                                        <div className="relative">
+                                            <input
+                                                type="number"
+                                                id="numChildren"
+                                                name="numChildren"
+                                                value={formData.numChildren}
+                                                onChange={handleNumChildrenChange}
+                                                min="0"
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 pl-[35px]"
+                                            />
+                                            <FaChild className="absolute left-3 top-3 text-gray-400" />
+                                        </div>
+                                        {errors.numChildren && <p className="text-red-500 text-xs mt-1 flex items-center"><FaInfoCircle className="mr-1" /> {errors.numChildren}</p>}
+                                    </div>
+                                </div>
+
+                                {Number(formData.numPersons) > 0 && (
+                                    <>
+                                        <h3 className="text-lg font-semibold text-gray-700 mb-4">Details of Adult Passengers:</h3>
+                                        <div className="overflow-x-auto mb-6">
+                                            <table className="min-w-full bg-white border border-gray-200 rounded-md">
+                                                <thead>
+                                                    <tr className="bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                                        <th className="py-3 px-4 border-b">S/L</th>
+                                                        <th className="py-3 px-4 border-b">Name of Passenger(s)<span className="text-red-500">*</span></th>
+                                                        <th className="py-3 px-4 border-b">Age<span className="text-red-500">*</span></th>
+                                                        <th className="py-3 px-4 border-b">Gender<span className="text-red-500">*</span></th>
+                                                        <th className="py-3 px-4 border-b">ID Type<span className="text-red-500">*</span></th>
+                                                        <th className="py-3 px-4 border-b">ID Number<span className="text-red-500">*</span></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {Array.from({ length: Number(formData.numPersons) }).map((_, index) => (
+                                                        <tr key={`adult-${index}`} className="border-b border-gray-200 last:border-b-0">
+                                                            <td className="py-3 px-4 text-sm text-gray-800">{index + 1}</td>
+                                                            <td className="py-3 px-4">
+                                                                <input type="text" value={formData.passengers[index]?.name || ''} onChange={(e) => handleArrayChange('passengers', index, 'name', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm" />
+                                                                {errors[`passenger_${index}_name`] && <p className="text-red-500 text-xs mt-1">{errors[`passenger_${index}_name`]}</p>}
+                                                            </td>
+                                                            <td className="py-3 px-4">
+                                                                <input type="number" value={formData.passengers[index]?.age || ''} onChange={(e) => handleArrayChange('passengers', index, 'age', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm" />
+                                                                {errors[`passenger_${index}_age`] && <p className="text-red-500 text-xs mt-1">{errors[`passenger_${index}_age`]}</p>}
+                                                            </td>
+                                                            <td className="py-3 px-4">
+                                                                <select value={formData.passengers[index]?.gender || ''} onChange={(e) => handleArrayChange('passengers', index, 'gender', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm">
+                                                                    <option value="">Select</option>
+                                                                    <option value="male">Male</option>
+                                                                    <option value="female">Female</option>
+                                                                    <option value="other">Other</option>
+                                                                </select>
+                                                                {errors[`passenger_${index}_gender`] && <p className="text-red-500 text-xs mt-1">{errors[`passenger_${index}_gender`]}</p>}
+                                                            </td>
+                                                            <td className="py-3 px-4">
+                                                                <select value={formData.passengers[index]?.idType || ''} onChange={(e) => handleArrayChange('passengers', index, 'idType', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm">
+                                                                    <option value="">Select</option>
+                                                                    <option value="aadhar">Aadhar Card</option>
+                                                                    <option value="passport">Passport</option>
+                                                                    <option value="drivingLicense">Driving License</option>
+                                                                    <option value="voterId">Voter ID</option>
+                                                                </select>
+                                                                {errors[`passenger_${index}_idType`] && <p className="text-red-500 text-xs mt-1">{errors[`passenger_${index}_idType`]}</p>}
+                                                            </td>
+                                                            <td className="py-3 px-4">
+                                                                <input type="text" value={formData.passengers[index]?.idNumber || ''} onChange={(e) => handleArrayChange('passengers', index, 'idNumber', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm" />
+                                                                {errors[`passenger_${index}_idNumber`] && <p className="text-red-500 text-xs mt-1">{errors[`passenger_${index}_idNumber`]}</p>}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        {/* Show error if any adult age is less than 18 */}
+                                        {errors.passengers && (
+                                            <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
+                                                {errors.passengers}
+                                            </div>
+                                        )}
+                                    </>
+                                )}
                                 {errors.passengers && (
                                     <p className="text-red-500 text-xs mt-1">
                                         {errors.passengers.message}
                                     </p>
                                 )}
 
-                            {Number(formData.numChildren) > 0 && (
-                                <>
-                                    <h3 className="text-lg font-semibold text-gray-700 mb-4">Details of Child Passengers:</h3>
-                                    <div className="overflow-x-auto mb-6">
-                                        <table className="min-w-full bg-white border border-gray-200 rounded-md">
-                                            <thead>
-                                                <tr className="bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                                    <th className="py-3 px-4 border-b">S/L</th>
-                                                    <th className="py-3 px-4 border-b">Name of Child Passenger(s)<span className="text-red-500">*</span></th>
-                                                    <th className="py-3 px-4 border-b">Age<span className="text-red-500">*</span></th>
-                                                    <th className="py-3 px-4 border-b">Gender<span className="text-red-500">*</span></th>
-                                                    <th className="py-3 px-4 border-b">ID Type<span className="text-red-500">*</span></th>
-                                                    <th className="py-3 px-4 border-b">ID Number<span className="text-red-500">*</span></th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {Array.from({ length: Number(formData.numChildren) }).map((_, index) => (
-                                                    <tr key={`child-${index}`} className="border-b border-gray-200 last:border-b-0">
-                                                        <td className="py-3 px-4 text-sm text-gray-800">{index + 1}</td>
-                                                        <td className="py-3 px-4">
-                                                            <input type="text" value={formData.childPassengers[index]?.name || ''} onChange={(e) => handleArrayChange('childPassengers', index, 'name', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm" />
-                                                            {errors[`childPassenger_${index}_name`] && <p className="text-red-500 text-xs mt-1">{errors[`childPassenger_${index}_name`]}</p>}
-                                                        </td>
-                                                        <td className="py-3 px-4">
-                                                            <input type="number" value={formData.childPassengers[index]?.age || ''} onChange={(e) => handleArrayChange('childPassengers', index, 'age', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm" />
-                                                            {errors[`childPassenger_${index}_age`] && <p className="text-red-500 text-xs mt-1">{errors[`childPassenger_${index}_age`]}</p>}
-                                                        </td>
-                                                        <td className="py-3 px-4">
-                                                            <select value={formData.childPassengers[index]?.gender || ''} onChange={(e) => handleArrayChange('childPassengers', index, 'gender', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm">
-                                                                <option value="">Select</option>
-                                                                <option value="male">Male</option>
-                                                                <option value="female">Female</option>
-                                                                <option value="other">Other</option>
-                                                            </select>
-                                                            {errors[`childPassenger_${index}_gender`] && <p className="text-red-500 text-xs mt-1">{errors[`childPassenger_${index}_gender`]}</p>}
-                                                        </td>
-                                                        <td className="py-3 px-4">
-                                                            <select value={formData.childPassengers[index]?.idType || ''} onChange={(e) => handleArrayChange('childPassengers', index, 'idType', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm">
-                                                                <option value="">Select</option>
-                                                                <option value="birthCertificate">Birth Certificate</option>
-                                                                <option value="aadhar">Aadhar Card</option>
-                                                                <option value="passport">Passport</option>
-                                                            </select>
-                                                            {errors[`childPassenger_${index}_idType`] && <p className="text-red-500 text-xs mt-1">{errors[`childPassenger_${index}_idType`]}</p>}
-                                                        </td>
-                                                        <td className="py-3 px-4">
-                                                            <input type="text" value={formData.childPassengers[index]?.idNumber || ''} onChange={(e) => handleArrayChange('childPassengers', index, 'idNumber', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm" />
-                                                            {errors[`childPassenger_${index}_idNumber`] && <p className="text-red-500 text-xs mt-1">{errors[`childPassenger_${index}_idNumber`]}</p>}
-                                                        </td>
+                                {Number(formData.numChildren) > 0 && (
+                                    <>
+                                        <h3 className="text-lg font-semibold text-gray-700 mb-4">Details of Child Passengers:</h3>
+                                        <div className="overflow-x-auto mb-6">
+                                            <table className="min-w-full bg-white border border-gray-200 rounded-md">
+                                                <thead>
+                                                    <tr className="bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                                        <th className="py-3 px-4 border-b">S/L</th>
+                                                        <th className="py-3 px-4 border-b">Name of Child Passenger(s)<span className="text-red-500">*</span></th>
+                                                        <th className="py-3 px-4 border-b">Age<span className="text-red-500">*</span></th>
+                                                        <th className="py-3 px-4 border-b">Gender<span className="text-red-500">*</span></th>
+                                                        <th className="py-3 px-4 border-b">ID Type<span className="text-red-500">*</span></th>
+                                                        <th className="py-3 px-4 border-b">ID Number<span className="text-red-500">*</span></th>
                                                     </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </>
-                            )}
+                                                </thead>
+                                                <tbody>
+                                                    {Array.from({ length: Number(formData.numChildren) }).map((_, index) => (
+                                                        <tr key={`child-${index}`} className="border-b border-gray-200 last:border-b-0">
+                                                            <td className="py-3 px-4 text-sm text-gray-800">{index + 1}</td>
+                                                            <td className="py-3 px-4">
+                                                                <input type="text" value={formData.childPassengers[index]?.name || ''} onChange={(e) => handleArrayChange('childPassengers', index, 'name', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm" />
+                                                                {errors[`childPassenger_${index}_name`] && <p className="text-red-500 text-xs mt-1">{errors[`childPassenger_${index}_name`]}</p>}
+                                                            </td>
+                                                            <td className="py-3 px-4">
+                                                                <input type="number" value={formData.childPassengers[index]?.age || ''} onChange={(e) => handleArrayChange('childPassengers', index, 'age', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm" />
+                                                                {errors[`childPassenger_${index}_age`] && <p className="text-red-500 text-xs mt-1">{errors[`childPassenger_${index}_age`]}</p>}
+                                                            </td>
+                                                            <td className="py-3 px-4">
+                                                                <select value={formData.childPassengers[index]?.gender || ''} onChange={(e) => handleArrayChange('childPassengers', index, 'gender', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm">
+                                                                    <option value="">Select</option>
+                                                                    <option value="male">Male</option>
+                                                                    <option value="female">Female</option>
+                                                                    <option value="other">Other</option>
+                                                                </select>
+                                                                {errors[`childPassenger_${index}_gender`] && <p className="text-red-500 text-xs mt-1">{errors[`childPassenger_${index}_gender`]}</p>}
+                                                            </td>
+                                                            <td className="py-3 px-4">
+                                                                <select value={formData.childPassengers[index]?.idType || ''} onChange={(e) => handleArrayChange('childPassengers', index, 'idType', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm">
+                                                                    <option value="">Select</option>
+                                                                    <option value="birthCertificate">Birth Certificate</option>
+                                                                    <option value="aadhar">Aadhar Card</option>
+                                                                    <option value="passport">Passport</option>
+                                                                </select>
+                                                                {errors[`childPassenger_${index}_idType`] && <p className="text-red-500 text-xs mt-1">{errors[`childPassenger_${index}_idType`]}</p>}
+                                                            </td>
+                                                            <td className="py-3 px-4">
+                                                                <input type="text" value={formData.childPassengers[index]?.idNumber || ''} onChange={(e) => handleArrayChange('childPassengers', index, 'idNumber', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm" />
+                                                                {errors[`childPassenger_${index}_idNumber`] && <p className="text-red-500 text-xs mt-1">{errors[`childPassenger_${index}_idNumber`]}</p>}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        {/* Show error if any child age is 18 or more */}
+                                        {errors.childPassengers && (
+                                            <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
+                                                {errors.childPassengers}
+                                            </div>
+                                        )}
+                                    </>
+                                )}
 
-                            {/* Important Note */}
-                            <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4" role="alert">
-                                <p className="font-bold">Important Note:</p>
-                                <p className="text-sm">Please attach photocopies of your Aadhar card and Voter ID. For guests below 18 years without a voter ID, please provide a birth certificate. These documents are required for transit permits and bookings in Sikkim. Carry originals and 4 passport-size photos of each guest during travel.</p>
+                                {/* Form Completion Indicator */}
+                                <div className="mt-6 bg-blue-50 border border-blue-100 rounded-md p-4 flex items-start">
+                                    <FaCheckCircle className="text-blue-500 mt-1 mr-3 flex-shrink-0" />
+                                    <div>
+                                        <h4 className="text-sm font-medium text-blue-800">Section C Progress</h4>
+                                        <p className="text-xs text-blue-600 mt-1">You've completed about 75% of the entire form. Almost there!</p>
+                                    </div>
+                                </div>
                             </div>
 
+                            {/* Important Note - moved inside the white card */}
+                            <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mt-6 rounded-md" role="alert">
+                                <p className="font-bold flex items-center"><FaExclamationTriangle className="mr-2" /> Important Note:</p>
+                                <p className="text-sm mt-1">Please attach photocopies of your Aadhar card and Voter ID. For guests below 18 years without a voter ID, please provide a birth certificate. These documents are required for transit permits and bookings in Sikkim. Carry originals and 4 passport-size photos of each guest during travel.</p>
+                            </div>
                         </motion.div>
                     )}
 
-                    {/* Section D - Confirmation */}
                     {currentSection === 'D' && (
                         <motion.div
                             initial={{ opacity: 0, x: -50 }}
                             animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, x: 50 }}
                             transition={{ duration: 0.3 }}
+                            className="relative"
                         >
-                            <h2 className="text-2xl font-semibold mb-6 text-gray-700">Section D: Confirmation</h2>
-                            <div className="bg-blue-50 p-4 rounded-lg mb-6">
-                            <h4 className="text-xl font-bold text-blue-800">Review and Confirm</h4>
-                            <p className="text-gray-600">Please review your information before submission</p>
-                            </div>
-
-                            <div className="bg-gray-50 p-6 rounded-lg space-y-6">
-                                {/* Personal Information */}
-                                <div className="space-y-4">
-                                    <h5 className="font-bold text-lg border-b pb-2">Personal Information</h5>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <Info label="Full Name" value={formData.name} />
-                                    <Info label="Date of Birth" value={formData.dob} />
-                                    <Info label="Gender" value={formData.gender} />
-                                    <Info label="Age" value={formData.age} />
-                                    <Info label="Phone" value={formData.phone} />
-                                    <Info label="Alternate Phone" value={formData.altPhone} />
-                                    <Info label="WhatsApp" value={formData.whatsapp} />
-                                    <Info label="Email" value={formData.email || 'Not provided'} />
-                                    <Info label="Aadhar Number" value={formData.aadhar} />
-                                    <Info label="PAN Number" value={formData.pan} />
-                                    <Info label="Disability" value={formData.disability || 'None'} />
-                                    <Info label="Medical Condition" value={formData.medicalCondition || 'None'} />
-                                    <Info label="Medical Insurance" value={formData.medicalInsurance === 'yes' ? 'Yes' : 'No'} />
-                                    <Info label="Home Address" value={formData.homeAddress} />
-                                    </div>
+                            {/* Error message for Section D */}
+                            {errors.acceptedTerms && (
+                                <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
+                                    Please accept the Terms and Conditions before submitting.
                                 </div>
+                            )}
 
-                                {/* Package Information */}
-                                <div className="space-y-4">
-                                    <h5 className="font-bold text-lg border-b pb-2">Package Information</h5>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <Info label="Tour Type" value={formData.tourType} />
-                                    <Info label="Selected Trip" value={formData.selectedTrip} />
-                                    <Info label="Country" value={formData.country} />
-                                    <Info label="Through Agent" value={formData.throughAgent === 'yes' ? 'Yes' : 'No'} />
-                                    {formData.throughAgent === 'yes' && (
-                                        <>
-                                        {/* <Info label="Agent Name" value={formData.agentName} /> */}
-                                        <Info label="Agent ID" value={formData.agentID} />
-                                        </>
-                                    )}
-                                    </div>
+                            <div className="flex items-center mb-6">
+                                <div className="bg-blue-100 p-3 rounded-full mr-4">
+                                    <FaCheckCircle className="text-blue-600 text-xl" />
                                 </div>
-
-                                <div className="space-y-4">
-                                    <h5 className="font-bold text-lg border-b pb-2">Adult Passenger Information ({formData.numPersons} Adults)</h5>
-                                    {Number(formData.numPersons) > 0 ? (
-                                        <div className="overflow-x-auto">
-                                            <table className="min-w-full border border-gray-200">
-                                                <thead>
-                                                    <tr className="bg-blue-50">
-                                                        <th className="border p-2 text-left">Name</th>
-                                                        <th className="border p-2 text-left">Age</th>
-                                                        <th className="border p-2 text-left">Gender</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {formData.passengers.slice(0, Number(formData.numPersons)).map((passenger, index) => (
-                                                        <tr key={`confirm-adult-${index}`} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                                                            <td className="border p-2">{passenger.name}</td>
-                                                            <td className="border p-2">{passenger.age}</td>
-                                                            <td className="border p-2">{passenger.gender}</td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    ) : (
-                                        <p className="text-gray-600">No adult passengers entered.</p>
-                                    )}
-                                </div>
-
-                                <div className="space-y-4">
-                                    <h5 className="font-bold text-lg border-b pb-2">Child Passenger Information ({formData.numChildren} Children)</h5>
-                                    {Number(formData.numChildren) > 0 ? (
-                                        <div className="overflow-x-auto">
-                                            <table className="min-w-full border border-gray-200">
-                                                <thead>
-                                                    <tr className="bg-blue-50">
-                                                        <th className="border p-2 text-left">Name</th>
-                                                        <th className="border p-2 text-left">Age</th>
-                                                        <th className="border p-2 text-left">Gender</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {formData.childPassengers.slice(0, Number(formData.numChildren)).map((child, index) => (
-                                                        <tr key={`confirm-child-${index}`} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                                                            <td className="border p-2">{child.name}</td>
-                                                            <td className="border p-2">{child.age}</td>
-                                                            <td className="border p-2">{child.gender}</td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    ) : (
-                                        <p className="text-gray-600">No child passengers entered.</p>
-                                    )}
-                                </div>
-
-
-                                {/* Terms and Conditions checkbox */}
-                                <div className="flex items-center mb-4">
-                                    <input
-                                        type="checkbox"
-                                        id="acceptTerms"
-                                        checked={acceptedTerms}
-                                        onChange={(e) => {
-                                            setAcceptedTerms(e.target.checked);
-                                            setErrors(prev => ({ ...prev, acceptedTerms: undefined })); // Clear error on change
-                                        }}
-                                        className="form-checkbox h-5 w-5 text-blue-600 rounded"
-                                    />
-                                    <label htmlFor="acceptTerms" className="ml-2 text-sm text-gray-700">
-                                        I have read and agree to the <span className="font-semibold text-blue-600 cursor-pointer" onClick={() => setShowModal(true)}>Terms and Conditions</span>.
-                                    </label>
-                                </div>
-                                {errors.acceptedTerms && <p className="text-red-500 text-xs mt-1">{errors.acceptedTerms}</p>}
-
-                                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
-                                    <div className="flex">
-                                        <div className="flex-shrink-0">
-                                            <svg className="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                                            </svg>
-                                        </div>
-                                        <div className="ml-3">
-                                            <p className="text-sm text-yellow-700">
-                                                <strong>Important:</strong> By submitting this form, you agree to our terms and conditions. You will be redirected to the payment page after submission.
-                                            </p>
-                                        </div>
-                                    </div>
+                                <div>
+                                    <h2 className="text-2xl font-semibold text-gray-800">Section D: Confirmation</h2>
+                                    <p className="text-gray-500">Review your information before final submission</p>
                                 </div>
                             </div>
 
+                            {/* Form Progress Indicator */}
+                            <div className="mb-8 bg-gray-100 rounded-full h-2.5">
+                                <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: '100%' }}></div>
+                            </div>
+
+                            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 mb-6">
+                                {/* Review Header */}
+                                <div className="bg-blue-50 p-4 rounded-lg mb-6 flex items-start">
+                                    <FaClipboardCheck className="text-blue-600 text-xl mr-3 mt-1" />
+                                    <div>
+                                        <h4 className="text-xl font-bold text-blue-800">Review and Confirm</h4>
+                                        <p className="text-gray-600">Please carefully review all your information before submission</p>
+                                    </div>
+                                </div>
+
+                                {/* Personal Information Section */}
+                                <div className="space-y-6">
+                                    <div className="space-y-4">
+                                        <h5 className="font-bold text-lg border-b pb-2 flex items-center">
+                                            <FaUser className="mr-2 text-blue-500" />
+                                            Personal Information
+                                        </h5>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <Info label="Full Name" value={formData.name} icon={<FaUserTie className="text-gray-400" />} />
+                                            <Info label="Date of Birth" value={formData.dob} icon={<FaCalendarAlt className="text-gray-400" />} />
+                                            <Info label="Gender" value={formData.gender} icon={<FaVenusMars className="text-gray-400" />} />
+                                            <Info label="Age" value={formData.age} icon={<FaBirthdayCake className="text-gray-400" />} />
+                                            <Info label="Phone" value={formData.phone} icon={<FaPhone className="text-gray-400" />} />
+                                            <Info label="Alternate Phone" value={formData.altPhone} icon={<FaPhoneAlt className="text-gray-400" />} />
+                                            <Info label="WhatsApp" value={formData.whatsapp} icon={<FaWhatsapp className="text-gray-400" />} />
+                                            <Info label="Email" value={formData.email || 'Not provided'} icon={<FaEnvelope className="text-gray-400" />} />
+                                            <Info label="Aadhar Number" value={formData.aadhar} icon={<FaIdCard className="text-gray-400" />} />
+                                            <Info label="PAN Number" value={formData.pan} icon={<FaCreditCard className="text-gray-400" />} />
+                                            <Info label="Disability" value={formData.disability || 'None'} icon={<FaWheelchair className="text-gray-400" />} />
+                                            <Info label="Medical Condition" value={formData.medicalCondition || 'None'} icon={<FaHeartbeat className="text-gray-400" />} />
+                                            <Info label="Medical Insurance" value={formData.medicalInsurance === 'yes' ? 'Yes' : 'No'} icon={<FaShieldAlt className="text-gray-400" />} />
+                                            <Info label="Home Address" value={formData.homeAddress} icon={<FaHome className="text-gray-400" />} />
+                                        </div>
+                                    </div>
+
+                                    {/* Package Information Section */}
+                                    <div className="space-y-4">
+                                        <h5 className="font-bold text-lg border-b pb-2 flex items-center">
+                                            <FaSuitcase className="mr-2 text-blue-500" />
+                                            Package Information
+                                        </h5>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <Info label="Tour Type" value={formData.tourType} icon={<FaMapMarkedAlt className="text-gray-400" />} />
+                                            <Info label="Selected Trip" value={formData.selectedTrip} icon={<FaRoute className="text-gray-400" />} />
+                                            <Info label="Country" value={formData.country} icon={<FaGlobeAsia className="text-gray-400" />} />
+                                            <Info label="Through Agent" value={formData.throughAgent === 'yes' ? 'Yes' : 'No'} icon={<FaUserTie className="text-gray-400" />} />
+                                            {formData.throughAgent === 'yes' && (
+                                                <Info label="Agent ID" value={formData.agentID} icon={<FaIdBadge className="text-gray-400" />} />
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Adult Passengers Section */}
+                                    <div className="space-y-4">
+                                        <h5 className="font-bold text-lg border-b pb-2 flex items-center">
+                                            <FaUserFriends className="mr-2 text-blue-500" />
+                                            Adult Passengers ({formData.numPersons} Adults)
+                                        </h5>
+                                        {Number(formData.numPersons) > 0 ? (
+                                            <div className="overflow-x-auto">
+                                                <table className="min-w-full border border-gray-200 rounded-lg overflow-hidden">
+                                                    <thead>
+                                                        <tr className="bg-blue-50">
+                                                            <th className="border p-3 text-left font-medium text-gray-700"><FaUser className="inline mr-2" /> Name</th>
+                                                            <th className="border p-3 text-left font-medium text-gray-700"><FaBirthdayCake className="inline mr-2" /> Age</th>
+                                                            <th className="border p-3 text-left font-medium text-gray-700"><FaVenusMars className="inline mr-2" /> Gender</th>
+                                                            <th className="border p-3 text-left font-medium text-gray-700"><FaIdCard className="inline mr-2" /> ID Type</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {formData.passengers.slice(0, Number(formData.numPersons)).map((passenger, index) => (
+                                                            <tr key={`confirm-adult-${index}`} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                                                <td className="border p-3">{passenger.name}</td>
+                                                                <td className="border p-3">{passenger.age}</td>
+                                                                <td className="border p-3 capitalize">{passenger.gender}</td>
+                                                                <td className="border p-3">{passenger.idType}</td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        ) : (
+                                            <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
+                                                <FaUserSlash className="inline-block text-2xl mb-2" />
+                                                <p>No adult passengers entered.</p>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Child Passengers Section */}
+                                    <div className="space-y-4">
+                                        <h5 className="font-bold text-lg border-b pb-2 flex items-center">
+                                            <FaChild className="mr-2 text-blue-500" />
+                                            Child Passengers ({formData.numChildren} Children)
+                                        </h5>
+                                        {Number(formData.numChildren) > 0 ? (
+                                            <div className="overflow-x-auto">
+                                                <table className="min-w-full border border-gray-200 rounded-lg overflow-hidden">
+                                                    <thead>
+                                                        <tr className="bg-blue-50">
+                                                            <th className="border p-3 text-left font-medium text-gray-700"><FaUser className="inline mr-2" /> Name</th>
+                                                            <th className="border p-3 text-left font-medium text-gray-700"><FaBirthdayCake className="inline mr-2" /> Age</th>
+                                                            <th className="border p-3 text-left font-medium text-gray-700"><FaVenusMars className="inline mr-2" /> Gender</th>
+                                                            <th className="border p-3 text-left font-medium text-gray-700"><FaIdCard className="inline mr-2" /> ID Type</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {formData.childPassengers.slice(0, Number(formData.numChildren)).map((child, index) => (
+                                                            <tr key={`confirm-child-${index}`} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                                                <td className="border p-3">{child.name}</td>
+                                                                <td className="border p-3">{child.age}</td>
+                                                                <td className="border p-3 capitalize">{child.gender}</td>
+                                                                <td className="border p-3">{child.idType}</td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        ) : (
+                                            <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
+                                                <FaBaby className="inline-block text-2xl mb-2" />
+                                                <p>No child passengers entered.</p>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Terms and Conditions */}
+                                    <div className="bg-gray-50 p-4 rounded-lg">
+                                        <div className="flex items-start mb-4">
+                                            <input
+                                                type="checkbox"
+                                                id="acceptTerms"
+                                                checked={acceptedTerms}
+                                                onChange={(e) => {
+                                                    setAcceptedTerms(e.target.checked);
+                                                    setErrors(prev => ({ ...prev, acceptedTerms: undefined }));
+                                                }}
+                                                className="form-checkbox h-5 w-5 text-blue-600 rounded mt-1"
+                                            />
+                                            <label htmlFor="acceptTerms" className="ml-3 text-sm text-gray-700">
+                                                I have read and agree to the <span className="font-semibold text-blue-600 cursor-pointer hover:underline" onClick={() => setShowModal(true)}>Terms and Conditions</span>.
+                                                {errors.acceptedTerms && <p className="text-red-500 text-xs mt-1 flex items-center"><FaInfoCircle className="mr-1" /> {errors.acceptedTerms}</p>}
+                                            </label>
+                                        </div>
+
+                                        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded flex items-start">
+                                            <FaExclamationTriangle className="text-yellow-500 mt-1 mr-3 flex-shrink-0" />
+                                            <div>
+                                                <p className="text-sm text-yellow-700">
+                                                    <strong>Important:</strong> By submitting this form, you agree to our terms and conditions. You will be redirected to the payment page after submission.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Form Completion Indicator */}
+                                    <div className="mt-6 bg-green-50 border border-green-100 rounded-md p-4 flex items-start">
+                                        <FaCheckCircle className="text-green-500 mt-1 mr-3 flex-shrink-0" />
+                                        <div>
+                                            <h4 className="text-sm font-medium text-green-800">Form Completion</h4>
+                                            <p className="text-xs text-green-600 mt-1">You've completed 100% of the form. Ready to submit!</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Navigation Buttons */}
                             <div className="flex justify-between mt-8">
                                 <button
                                     type="button"
                                     onClick={() => handlePrevSection()}
-                                    className="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 transition-colors duration-300 flex items-center"
+                                    className="bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition-colors duration-300 flex items-center"
                                 >
                                     <FaArrowLeft className="mr-2" />
                                     Back: Section C
                                 </button>
                                 <button
                                     type="submit"
-                                    className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors duration-300 flex items-center"
+                                    className={`px-6 py-3 rounded-lg transition-colors duration-300 flex items-center ${isSubmitting || !acceptedTerms ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'}`}
                                     disabled={isSubmitting || !acceptedTerms}
                                 >
-                                    {isSubmitting ? 'Submitting...' : 'Submit Form'}
-                                    <FaArrowRight className="ml-2" />
+                                    {isSubmitting ? (
+                                        <>
+                                            <FaSpinner className="animate-spin mr-2" />
+                                            Submitting...
+                                        </>
+                                    ) : (
+                                        <>
+                                            Submit Form
+                                            <FaArrowRight className="ml-2" />
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         </motion.div>
                     )}
+
                 </form>
 
 

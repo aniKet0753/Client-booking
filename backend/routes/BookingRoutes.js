@@ -9,7 +9,7 @@ const mongoose = require('mongoose');
 const createBooking = async (req, res) => {
   try {
     const { bookingID, status, bookingDate, tour, customer, travelers, agent } = req.body;
-
+    
     console.log(req.body);
     console.log("req.body data is above");
     if ( !bookingID || !tour || !customer || !customer.name || !customer.email || !req.user || !req.user.id || !travelers || !Array.isArray(travelers) || travelers.length === 0) {
@@ -50,6 +50,7 @@ const createBooking = async (req, res) => {
       const updatedBooking = await existingBooking.save();
       console.log("Updated booking data:",req.body);
       console.log("Updated a existing booking data");
+      console.log(bookingID);
       return res.status(200).json(updatedBooking);
     } else {
       const newBooking = new Booking({
@@ -70,6 +71,7 @@ const createBooking = async (req, res) => {
       const savedBooking = await newBooking.save();
       console.log("Submitted a new booking data:",req.body);
       console.log("Saved new booking data");
+      console.log(bookingID);
       return res.status(201).json(savedBooking);
       
     }
