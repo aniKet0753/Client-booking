@@ -1,6 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react'; // Import useRef
 import axios from '../api';
-import { ChevronDown, ChevronUp, XCircle, CheckCircle, UserX } from 'lucide-react'; // Added UserX icon
+import { ChevronDown, ChevronUp, XCircle, CheckCircle, UserX } from 'lucide-react';
+
+// Counter for generating unique client-side IDs
+let clientSideIdCounter = 0;
 
 const BookingHistory = () => {
   const [filter, setFilter] = useState('active');
@@ -8,17 +11,17 @@ const BookingHistory = () => {
   const [expanded, setExpanded] = useState({});
   const [loading, setLoading] = useState(true);
 
-  // Modals for general confirmations/info
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [modalMessage, setModalMessage] = useState('');
 
-  // States for individual traveler cancellation
   const [showTravelerSelectionModal, setShowTravelerSelectionModal] = useState(false);
-  const [currentBookingForCancellation, setCurrentBookingForCancellation] = useState(null); // The booking object being modified
-  const [selectedTravelerIds, setSelectedTravelerIds] = useState(new Set()); // Set to store _id of selected travelers
-  // agentCancellationReason state is now managed internally by TravelerSelectionModal
-  // const [agentCancellationReason, setAgentCancellationReason] = useState(''); // Removed from here
+  const [currentBookingForCancellation, setCurrentBookingForCancellation] = useState(null);
+  // Store selected IDs using the client-side generated unique ID
+  const [selectedTravelerUniqueIds, setSelectedTravelerUniqueIds] = useState(new Set());
+
+  // Store a map of client-side unique ID to original traveler object (including backend _id)
+  const travelerMap = useRef(new Map());
 
   useEffect(() => {
     const fetchBookings = async () => {
@@ -28,10 +31,21 @@ const BookingHistory = () => {
             Authorization: `Bearer ${localStorage.getItem('Token')}`,
           },
         });
-  console.log(res)
+        console.log('API Response Data for Bookings:', res.data); // Keep this for debugging
 
         if (Array.isArray(res.data)) {
-          setBookings(res.data);
+          const processedBookings = res.data.map(booking => {
+            return {
+              ...booking,
+              travelers: booking.travelers.map(traveler => {
+                const uniqueFrontId = `client-${clientSideIdCounter++}`; // Generate unique ID
+                // Store the traveler object with its original _id and the new uniqueFrontId
+                travelerMap.current.set(uniqueFrontId, { ...traveler, uniqueFrontId });
+                return { ...traveler, uniqueFrontId }; // Add unique ID to traveler for frontend use
+              })
+            };
+          });
+          setBookings(processedBookings);
         } else {
           console.error('API response data is not an array:', res.data);
           setModalMessage('Received invalid data from the server. Please check the backend API.');
@@ -51,86 +65,89 @@ const BookingHistory = () => {
     fetchBookings();
   }, []);
 
-  // Function to toggle the expansion of booking details
   const toggleExpand = (bookingId) => {
     setExpanded((prev) => ({ ...prev, [bookingId]: !prev[bookingId] }));
   };
 
-  // Handler to open the traveler selection modal
   const handleCancelBookingClick = (booking) => {
     setCurrentBookingForCancellation(booking);
-    setSelectedTravelerIds(new Set()); // Clear previous selections
-    // setAgentCancellationReason(''); // No longer needed here as state is internal to modal
+    setSelectedTravelerUniqueIds(new Set()); // Clear previous selections using the new client-side IDs
     setShowTravelerSelectionModal(true);
   };
 
-  // Handler for selecting/deselecting individual travelers
-  const handleTravelerSelect = (travelerId) => {
-    setSelectedTravelerIds((prev) => {
+  // Handler for selecting/deselecting individual travelers using the uniqueFrontId
+  const handleTravelerSelect = (uniqueFrontId) => {
+    setSelectedTravelerUniqueIds((prev) => {
       const newSelection = new Set(prev);
-      if (newSelection.has(travelerId)) {
-        newSelection.delete(travelerId);
+      if (newSelection.has(uniqueFrontId)) {
+        newSelection.delete(uniqueFrontId);
+        console.log(`DEBUGGING: Deselected Traveler Unique ID: ${uniqueFrontId}. Current selected Unique IDs:`, Array.from(newSelection));
       } else {
-        newSelection.add(travelerId);
+        newSelection.add(uniqueFrontId);
+        console.log(`DEBUGGING: Selected Traveler Unique ID: ${uniqueFrontId}. Current selected Unique IDs:`, Array.from(newSelection));
       }
       return newSelection;
     });
   };
 
-  // Handler to confirm cancellation of selected travelers - now receives reason from modal
   const confirmTravelersCancellation = async (reasonFromModal) => {
-    setShowTravelerSelectionModal(false); // Close selection modal
+    setShowTravelerSelectionModal(false);
 
-    if (!currentBookingForCancellation || selectedTravelerIds.size === 0) {
+    if (!currentBookingForCancellation || selectedTravelerUniqueIds.size === 0) {
       setModalMessage('No travelers selected for cancellation or no booking active.');
       setShowInfoModal(true);
       return;
     }
 
-    setModalMessage(`Confirm cancellation for ${selectedTravelerIds.size} traveler(s)?`);
-    // Pass the reason to executeTravelersCancellation via state or directly
-    // Using a temporary state or directly passing to confirm callback is better
-    // For simplicity, let's modify executeTravelersCancellation to accept reason.
     executeTravelersCancellation(reasonFromModal);
   };
 
-
-  // Actual API call for canceling selected travelers
-  const executeTravelersCancellation = async (reason) => { // Now accepts reason
-    setShowConfirmModal(false); // Close confirmation modal (if still open from previous flow)
-
+  const executeTravelersCancellation = async (reason) => {
     try {
       const bookingId = currentBookingForCancellation.bookingID;
-      const travelerIdsArray = Array.from(selectedTravelerIds);
+      // Convert selected client-side unique IDs back to original backend _id's
+      const travelerBackendIdsToCancel = Array.from(selectedTravelerUniqueIds).map(uniqueFrontId => {
+        const traveler = travelerMap.current.get(uniqueFrontId);
+        // Important: Return the original backend _id for the API call
+        return traveler ? traveler._id : null;
+      }).filter(id => id !== null); // Filter out any nulls if mapping failed
 
-      // Pointing to the consolidated cancellation API endpoint and sending agentCancellationReason
+      if (travelerBackendIdsToCancel.length === 0) {
+        setModalMessage('Could not find backend IDs for selected travelers. Cancellation aborted.');
+        setShowInfoModal(true);
+        return;
+      }
+
+      console.log('Sending backend IDs for cancellation to API:', travelerBackendIdsToCancel); // Debugging
+
       const res = await axios.put(`/api/agents/cancel-booking/${bookingId}`, {
-        travelerIds: travelerIdsArray,
-        cancellationReason: reason // Send the reason received from modal
+        travelerIds: travelerBackendIdsToCancel, // Send the original backend _id's
+        cancellationReason: reason,
       }, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('Token')}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
       });
 
       setModalMessage(res.data.message || 'Selected travelers cancellation request sent successfully.');
       setShowInfoModal(true);
 
-      // Optimistically update frontend state
+      // Optimistically update frontend state based on original backend _id
       setBookings((prevBookings) =>
         prevBookings.map((booking) => {
           if (booking.bookingID === bookingId) {
             return {
               ...booking,
               travelers: booking.travelers.map((traveler) =>
-                travelerIdsArray.includes(traveler._id)
+                // Use the original backend _id to check against the IDs sent to API
+                travelerBackendIdsToCancel.includes(traveler._id)
                   ? {
                       ...traveler,
                       cancellationRequested: true,
                       cancellationApproved: false,
                       cancellationRejected: false,
-                      cancellationReason: reason // Set the reason provided by agent
+                      cancellationReason: reason,
                     }
                   : traveler
               ),
@@ -145,13 +162,10 @@ const BookingHistory = () => {
       setShowInfoModal(true);
     } finally {
       setCurrentBookingForCancellation(null);
-      setSelectedTravelerIds(new Set());
-      // setAgentCancellationReason(''); // No longer needed here
+      setSelectedTravelerUniqueIds(new Set()); // Clear using client-side IDs
     }
   };
 
-
-  // Helper function to parse date string (e.g., "YYYY-MM-DD")
   const parseCustomDate = (dateStr) => {
     if (!dateStr || typeof dateStr !== 'string' || !dateStr.includes('-')) {
       console.warn('Invalid date string received:', dateStr);
@@ -164,12 +178,15 @@ const BookingHistory = () => {
   const safeBookings = Array.isArray(bookings) ? bookings : [];
 
   const groupedBookings = {
-    active: safeBookings.filter(b => b.travelers.some(t => !t.cancellationRequested && !t.cancellationApproved && !t.cancellationRejected)), // Active if at least one traveler is active
-    requested: safeBookings.filter(b => b.travelers.some(t => t.cancellationRequested && !t.cancellationApproved && !t.cancellationRejected)), // Requested if at least one traveler is requested
-    approved: safeBookings.filter(b => b.travelers.some(t => t.cancellationApproved)), // Approved if at least one traveler is approved
-    rejected: safeBookings.filter(b => b.travelers.some(t => t.cancellationRejected)), // Rejected if at least one traveler is rejected
+    active: safeBookings.filter(b => b.travelers.some(t =>
+      !t.cancellationRequested && !t.cancellationApproved && !t.cancellationRejected
+    )),
+    requested: safeBookings.filter(b => b.travelers.some(t =>
+      t.cancellationRequested && !t.cancellationApproved && !t.cancellationRejected
+    )),
+    approved: safeBookings.filter(b => b.travelers.some(t => t.cancellationApproved)),
+    rejected: safeBookings.filter(b => b.travelers.some(t => t.cancellationRejected)),
   };
-
 
   const getFilteredBookings = () => {
     switch (filter) {
@@ -185,13 +202,12 @@ const BookingHistory = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <div className="flex items-center justify-center min-h-screen bg-gray-100 font-sans">
         <div className="text-center text-lg font-medium text-gray-700">Loading booking history...</div>
       </div>
     );
   }
 
-  // Render a section of bookings based on title, items, and color
   const renderSection = (title, items, color = 'gray') => (
     <div className="mb-12">
       <h3 className={`text-2xl font-bold mb-6 text-${color}-700 border-b-2 border-${color}-400 pb-3`}>
@@ -204,9 +220,9 @@ const BookingHistory = () => {
           {items.map(booking => {
             const tourDate = parseCustomDate(booking.tour.startDate);
             const now = new Date();
-            // A booking is cancelable if its tour date is in the future
-            // and there's at least one traveler not yet requested for cancellation.
-            const hasCancelableTravelers = booking.travelers.some(t => !t.cancellationRequested && !t.cancellationApproved && !t.cancellationRejected);
+            const hasCancelableTravelers = booking.travelers.some(t =>
+              !t.cancellationRequested && !t.cancellationApproved && !t.cancellationRejected
+            );
             const isCancelable = tourDate > now && hasCancelableTravelers;
 
             return (
@@ -249,24 +265,23 @@ const BookingHistory = () => {
                     </button>
                     {isCancelable && (
                       <button
-                        onClick={() => handleCancelBookingClick(booking)} // Pass entire booking object
+                        onClick={() => handleCancelBookingClick(booking)}
                         className="mt-2 bg-red-600 text-white text-sm px-5 py-2 rounded-lg hover:bg-red-700 transition-colors shadow-md"
                       >
                         Cancel Travelers
                       </button>
                     )}
-                    {/* Display overall booking status based on its travelers */}
                     {booking.travelers.some(t => t.cancellationRequested && !t.cancellationApproved && !t.cancellationRejected) && (
                       <span className="text-yellow-600 mt-1 text-md font-semibold flex items-center gap-1">
                         <span className="animate-spin h-4 w-4 border-2 border-yellow-600 border-t-transparent rounded-full"></span> Some Travelers Pending
                       </span>
                     )}
-                    {booking.travelers.every(t => t.cancellationApproved) && ( // If ALL travelers are approved cancelled
+                    {booking.travelers.every(t => t.cancellationApproved) && (
                       <span className="text-green-600 mt-1 text-md font-semibold flex items-center gap-1">
                         <CheckCircle size={18} /> All Travelers Approved Cancelled
                       </span>
                     )}
-                     {booking.travelers.every(t => t.cancellationRejected) && ( // If ALL travelers are rejected cancelled
+                     {booking.travelers.every(t => t.cancellationRejected) && (
                       <span className="text-red-600 mt-1 text-md font-semibold flex items-center gap-1">
                         <XCircle size={18} /> All Travelers Rejected
                       </span>
@@ -282,13 +297,15 @@ const BookingHistory = () => {
                     <div>🆔 <strong>Booking Date:</strong> <span className="text-gray-700">{new Date(booking.bookingDate).toLocaleDateString()}</span></div>
                     <div>💰 <strong>Payment Status:</strong> <span className={`font-semibold ${booking.payment.paymentStatus === 'Paid' ? 'text-green-600' : 'text-orange-600'}`}>{booking.payment.paymentStatus}</span></div>
                     {booking.agent && (
-                      <div>🧑‍💼 <strong>Booked by Agent:</strong> <span className="text-gray-700">{booking.agent.name} ({booking.agent.agentId})</span></div>
+                      <div>🧑‍💼 <strong>Booked by Agent:</strong> <span className="text-gray-700">{booking.agent.name} ({booking.agent.agentID})</span></div>
                     )}
                     <div className="mt-4">
                       <h4 className="font-semibold text-md mb-2 border-b border-gray-200 pb-1">Travelers:</h4>
                       {booking.travelers.length > 0 ? (
                         <ul className="list-disc list-inside space-y-2">
                           {booking.travelers.map((traveler) => (
+                            // Use traveler._id for key here as this is just for display,
+                            // but be aware if they are duplicate from backend, React might warn.
                             <li key={traveler._id} className="flex items-center gap-2 text-gray-700">
                                <span>{traveler.name} (Age: {traveler.age}, Gender: {traveler.gender})</span>
                                {traveler.cancellationRequested && <span className="text-yellow-600 text-sm font-semibold flex items-center gap-1"><UserX size={14}/>Requested</span>}
@@ -314,9 +331,8 @@ const BookingHistory = () => {
     </div>
   );
 
-  // Custom Confirmation Modal Component (for final confirmation)
   const ConfirmationModal = ({ message, onConfirm, onCancel }) => (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50 font-sans">
       <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
         <div className="text-lg font-semibold text-gray-800 mb-4">{message}</div>
         <div className="flex justify-center gap-4">
@@ -337,9 +353,8 @@ const BookingHistory = () => {
     </div>
   );
 
-  // Custom Info Modal Component (for alerts)
   const InfoModal = ({ message, onClose }) => (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50 font-sans">
       <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
         <div className="text-lg font-semibold text-gray-800 mb-4">{message}</div>
         <button
@@ -352,18 +367,15 @@ const BookingHistory = () => {
     </div>
   );
 
-  // New Modal for Traveler Selection
-  // This component now manages its own 'reason' state internally
   const TravelerSelectionModal = ({ booking, selectedIds, onSelect, onConfirm, onClose }) => {
-    const [reason, setReason] = useState(''); // State moved inside the modal
+    const [reason, setReason] = useState('');
 
-    // Filter out travelers who are already cancelled or have pending requests
     const availableTravelers = booking.travelers.filter(t =>
       !t.cancellationRequested && !t.cancellationApproved && !t.cancellationRejected
     );
 
     return (
-      <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50">
+      <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50 font-sans">
         <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
           <h3 className="text-xl font-bold text-gray-800 mb-4">Select Travelers to Cancel for Booking ID: {booking.bookingID}</h3>
           {availableTravelers.length === 0 ? (
@@ -371,15 +383,17 @@ const BookingHistory = () => {
           ) : (
             <div className="space-y-3 mb-6 max-h-60 overflow-y-auto pr-2">
               {availableTravelers.map((traveler) => (
-                <div key={traveler._id} className="flex items-center space-x-3 p-2 bg-gray-50 rounded-md">
+                <div key={traveler.uniqueFrontId} className="flex items-center space-x-3 p-2 bg-gray-50 rounded-md">
+                  {/* --- DEBUGGING: Log Traveler ID inside the map for comparison --- */}
+                  {console.log(`DEBUGGING: Modal Traveler Name: ${traveler.name}, Backend _id: ${traveler._id}, Client Unique ID: ${traveler.uniqueFrontId}`)}
                   <input
                     type="checkbox"
-                    id={`traveler-${traveler._id}`}
-                    checked={selectedIds.has(traveler._id)}
-                    onChange={() => onSelect(traveler._id)}
+                    id={`traveler-${traveler.uniqueFrontId}`} // Use uniqueFrontId
+                    checked={selectedIds.has(traveler.uniqueFrontId)} // Use uniqueFrontId
+                    onChange={() => onSelect(traveler.uniqueFrontId)} // Use uniqueFrontId
                     className="h-5 w-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                   />
-                  <label htmlFor={`traveler-${traveler._id}`} className="text-gray-800 text-base font-medium flex-grow cursor-pointer">
+                  <label htmlFor={`traveler-${traveler.uniqueFrontId}`} className="text-gray-800 text-base font-medium flex-grow cursor-pointer">
                     {traveler.name} (Age: {traveler.age}, Gender: {traveler.gender})
                   </label>
                 </div>
@@ -406,7 +420,7 @@ const BookingHistory = () => {
               Close
             </button>
             <button
-              onClick={() => onConfirm(reason)} // Pass the internal reason state to onConfirm
+              onClick={() => onConfirm(reason)}
               disabled={selectedIds.size === 0}
               className={`font-bold py-2 px-4 rounded-md transition-colors ${
                 selectedIds.size === 0 ? 'bg-indigo-300 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white'
@@ -419,7 +433,6 @@ const BookingHistory = () => {
       </div>
     );
   };
-
 
   return (
     <div className="p-6 max-w-6xl mx-auto font-sans">
@@ -445,8 +458,8 @@ const BookingHistory = () => {
       {showConfirmModal && (
         <ConfirmationModal
           message={modalMessage}
-          onConfirm={executeTravelersCancellation} // This will now receive the reason from confirmTravelersCancellation
-          onCancel={() => { setShowConfirmModal(false); setCurrentBookingForCancellation(null); setSelectedTravelerIds(new Set()); /* setAgentCancellationReason(''); */ }}
+          onConfirm={executeTravelersCancellation}
+          onCancel={() => { setShowConfirmModal(false); setCurrentBookingForCancellation(null); setSelectedTravelerUniqueIds(new Set()); }}
         />
       )}
 
@@ -460,12 +473,10 @@ const BookingHistory = () => {
       {showTravelerSelectionModal && currentBookingForCancellation && (
         <TravelerSelectionModal
           booking={currentBookingForCancellation}
-          selectedIds={selectedTravelerIds}
+          selectedIds={selectedTravelerUniqueIds} // Pass the client-side unique IDs
           onSelect={handleTravelerSelect}
-          onConfirm={confirmTravelersCancellation} // Now expects to receive reason from modal
-          onClose={() => { setShowTravelerSelectionModal(false); setCurrentBookingForCancellation(null); setSelectedTravelerIds(new Set()); /* setAgentCancellationReason(''); */ }}
-          // reason={agentCancellationReason} // Removed these props
-          // setReason={setAgentCancellationReason} // Removed these props
+          onConfirm={confirmTravelersCancellation}
+          onClose={() => { setShowTravelerSelectionModal(false); setCurrentBookingForCancellation(null); setSelectedTravelerUniqueIds(new Set()); }}
         />
       )}
     </div>
