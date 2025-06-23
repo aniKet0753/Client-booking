@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react'; // Import useRef
 import axios from '../api';
-import { ChevronDown, ChevronUp, XCircle, CheckCircle, UserX } from 'lucide-react';
+import { ChevronDown, ChevronUp, XCircle, CheckCircle, UserX, RotateCcw } from 'lucide-react'; // Import RotateCcw icon
 
 // Counter for generating unique client-side IDs
 let clientSideIdCounter = 0;
@@ -19,6 +19,10 @@ const BookingHistory = () => {
   const [currentBookingForCancellation, setCurrentBookingForCancellation] = useState(null);
   // Store selected IDs using the client-side generated unique ID
   const [selectedTravelerUniqueIds, setSelectedTravelerUniqueIds] = useState(new Set());
+
+  // --- New state for withdraw confirmation ---
+  const [showWithdrawConfirmModal, setShowWithdrawConfirmModal] = useState(false);
+  const [travelerToWithdraw, setTravelerToWithdraw] = useState(null); // Stores { bookingId, travelerUniqueId }
 
   // Store a map of client-side unique ID to original traveler object (including backend _id)
   const travelerMap = useRef(new Map());
@@ -166,6 +170,78 @@ const BookingHistory = () => {
     }
   };
 
+  // --- New Handlers for Withdraw Cancellation ---
+  const handleWithdrawCancellationClick = (bookingId, travelerUniqueId) => {
+    const traveler = travelerMap.current.get(travelerUniqueId);
+    if (!traveler) {
+      setModalMessage('Traveler not found for withdrawal.');
+      setShowInfoModal(true);
+      return;
+    }
+    setTravelerToWithdraw({ bookingId, travelerUniqueId });
+    setShowWithdrawConfirmModal(true);
+  };
+
+  const executeWithdrawCancellation = async () => {
+    if (!travelerToWithdraw) return;
+
+    const { bookingId, travelerUniqueId } = travelerToWithdraw;
+    const traveler = travelerMap.current.get(travelerUniqueId);
+    const travelerBackendId = traveler ? traveler._id : null;
+
+    if (!travelerBackendId) {
+      setModalMessage('Could not find backend ID for traveler to withdraw. Withdrawal aborted.');
+      setShowInfoModal(true);
+      return;
+    }
+
+    try {
+      const res = await axios.put(`/api/agents/withdraw-cancellation/${bookingId}`, {
+        travelerIds: [travelerBackendId], // Send as an array
+      }, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('Token')}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      setModalMessage(res.data.message || 'Cancellation request withdrawn successfully.');
+      setShowInfoModal(true);
+
+      // Optimistically update frontend state
+      setBookings((prevBookings) =>
+        prevBookings.map((booking) => {
+          if (booking.bookingID === bookingId) {
+            return {
+              ...booking,
+              travelers: booking.travelers.map((t) =>
+                t._id === travelerBackendId
+                  ? {
+                      ...t,
+                      cancellationRequested: false, // Reset the flag
+                      cancellationReason: undefined, // Clear the reason
+                      // Ensure approved/rejected flags remain false unless explicitly set by backend approval process
+                      cancellationApproved: false,
+                      cancellationRejected: false,
+                    }
+                  : t
+              ),
+            };
+          }
+          return booking;
+        })
+      );
+    } catch (err) {
+      console.error('Failed to withdraw cancellation request:', err);
+      setModalMessage(err.response?.data?.message || 'Failed to withdraw cancellation request. Please try again.');
+      setShowInfoModal(true);
+    } finally {
+      setShowWithdrawConfirmModal(false);
+      setTravelerToWithdraw(null);
+    }
+  };
+  // --- End New Handlers for Withdraw Cancellation ---
+
   const parseCustomDate = (dateStr) => {
     if (!dateStr || typeof dateStr !== 'string' || !dateStr.includes('-')) {
       console.warn('Invalid date string received:', dateStr);
@@ -304,11 +380,20 @@ const BookingHistory = () => {
                       {booking.travelers.length > 0 ? (
                         <ul className="list-disc list-inside space-y-2">
                           {booking.travelers.map((traveler) => (
-                            // Use traveler._id for key here as this is just for display,
-                            // but be aware if they are duplicate from backend, React might warn.
-                            <li key={traveler._id} className="flex items-center gap-2 text-gray-700">
+                            // Use traveler.uniqueFrontId for key here for stability
+                            <li key={traveler.uniqueFrontId} className="flex items-center gap-2 text-gray-700">
                                <span>{traveler.name} (Age: {traveler.age}, Gender: {traveler.gender})</span>
-                               {traveler.cancellationRequested && <span className="text-yellow-600 text-sm font-semibold flex items-center gap-1"><UserX size={14}/>Requested</span>}
+                               {traveler.cancellationRequested && !traveler.cancellationApproved && !traveler.cancellationRejected && (
+                                <span className="text-yellow-600 text-sm font-semibold flex items-center gap-1">
+                                  <UserX size={14}/>Requested
+                                  <button
+                                    onClick={() => handleWithdrawCancellationClick(booking.bookingID, traveler.uniqueFrontId)}
+                                    className="ml-2 text-blue-600 hover:text-blue-800 flex items-center gap-1 text-xs px-2 py-1 rounded border border-blue-400 hover:bg-blue-50 transition-colors"
+                                  >
+                                    <RotateCcw size={12} /> Withdraw
+                                  </button>
+                                </span>
+                               )}
                                {traveler.cancellationApproved && <span className="text-green-600 text-sm font-semibold flex items-center gap-1"><CheckCircle size={14}/>Approved</span>}
                                {traveler.cancellationRejected && <span className="text-red-600 text-sm font-semibold flex items-center gap-1"><XCircle size={14}/>Rejected</span>}
                                {traveler.cancellationReason && (
@@ -384,8 +469,6 @@ const BookingHistory = () => {
             <div className="space-y-3 mb-6 max-h-60 overflow-y-auto pr-2">
               {availableTravelers.map((traveler) => (
                 <div key={traveler.uniqueFrontId} className="flex items-center space-x-3 p-2 bg-gray-50 rounded-md">
-                  {/* --- DEBUGGING: Log Traveler ID inside the map for comparison --- */}
-                  {console.log(`DEBUGGING: Modal Traveler Name: ${traveler.name}, Backend _id: ${traveler._id}, Client Unique ID: ${traveler.uniqueFrontId}`)}
                   <input
                     type="checkbox"
                     id={`traveler-${traveler.uniqueFrontId}`} // Use uniqueFrontId
@@ -477,6 +560,15 @@ const BookingHistory = () => {
           onSelect={handleTravelerSelect}
           onConfirm={confirmTravelersCancellation}
           onClose={() => { setShowTravelerSelectionModal(false); setCurrentBookingForCancellation(null); setSelectedTravelerUniqueIds(new Set()); }}
+        />
+      )}
+
+      {/* --- New Withdraw Confirmation Modal --- */}
+      {showWithdrawConfirmModal && travelerToWithdraw && (
+        <ConfirmationModal
+          message="Are you sure you want to withdraw this cancellation request?"
+          onConfirm={executeWithdrawCancellation}
+          onCancel={() => { setShowWithdrawConfirmModal(false); setTravelerToWithdraw(null); }}
         />
       )}
     </div>

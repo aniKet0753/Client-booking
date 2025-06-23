@@ -678,6 +678,56 @@ router.put('/cancel-booking/:bookingId', authenticate, async (req, res) => {
   }
 });
 
+// Withdraw traveler cancellation request
+router.put('/withdraw-cancellation/:bookingID', authenticate, async (req, res) => {
+    try {
+        const { bookingID } = req.params;
+        const { travelerIds } = req.body; // Array of traveler _id's to withdraw
+
+        if (!bookingID || !travelerIds || !Array.isArray(travelerIds) || travelerIds.length === 0) {
+            return res.status(400).json({ message: 'Booking ID and traveler IDs are required.' });
+        }
+
+        const booking = await Booking.findOne({ bookingID: bookingID });
+        
+        if (!booking) {
+            return res.status(404).json({ message: 'Booking not found.' });
+        }
+
+        const agentMongoId = req.user.id;
+
+        const agent = await Agent.findById(agentMongoId);
+
+        // Ensure agents to withdraw requests on behalf of customers:
+        if (booking.agent.agentID !== agent.agentID) {
+            return res.status(403).json({ message: 'Unauthorized to withdraw cancellation for this booking.' });
+        }
+
+        let changesMade = false;
+        booking.travelers.forEach(traveler => {
+            if (travelerIds.includes(traveler._id.toString())) {
+                if (traveler.cancellationRequested && !traveler.cancellationApproved && !traveler.cancellationRejected) {
+                    traveler.cancellationRequested = false;
+                    traveler.cancellationReason = undefined; // Clear the reason
+                    changesMade = true;
+                }
+            }
+        });
+
+        if (!changesMade) {
+            return res.status(400).json({ message: 'No active cancellation requests found for the specified travelers to withdraw.' });
+        }
+
+        await booking.save();
+
+        res.status(200).json({ message: 'Cancellation request withdrawn successfully.', booking });
+
+    } catch (error) {
+        console.error('Error withdrawing cancellation request:', error);
+        res.status(500).json({ message: 'Failed to withdraw cancellation request', details: error.message });
+    }
+});
+
 router.get('/commission-history', authenticate, async (req, res) => {
   try {
     const agent = await Agent.findById(req.user.id).lean();

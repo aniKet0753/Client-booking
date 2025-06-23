@@ -727,18 +727,18 @@ router.put('/process-cancellation/:bookingId', authenticateSuperAdmin, async (re
             // This is complex for partials. A robust solution needs:
             // 1. A way to link individual traveler payments/commissions to a transaction.
             // 2. Or, update a single transaction to reflect partial refund/commission reversal.
-            // For now, this is a placeholder. You'll need to define how commissions are handled
+            // For now, this is a placeholder. Need to define how commissions are handled
             // for partial cancellations in your Transaction model.
             // Example Placeholder: Find relevant transaction, adjust its commission for this traveler.
             // This would likely involve finding the specific agent who booked this, and their commission on the *initial* total booking.
-            // If you need to reverse a specific commission for THIS traveler's share, that logic needs to be added here.
+            // If need to reverse a specific commission for THIS traveler's share, that logic needs to be added here.
             // For example:
             // const agent = await Agent.findOne({ agentID: booking.agent.agentId });
             // if (agent) {
             //     const commissionToReverse = (booking.agent.commission / booking.travelers.length); // simple pro-rata
             //     agent.walletBalance -= commissionToReverse;
             //     await agent.save();
-            //     // You might also need to log this in a commission history
+            //     // might also need to log this in a commission history
             // }
 
           } else if (action === 'reject') {
