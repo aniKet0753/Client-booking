@@ -141,7 +141,7 @@ const bookingSchema = new mongoose.Schema({
         ]
     },
     agent: {
-        agentId: {
+        agentID: {
             type: String,
             description: "ID of the booking agent"
         },

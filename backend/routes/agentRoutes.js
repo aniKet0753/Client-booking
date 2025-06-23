@@ -549,9 +549,11 @@ router.get('/my-full-bookings', authenticate, async (req, res) => {
       return res.status(404).json({ message: 'Agent not found.' });
     }
 
+    console.log(agent.agentID);
     // Find Booking documents where the agent field matches the current agent's agentID.
     const bookings = await Booking.find({ 'agent.agentID': agent.agentID }).sort({ bookingDate: -1 });
 
+    console.log(bookings)
     // Send 200 OK with an empty array if no bookings are found
     return res.status(200).json(bookings); // This will send an empty array if 'bookings' is empty
   } catch (error) {
