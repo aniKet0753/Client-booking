@@ -327,7 +327,9 @@ router.get('/tours', authenticateSuperAdmin, async (req, res) => {
   try {
     const tourDocs = await Tour.find({});
 
-    const formattedTours = tourDocs.map((tourDoc) => {
+     const formattedTours = await Promise.all(tourDocs.map(async (tourDoc) => {
+      // Check if there are any active bookings for this tour
+      const hasBookings = await Booking.exists({ 'tour.tourID': tourDoc._id, status: { $in: ['pending', 'confirmed'] } });
       return {
         tourID: tourDoc._id, 
         name: tourDoc.name,
@@ -356,8 +358,9 @@ router.get('/tours', authenticateSuperAdmin, async (req, res) => {
         gallery: tourDoc.gallery && Array.isArray(tourDoc.gallery) 
                    ? tourDoc.gallery.map(imgBase64 => `data:image/jpeg;base64,${imgBase64}`) 
                    : [],
+        hasBookings: !!hasBookings // true if any booking exists
       };
-    });
+    }));
 
     res.json({ tours: formattedTours });
   } catch (error) {
@@ -537,6 +540,11 @@ router.put('/tours/:_id', authenticateSuperAdmin,
         return res.status(404).json({ message: 'Tour not found.' });
       }
 
+      const hasBookings = await Booking.exists({ 'tour.tourID': tourId, status: { $in: ['pending', 'confirmed'] } });
+      if (hasBookings) {
+          return res.status(400).json({ message: 'Cannot edit tour: There are active bookings associated with this tour.' });
+      }
+
       const {
         tourID, name, categoryType, country, tourType, pricePerHead, GST, 
         duration, occupancy, remainingOccupancy, startDate, description,
@@ -635,6 +643,11 @@ router.delete('/tours/:_id', authenticateSuperAdmin, async (req, res) => {
             return res.status(404).json({ message: 'Tour not found.' });
         }
 
+        const hasBookings = await Booking.exists({ 'tour.tourID': tourId, status: { $in: ['pending', 'confirmed'] } });
+        if (hasBookings) {
+            return res.status(400).json({ message: 'Cannot delete tour: There are active bookings associated with this tour.' });
+        }
+
         res.status(200).json({ message: 'Tour deleted successfully!' });
 
     } catch (error) {
@@ -645,6 +658,7 @@ router.delete('/tours/:_id', authenticateSuperAdmin, async (req, res) => {
         res.status(500).json({ message: 'Internal server error' });
     }
 });
+
 // MODIFIED: GET /pending-cancellations
 // This endpoint now fetches Booking documents where at least one traveler has cancellationRequested: true
 router.get('/pending-cancellations', authenticateSuperAdmin, async (req, res) => {
