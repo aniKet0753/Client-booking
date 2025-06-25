@@ -1,5 +1,5 @@
-import React from "react";
-import { useLoaderData } from "react-router-dom";
+import {React, useEffect} from "react";
+import { useLoaderData, useLocation } from "react-router-dom";
 // import AllCountries from "../components/AllCountries";
 import Banner from "../components/Banner";
 // import ClientsReview from "../components/ClientsReview";
@@ -16,6 +16,16 @@ import ContactPage  from "../components/ContactSection";
 
 const Home = () => {
 //   const allTouristsSpot = useLoaderData();
+  const location = useLocation();
+  useEffect(() => {
+    if (location.hash) {
+      const id = location.hash.substring(1);
+      const element = document.getElementById(id);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  }, [location]); // Re-run this effect whenever the location object changes
 
   return (
     <div className="">
@@ -23,7 +33,9 @@ const Home = () => {
       <div className="px-10">
         <KnowUs />
       </div>
-      <TourSection/>
+      <section id="tours">
+          <TourSection/>
+      </section>
       <MedicalTourism/>
       <PopularTourSection/>
       <SpecialOffers/>

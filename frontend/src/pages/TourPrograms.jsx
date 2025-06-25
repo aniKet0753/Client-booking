@@ -7,7 +7,7 @@ import { MdOutlineAccessTime, MdOutlineTour } from "react-icons/md";
 import { IoLocationOutline } from "react-icons/io5";
 import { FaCheck, FaEye, FaUserSlash } from "react-icons/fa";
 import { useNavigate, useSearchParams, Link, useParams } from "react-router-dom";
-import axios from "../api";
+import axios from "../api"; // Assuming this is your axios instance
 import NeedHelp from "../components/NeedHelp";
 import Swal from "sweetalert2";
 import { useLocation } from "react-router-dom";
@@ -39,6 +39,7 @@ const TourPrograms = () => {
   const [selectedTourDate, setSelectedTourDate] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  // We'll simplify the use of noToursAfterUrlFilter slightly
 
   // States for the tooltip
   const [isTooltipVisible, setIsTooltipVisible] = useState(false);
@@ -66,7 +67,7 @@ const TourPrograms = () => {
   useEffect(() => {
     const fetchTourData = async () => {
       setLoading(true);
-      setError(null);
+      setError(null); // Clear previous errors
 
       try {
         if (!token || !role) {
@@ -87,9 +88,15 @@ const TourPrograms = () => {
         let toursData = res.data.tours;
         console.log("Fetched all tours data:", toursData);
 
+        // --- Determine if the tourType from URL exists globally (before category filter) ---
+        const tourTypeExistsGlobally = tourTypeFromUrl
+          ? toursData.some(tour => tour.tourType && tour.tourType.toLowerCase() === tourTypeFromUrl.toLowerCase())
+          : true; // If no tourType in URL, it implicitly "exists globally"
+
         // --- Filter by categoryType and tourType from URL ---
+        let filteredToursByUrl = toursData;
         if (categoryTypeFromUrl || tourTypeFromUrl) {
-          toursData = toursData.filter(tour => {
+          filteredToursByUrl = toursData.filter(tour => {
             const matchesCategory = categoryTypeFromUrl
               ? tour.categoryType && tour.categoryType.toLowerCase() === categoryTypeFromUrl.toLowerCase()
               : true;
@@ -101,15 +108,13 @@ const TourPrograms = () => {
             return matchesCategory && matchesTourType;
           });
         }
-        // --- END Filter by categoryType and tourType ---
 
-        // --- NEW: Separate active and expired tours ---
         const currentDate = new Date();
         const toursActive = [];
         const toursExpired = [];
 
-        if (Array.isArray(toursData)) {
-          toursData.forEach(tour => {
+        if (Array.isArray(filteredToursByUrl)) {
+          filteredToursByUrl.forEach(tour => {
             if (tour.startDate) {
               const tourStartDate = new Date(tour.startDate);
               if (tourStartDate < currentDate) {
@@ -118,7 +123,6 @@ const TourPrograms = () => {
                 toursActive.push(tour);
               }
             } else {
-              // If no startDate, treat as active for now, or decide how to handle
               toursActive.push(tour);
             }
           });
@@ -132,15 +136,54 @@ const TourPrograms = () => {
         setActiveTours(toursActive);
         setExpiredTours(toursExpired);
 
-        if (toursActive.length === 0 && toursExpired.length === 0) {
-            setError(<NoToursFound tourType={tourTypeFromUrl} categoryType={categoryTypeFromUrl} />);
+        if (toursActive.length === 0 && toursExpired.length === 0 && (tourTypeFromUrl || categoryTypeFromUrl)) {
+            let messageToDisplay = '';
+
+            if (tourTypeFromUrl && categoryTypeFromUrl) {
+                // User searched for a specific tourType in a specific category
+                if (tourTypeExistsGlobally) {
+                    // Scenario A: TourType exists elsewhere, just not in this category
+                    messageToDisplay = `Currently no ${pageTitleTourType} found in the "${pageTitleCategoryType}" category. However, ${pageTitleTourType}s are available in other categories. You can explore our other tours or ${pageTitleTourType}s in other categories.`;
+                } else {
+                    // Scenario B: TourType doesn't exist anywhere in the database
+                    messageToDisplay = `Currently no ${pageTitleTourType}s are available . We are working diligently on it, and it will come soon. Meanwhile, you can explore our other tour types.`;
+                }
+            } else if (tourTypeFromUrl && !categoryTypeFromUrl) {
+                // User searched for a specific tourType without a category
+                if (tourTypeExistsGlobally) {
+                    // This case is unlikely if tourTypeExistsGlobally is true AND filteredToursByUrl is 0.
+                    // It would imply the tourType exists, but all of them are expired.
+                    // We'll handle this by showing expired tours if any, or general "no tours".
+                    messageToDisplay = `No active ${pageTitleTourType}s found. We are working diligently on it, and it will come soon. Meanwhile, you can explore other tours.`;
+                } else {
+                    // Scenario C: TourType doesn't exist anywhere (no category specified)
+                    messageToDisplay = `Currently no ${pageTitleTourType}s are available . We are working diligently on it, and it will come soon. Meanwhile, you can explore our other tour types.`;
+                }
+            } else if (categoryTypeFromUrl && !tourTypeFromUrl) {
+                // User searched for a specific category without a tourType
+                messageToDisplay = `Currently, there are no tours available in the "${pageTitleCategoryType}" category. We are working diligently on it, and it will come soon. Meanwhile, you can explore our other tours.`;
+            } else {
+                // Fallback for any other filtered scenario resulting in no tours
+                messageToDisplay = `Currently, there are no tours available matching your selection. You can explore our other tours.`;
+            }
+
+            setError(
+                <NoToursFound
+                    tourType={tourTypeFromUrl}
+                    categoryType={categoryTypeFromUrl}
+                    message={messageToDisplay}
+                />
+            );
             setLoading(false);
-            return;
-        } else if (toursActive.length === 0 && toursExpired.length > 0) {
-            // If only expired tours are found, display a specific message
-            setError(<NoToursFound tourType={tourTypeFromUrl} categoryType={categoryTypeFromUrl} message="No active tours found, but some expired tours match your criteria." />);
+            return; // Exit here if a specific "no tours found" message is set
         }
 
+        // General "No tours at all" if no specific URL filters were applied OR if the above conditions didn't catch it
+        if (toursActive.length === 0 && toursExpired.length === 0 && !tourTypeFromUrl && !categoryTypeFromUrl) {
+             setError(<NoToursFound tourType={tourTypeFromUrl} categoryType={categoryTypeFromUrl} message="No tours are currently available in our database. Please check back later!" />);
+             setLoading(false);
+             return;
+        }
 
         // Calculate available months based *only* on active tours
         const months = new Set();
@@ -394,6 +437,7 @@ const TourPrograms = () => {
           )}
           {error && (
             <div className="text-center text-lg text-red-500 bg-red-100 p-4 rounded-md border border-red-200">
+              {/* Render error component directly */}
               {error.props ? <NoToursFound {...error.props} /> : error}
             </div>
           )}

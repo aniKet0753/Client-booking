@@ -26,8 +26,8 @@ import {
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 
-const NoToursFound = ({ tourType }) => {
-    const {categoryType} = useParams();
+const NoToursFound = ({ tourType, message }) => {
+    const {categoryType} = useParams(); // Still useful for general context if needed
     const navigate = useNavigate();
     const isAuthenticated = !!localStorage.getItem('Token');
     const [email, setEmail] = useState("");
@@ -61,7 +61,6 @@ const NoToursFound = ({ tourType }) => {
     const handleSubscribe = (e) => {
         e.preventDefault();
         if (email) {
-            // Here you would typically send the email to your backend
             console.log("Subscribed with email:", email);
             setSubscribed(true);
             setEmail("");
@@ -110,8 +109,8 @@ const NoToursFound = ({ tourType }) => {
     }
 
     const icon = getTourTypeIcon(tourType);
-    const tourTypeName = tourType;
-    const tourCategoryName = categoryType;
+    // Use tourType to generate the common heading
+    const commonHeading = `No ${tourType || 'Tours'} Available`;
 
     return (
         <motion.div
@@ -129,27 +128,28 @@ const NoToursFound = ({ tourType }) => {
                         >
                             {icon}
                         </motion.div>
-                        <h1 className="text-4xl md:text-4xl font-bold mb-3">
-                            No {tourTypeName} Available 
+
+                        {/* Common Heading */}
+                        <h1 className="text-3xl md:text-4xl font-bold mb-3">
+                            {commonHeading}
                         </h1>
-                        {tourCategoryName ? (
-                            <p className="text-xl md:text-2xl mb-2 font-light">
-                            Currently, there are no {tourTypeName} available in "{tourCategoryName}" category.<br />
-                            Please explore our other tour options or discover {tourTypeName} in different categories.
-                            </p>
-                        ) : (
-                            <p className="text-xl md:text-2xl mb-2 font-light">
-                                We're working diligently on it, and it's coming soon.
-                                Meanwhile you can explore our other tours.
+
+                        {/* Message from TourPrograms.jsx as a paragraph */}
+                        {message && ( // Only render the paragraph if a message is provided
+                            <p className="text-lg md:text-xl mb-8 leading-relaxed">
+                                {message}
                             </p>
                         )}
+
                         <div className="mt-6">
                             <motion.button
                                 className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-3 rounded-xl transition-all font-semibold text-lg shadow-md hover:shadow-lg"
                                 whileTap={{ scale: 0.95 }}
-                                onClick={() => {navigate(`/`);}} 
+                                onClick={() => {
+                                    navigate(`/#tours`);
+                                }}
                             >
-                                Show Other Tours
+                                Show All tours and categories
                             </motion.button>
                         </div>
                     </div>
