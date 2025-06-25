@@ -54,8 +54,8 @@ function App() {
           <Route path="/login" element={<Login setIsAuthenticated={setIsAuthenticated} />} />
           <Route path="/tour-programs/:tourType" element={<TourPrograms />} />
           <Route path="tour-itinerary/:tourID" element={<TourItinerary />} />
-          <Route path='/travel-experience/:tourCategory' element = { <TravelExperience/> }/>
-          <Route path='/travel-experience/:tourCategory/:tourType' element = { <TourPrograms/> }/>
+          <Route path='/travel-experience/:categoryType' element = { <TravelExperience/> }/>
+          <Route path='/travel-experience/:categoryType/:tourType' element = { <TourPrograms/> }/>
 
           {/* 404 fallback */}
           <Route path="*" element={<ErrorPage />} />

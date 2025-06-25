@@ -28,13 +28,14 @@ const formatDateForDisplay = (isoDateString) => {
 
 const TourPrograms = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams(); // Initialize useSearchParams
+  const [searchParams] = useSearchParams();
   const { pathname } = useLocation();
 
-  const [allTours, setAllTours] = useState([]); // This will store the initially fetched & tourType-filtered tours
+  const [activeTours, setActiveTours] = useState([]); // Stores non-expired tours
+  const [expiredTours, setExpiredTours] = useState([]); // Stores expired tours
   const [availableMonths, setAvailableMonths] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState(null);
-  const [toursForSelectedMonth, setToursForSelectedMonth] = useState([]);
+  const [toursForSelectedMonth, setToursForSelectedMonth] = useState([]); // Now filters active tours
   const [selectedTourDate, setSelectedTourDate] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -54,11 +55,13 @@ const TourPrograms = () => {
   const token = localStorage.getItem('Token');
   const role = localStorage.getItem('role');
 
-  const { tourType } = useParams();
+  const { categoryType, tourType } = useParams();
   const tourTypeFromUrl = tourType;
-  const pageTitleTourType = tourTypeFromUrl ? tourTypeFromUrl.replace(/%20/g, ' ') : 'All';
+  const categoryTypeFromUrl = categoryType;
 
-  // console.log(tourTypeFromUrl)
+  const pageTitleTourType = tourTypeFromUrl ? tourTypeFromUrl.replace(/%20/g, ' ') : 'All Tours';
+  const pageTitleCategoryType = categoryTypeFromUrl ? categoryTypeFromUrl.replace(/%20/g, ' ') : '';
+
 
   useEffect(() => {
     const fetchTourData = async () => {
@@ -84,35 +87,70 @@ const TourPrograms = () => {
         let toursData = res.data.tours;
         console.log("Fetched all tours data:", toursData);
 
-        // --- NEW: Filter by tourType from URL ---
-        if (tourTypeFromUrl) {
-          const normalizedTourType = tourTypeFromUrl.toLowerCase();
-          toursData = toursData.filter(tour =>
-            tour.tourType && tour.tourType.toLowerCase() === normalizedTourType
-          );
-          if (toursData.length === 0) {
-            setError(`No tours found for type: "${tourTypeFromUrl}".`);
-            setLoading(false);
-            return; // Exit if no tours of this type
-          }
+        // --- Filter by categoryType and tourType from URL ---
+        if (categoryTypeFromUrl || tourTypeFromUrl) {
+          toursData = toursData.filter(tour => {
+            const matchesCategory = categoryTypeFromUrl
+              ? tour.categoryType && tour.categoryType.toLowerCase() === categoryTypeFromUrl.toLowerCase()
+              : true;
+
+            const matchesTourType = tourTypeFromUrl
+              ? tour.tourType && tour.tourType.toLowerCase() === tourTypeFromUrl.toLowerCase()
+              : true;
+
+            return matchesCategory && matchesTourType;
+          });
         }
-        // --- END NEW ---
+        // --- END Filter by categoryType and tourType ---
 
-        setAllTours(toursData); // Set the (potentially filtered) tours
+        // --- NEW: Separate active and expired tours ---
+        const currentDate = new Date();
+        const toursActive = [];
+        const toursExpired = [];
 
-        const months = new Set();
         if (Array.isArray(toursData)) {
-          toursData.forEach(pkg => {
-            if (pkg.startDate) {
-              const startDate = new Date(pkg.startDate);
-              const monthName = startDate.toLocaleString('en-US', { month: 'long' });
-              months.add(monthName);
+          toursData.forEach(tour => {
+            if (tour.startDate) {
+              const tourStartDate = new Date(tour.startDate);
+              if (tourStartDate < currentDate) {
+                toursExpired.push(tour);
+              } else {
+                toursActive.push(tour);
+              }
+            } else {
+              // If no startDate, treat as active for now, or decide how to handle
+              toursActive.push(tour);
             }
           });
         } else {
-          console.warn("toursData is not an array after filtering:", toursData);
+          console.warn("toursData is not an array after initial filtering:", toursData);
           setError("Unexpected data format from server after filtering.");
+          setLoading(false);
+          return;
         }
+
+        setActiveTours(toursActive);
+        setExpiredTours(toursExpired);
+
+        if (toursActive.length === 0 && toursExpired.length === 0) {
+            setError(<NoToursFound tourType={tourTypeFromUrl} categoryType={categoryTypeFromUrl} />);
+            setLoading(false);
+            return;
+        } else if (toursActive.length === 0 && toursExpired.length > 0) {
+            // If only expired tours are found, display a specific message
+            setError(<NoToursFound tourType={tourTypeFromUrl} categoryType={categoryTypeFromUrl} message="No active tours found, but some expired tours match your criteria." />);
+        }
+
+
+        // Calculate available months based *only* on active tours
+        const months = new Set();
+        toursActive.forEach(pkg => {
+          if (pkg.startDate) {
+            const startDate = new Date(pkg.startDate);
+            const monthName = startDate.toLocaleString('en-US', { month: 'long' });
+            months.add(monthName);
+          }
+        });
 
         setAvailableMonths(Array.from(months));
 
@@ -128,18 +166,19 @@ const TourPrograms = () => {
         }
         setError(errorMessage);
         console.error("Error fetching tour data:", err);
-        Swal.fire('Error', errorMessage, 'error'); // Use Swal for error display
+        Swal.fire('Error', errorMessage, 'error');
       } finally {
         setLoading(false);
       }
     };
 
     fetchTourData();
-  }, [token, role, tourTypeFromUrl]); // Add tourTypeFromUrl to dependency array
+  }, [token, role, tourTypeFromUrl, categoryTypeFromUrl]);
 
+  // This useEffect now filters from activeTours
   useEffect(() => {
-    if (selectedMonth && allTours.length > 0) {
-      const filtered = allTours.filter(tour => {
+    if (selectedMonth && activeTours.length > 0) {
+      const filtered = activeTours.filter(tour => {
         if (!tour.startDate) return false;
         const tourMonth = new Date(tour.startDate).toLocaleString('en-US', { month: 'long' });
         return tourMonth === selectedMonth;
@@ -150,7 +189,7 @@ const TourPrograms = () => {
       setToursForSelectedMonth([]);
       setSelectedTourDate(null);
     }
-  }, [selectedMonth, allTours]);
+  }, [selectedMonth, activeTours]);
 
 
   const handleMonthClick = (month) => {
@@ -164,17 +203,14 @@ const TourPrograms = () => {
   const handleTourDateClick = (tour) => {
     console.log("Selected Tour Date:", tour);
     setSelectedTourDate(tour);
-    setNumberOfPeople(""); // Clear previous input when a new tour is selected
-    setAgentReferralId(""); // Clear previous agent ID
-    setBookingError(""); // Clear previous booking errors
-    setBookingSuccessMessage(""); // Clear any previous success message
+    setNumberOfPeople("");
+    setAgentReferralId("");
+    setBookingError("");
+    setBookingSuccessMessage("");
   };
 
-  // This handleContinue is now less critical as you are using Link directly
   const handleContinue = () => {
     if (selectedTourDate) {
-      // If you still want a modal before navigating, re-enable this.
-      // For now, the Link component handles navigation directly.
       setIsBookingModalOpen(true);
     } else {
       Swal.fire('Oops!', 'Please select a tour date to continue.', 'warning');
@@ -188,7 +224,7 @@ const TourPrograms = () => {
   const handleMouseEnterMonth = (month, event) => {
     if (!availableMonths.includes(month)) {
       setIsTooltipVisible(true);
-      setTooltipText("No tours available for this month (for selected type)"); // More specific tooltip
+      setTooltipText("No active tours available for this month (for selected type/category)");
       setTooltipPosition({ x: event.clientX + 10, y: event.clientY + 10 });
     }
   };
@@ -223,10 +259,120 @@ const TourPrograms = () => {
     window.scrollTo(0, 0);
   }, [pathname]);
 
+  const renderTourCard = (tour, isExpiredCard = false) => (
+    <div
+      key={tour.tourID}
+      className={`relative bg-white rounded-xl border-2 transition-all duration-300 shadow-sm hover:shadow-lg overflow-hidden ${isExpiredCard
+        ? "border-red-300 bg-red-50 opacity-80 cursor-not-allowed" // Style for expired tours
+        : selectedTourDate?.tourID === tour.tourID
+          ? "border-blue-500 ring-4 ring-blue-100 cursor-pointer"
+          : "border-gray-100 hover:border-blue-300 cursor-pointer"
+      }`}
+      onClick={() => !isExpiredCard && handleTourDateClick(tour)} // Only allow click if not expired
+    >
+      {/* Selected badge */}
+      {selectedTourDate?.tourID === tour.tourID && !isExpiredCard && (
+        <div className="absolute top-3 right-3 bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full z-10 flex items-center">
+          <FaCheck className="mr-1" /> SELECTED
+        </div>
+      )}
+       {isExpiredCard && (
+        <div className="absolute top-3 right-3 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full z-10 flex items-center">
+          <FaEye className="mr-1" /> EXPIRED
+        </div>
+      )}
+
+      {/* Tour Image */}
+      {tour.image && (
+        <div className="h-48 w-full overflow-hidden relative">
+          <img
+            src={tour.image}
+            alt={tour.name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent h-20" />
+          <div className="absolute bottom-4 left-4 right-4">
+            <h3 className="text-xl font-bold text-white">{tour.name}</h3>
+            <div className="flex items-center text-white/90 text-sm mt-1">
+              <IoLocationOutline className="mr-1" />
+              {tour.categoryType} | {tour.country}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tour Details */}
+      <div className="p-5">
+        {/* Price and Tour Type */}
+        <div className="flex justify-between items-start mb-4">
+          <div className="flex items-end">
+            <span className="text-2xl font-bold text-green-600">
+              ₹{tour.pricePerHead?.toLocaleString()}
+            </span>
+            <span className="text-md text-gray-500 ml-1">/person</span>
+          </div>
+          <span className="flex items-center text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+            <MdOutlineTour className="mr-1" />
+            {tour.tourType}
+          </span>
+        </div>
+
+        {/* Key Info Grid */}
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="flex items-center text-sm text-gray-700">
+            <div className="bg-blue-100 p-2 rounded-full mr-3">
+              <MdOutlineAccessTime className="text-blue-600" />
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Duration</div>
+              <div className="font-medium">{tour.duration} days</div>
+            </div>
+          </div>
+
+          <div className="flex items-center text-sm text-gray-700">
+            <div className="bg-blue-100 p-2 rounded-full mr-3">
+              <HiOutlineUserGroup className="text-blue-600" />
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Occupancy</div>
+              <div className="font-medium">{tour.occupancy}</div>
+            </div>
+          </div>
+
+          <div className="flex items-center text-sm text-gray-700">
+            <div className="bg-blue-100 p-2 rounded-full mr-3">
+              <FaUserSlash className="text-blue-600 text-sm" />
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Remaining</div>
+              <div className="font-medium">{tour.remainingOccupancy}</div>
+            </div>
+          </div>
+
+          <div className="flex items-center text-sm text-gray-700">
+            <div className="bg-blue-100 p-2 rounded-full mr-3">
+              <SlCalender className="text-blue-600" />
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Start Date</div>
+              <div className="font-medium">{formatDateForDisplay(tour.startDate)}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Description */}
+        <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+          {tour.description}
+        </p>
+      </div>
+    </div>
+  );
+
+
   return (
     <>
-      <InnerBanner 
-        title={`Tour Programs - ${pageTitleTourType}`} 
+      <InnerBanner
+        title={`Tour Programs - ${pageTitleCategoryType}${pageTitleCategoryType && pageTitleTourType !== 'All Tours' ? ' / ' : ''}${pageTitleTourType}`}
         backgroundImage={"https://images.unsplash.com/photo-1665048899763-7f632a78b87e?q=80&w=1935&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"}
       />
       <div className="flex flex-col min-h-screen relative">
@@ -246,18 +392,21 @@ const TourPrograms = () => {
               <p className="ml-4 text-lg text-blue-600">Loading available tour dates...</p>
             </div>
           )}
-          {error && typeof error === 'string' && error.includes('No tours found for type') ? (
-            <NoToursFound tourType={tourTypeFromUrl} />
-          ) : (
-            error && (
-              <div className="text-center text-lg text-red-500 bg-red-100 p-4 rounded-md border border-red-200">
-                {error}
-              </div>
-            )
+          {error && (
+            <div className="text-center text-lg text-red-500 bg-red-100 p-4 rounded-md border border-red-200">
+              {error.props ? <NoToursFound {...error.props} /> : error}
+            </div>
           )}
 
-          {!loading && !error && (
-            <div className="bg-white p-8 rounded-lg shadow-md border border-gray-200">
+          {!loading && !error && activeTours.length === 0 && expiredTours.length > 0 && (
+             <div className="mt-12 text-center text-gray-600 bg-yellow-50 p-4 rounded-md">
+                No active tours found for the selected criteria. Showing expired tours below.
+             </div>
+          )}
+
+
+          {!loading && !error && activeTours.length > 0 && (
+            <div className="bg-white p-8 rounded-lg shadow-md border border-gray-200 mb-8">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                 {monthsData.map((month, index) => (
                   <div
@@ -296,124 +445,23 @@ const TourPrograms = () => {
                 ))}
               </div>
 
-              {/* Details of Tour Section */}
+              {/* Details of Active Tours Section */}
               {selectedMonth && toursForSelectedMonth.length > 0 && (
                 <div className="mt-12">
                   <h2 className="text-3xl font-bold text-gray-800 mb-6">
                     Available Tours for {selectedMonth}
                   </h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {toursForSelectedMonth.map((tour) => (
-                      <div
-                        key={tour.tourID}
-                        className={`relative bg-white rounded-xl border-2 transition-all duration-300 shadow-sm hover:shadow-lg cursor-pointer overflow-hidden ${selectedTourDate?.tourID === tour.tourID
-                          ? "border-blue-500 ring-4 ring-blue-100"
-                          : "border-gray-100 hover:border-blue-300"
-                          }`}
-                        onClick={() => handleTourDateClick(tour)}
-                      >
-                        {/* Selected badge */}
-                        {selectedTourDate?.tourID === tour.tourID && (
-                          <div className="absolute top-3 right-3 bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full z-10 flex items-center">
-                            <FaCheck className="mr-1" /> SELECTED
-                          </div>
-                        )}
-
-                        {/* Tour Image */}
-                        {tour.image && (
-                          <div className="h-48 w-full overflow-hidden relative">
-                            <img
-                              src={tour.image}
-                              alt={tour.name}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                            />
-                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent h-20" />
-                            <div className="absolute bottom-4 left-4 right-4">
-                              <h3 className="text-xl font-bold text-white">{tour.name}</h3>
-                              <div className="flex items-center text-white/90 text-sm mt-1">
-                                <IoLocationOutline className="mr-1" />
-                                {tour.categoryType} | {tour.country}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Tour Details */}
-                        <div className="p-5">
-                          {/* Price and Tour Type */}
-                          <div className="flex justify-between items-start mb-4">
-                            <div className="flex items-end">
-                              <span className="text-2xl font-bold text-green-600">
-                                ₹{tour.pricePerHead?.toLocaleString()}
-                              </span>
-                              <span className="text-md text-gray-500 ml-1">/person</span>
-                            </div>
-                            <span className="flex items-center text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-                              <MdOutlineTour className="mr-1" />
-                              {tour.tourType}
-                            </span>
-                          </div>
-
-                          {/* Key Info Grid */}
-                          <div className="grid grid-cols-2 gap-3 mb-4">
-                            <div className="flex items-center text-sm text-gray-700">
-                              <div className="bg-blue-100 p-2 rounded-full mr-3">
-                                <MdOutlineAccessTime className="text-blue-600" />
-                              </div>
-                              <div>
-                                <div className="text-xs text-gray-500">Duration</div>
-                                <div className="font-medium">{tour.duration} days</div>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center text-sm text-gray-700">
-                              <div className="bg-blue-100 p-2 rounded-full mr-3">
-                                <HiOutlineUserGroup className="text-blue-600" />
-                              </div>
-                              <div>
-                                <div className="text-xs text-gray-500">Occupancy</div>
-                                <div className="font-medium">{tour.occupancy}</div>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center text-sm text-gray-700">
-                              <div className="bg-blue-100 p-2 rounded-full mr-3">
-                                <FaUserSlash className="text-blue-600 text-sm" />
-                              </div>
-                              <div>
-                                <div className="text-xs text-gray-500">Remaining</div>
-                                <div className="font-medium">{tour.remainingOccupancy}</div>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center text-sm text-gray-700">
-                              <div className="bg-blue-100 p-2 rounded-full mr-3">
-                                <SlCalender className="text-blue-600" />
-                              </div>
-                              <div>
-                                <div className="text-xs text-gray-500">Start Date</div>
-                                <div className="font-medium">{formatDateForDisplay(tour.startDate)}</div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Description */}
-                          <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-                            {tour.description}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
+                    {toursForSelectedMonth.map((tour) => renderTourCard(tour))}
                   </div>
                 </div>
               )}
 
               {selectedMonth && toursForSelectedMonth.length === 0 && (
                 <div className="mt-12 text-center text-gray-600">
-                  No tours found for {selectedMonth} with the current filters. Please select another month or clear tour type filter.
+                  No active tours found for {selectedMonth} with the current filters. Please select another month or clear tour type filter.
                 </div>
               )}
-
 
               <div className="flex justify-between items-center mt-6 pt-6 border-t border-gray-200">
                 <div className="flex items-center space-x-4 text-sm text-gray-600">
@@ -423,7 +471,11 @@ const TourPrograms = () => {
                   </div>
                   <div className="flex items-center">
                     <span className="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
-                    <span>Selected</span>
+                    <span>Selected Active Tour</span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="w-3 h-3 bg-red-300 rounded-full mr-2"></span>
+                    <span>Expired Tour</span>
                   </div>
                 </div>
                 {selectedTourDate ? (
@@ -441,6 +493,21 @@ const TourPrograms = () => {
                     Continue
                   </button>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* Expired Tours Section */}
+          {!loading && expiredTours.length > 0 && (
+            <div className="bg-white p-8 rounded-lg shadow-md border border-red-200 mt-8">
+              <h2 className="text-3xl font-bold text-red-700 mb-6 border-b pb-4 border-red-200">
+                Expired Tours
+              </h2>
+              <p className="text-gray-600 mb-6">
+                These tours have already started or concluded. They are displayed for informational purposes.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {expiredTours.map((tour) => renderTourCard(tour, true))}
               </div>
             </div>
           )}

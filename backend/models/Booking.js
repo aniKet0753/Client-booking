@@ -87,7 +87,8 @@ const bookingSchema = new mongoose.Schema({
         medicalInsurance: String,
     },
     travelers: [
-        {   _id: mongoose.Schema.Types.ObjectId, // Add _id for each traveler to identify them uniquely
+        {   
+            // _id: mongoose.Schema.Types.ObjectId, // Add _id for each traveler to identify them uniquely
             name: { type: String, required: true },
             age: { type: Number, required: true },
             gender: { type: String, enum: ['male', 'female', 'other'], required: true },
@@ -141,7 +142,7 @@ const bookingSchema = new mongoose.Schema({
         ]
     },
     agent: {
-        agentId: {
+        agentID: {
             type: String,
             description: "ID of the booking agent"
         },

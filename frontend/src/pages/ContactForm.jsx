@@ -1,10 +1,15 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import InnerBanner from '../components/InnerBanner';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { FaHome, FaEnvelope, FaPhone, FaFacebookF, FaTwitter, FaLinkedinIn } from 'react-icons/fa';
 
 const ContactForm = () => {
+
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, []);
+    
     return (
         <div className="bg-[#E8F3FF]">
             <Navbar />

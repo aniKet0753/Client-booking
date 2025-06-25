@@ -176,7 +176,7 @@ function TopNav({ collapsed }) {
             
             <div className="p-4 bg-blue-50">
               <div className="flex justify-between items-center mb-2">
-                <span className="text-gray-600">Current Balance:</span>
+                <span className="text-gray-600">Total Incoming Payments:</span>
                 <span className="text-2xl font-bold">₹{profile?.walletBalance || 0}</span>
               </div>
               <div className="flex justify-between text-sm text-gray-500">
@@ -196,7 +196,7 @@ function TopNav({ collapsed }) {
                 className={`flex-1 py-3 font-medium ${activeTab === 'completed' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
                 onClick={() => setActiveTab('completed')}
               >
-                Completed Payments
+                Received Payments
               </button>
               <button
                 className={`flex-1 py-3 font-medium ${activeTab === 'pending' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
