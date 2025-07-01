@@ -63,6 +63,7 @@ const MasterDataDashboard = () => {
     const [errorAgents, setErrorAgents] = useState(null);
     const [errorCustomers, setErrorCustomers] = useState(null);
     const [errorPayments, setErrorPayments] = useState(null);
+    const [agentStatusFilter, setAgentStatusFilter] = useState('all'); // 'all', 'active', 'rejected'
 
     const [activeTab, setActiveTab] = useState('agents');
     const [searchTerm, setSearchTerm] = useState('');
@@ -128,11 +129,19 @@ const MasterDataDashboard = () => {
 
 
     // Filter data based on search term
-    const filteredAgents = agents.filter(agent =>
-        agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        agent.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        agent.phone_calling.includes(searchTerm) // Using phone_calling from Agent model
-    );
+    const filteredAgents = agents.filter(agent => {
+        const matchesSearch =
+            agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            agent.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            agent.phone_calling.includes(searchTerm);
+
+        const matchesStatus =
+            agentStatusFilter === 'all' ||
+            (agentStatusFilter === 'active' && agent.status === 'active') ||
+            (agentStatusFilter === 'rejected' && agent.status === 'rejected');
+
+        return matchesSearch && matchesStatus;
+    });
 
     const filteredCustomers = customers.filter(customer =>
         customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -246,7 +255,7 @@ const MasterDataDashboard = () => {
                     </div>
                     <div>
                         <p className="text-gray-500 text-sm">Total Commission</p>
-                        {loadingAgents ? <p className="text-2xl font-bold">Loading...</p> : <p className="text-2xl font-bold flex items-center gap-1"> <FaRupeeSign className='text-base'/> {totalCommissionEarned.toLocaleString()}</p>}
+                        {loadingAgents ? <p className="text-2xl font-bold">Loading...</p> : <p className="text-2xl font-bold flex items-center gap-1"> <FaRupeeSign className='text-base' /> {totalCommissionEarned.toLocaleString()}</p>}
                         {errorAgents && <p className="text-red-500 text-xs">{errorAgents}</p>}
                     </div>
                 </div>
@@ -316,46 +325,68 @@ const MasterDataDashboard = () => {
                             ) : errorAgents ? (
                                 <div className="text-center py-8 text-red-500">{errorAgents}</div>
                             ) : (
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
-                                        <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent ID</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration Date</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Commission</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                        {currentAgents.length > 0 ? (
-                                            currentAgents.map(agent => (
-                                                <tr key={agent._id}>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">#{agent.agentID}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="text-sm font-medium text-gray-900">{agent.name}</div>
-                                                        <div className="text-sm text-gray-500">{agent.email}</div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.phone_calling}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(agent.createdAt).toLocaleDateString()}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">${(agent.walletBalance || 0).toLocaleString()}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                                <>
+                                    <div className="flex space-x-2 mb-4">
+                                        <button
+                                            onClick={() => setAgentStatusFilter('all')}
+                                            className={`px-4 py-2 rounded-md ${agentStatusFilter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                        >
+                                            All Agents
+                                        </button>
+                                        <button
+                                            onClick={() => setAgentStatusFilter('active')}
+                                            className={`px-4 py-2 rounded-md ${agentStatusFilter === 'active' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                        >
+                                            Active Agents
+                                        </button>
+                                        <button
+                                            onClick={() => setAgentStatusFilter('rejected')}
+                                            className={`px-4 py-2 rounded-md ${agentStatusFilter === 'rejected' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                        >
+                                            Rejected Agents
+                                        </button>
+                                    </div>
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-gray-50">
+                                            <tr>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent ID</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration Date</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Commission</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                            {currentAgents.length > 0 ? (
+                                                currentAgents.map(agent => (
+                                                    <tr key={agent._id}>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">#{agent.agentID}</td>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <div className="text-sm font-medium text-gray-900">{agent.name}</div>
+                                                            <div className="text-sm text-gray-500">{agent.email}</div>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.phone_calling}</td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(agent.createdAt).toLocaleDateString()}</td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">${(agent.walletBalance || 0).toLocaleString()}</td>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
                                                             ${agent.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                                            {agent.status}
-                                                        </span>
+                                                                {agent.status}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            ) : (
+                                                <tr>
+                                                    <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500">
+                                                        No agents found
                                                     </td>
                                                 </tr>
-                                            ))
-                                        ) : (
-                                            <tr>
-                                                <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500">
-                                                    No agents found
-                                                </td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </table>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </>
                             )}
                         </>
                     )}
