@@ -72,7 +72,8 @@ const Sidebar = ({ collapsed, setCollapsed, setView }) => {
     { icon: faFileContract, label: 'Terms & Conditions', view: 'terms' },
     { icon: faChartBar, label: 'Check Booking', view: 'checkBooking' },
     { icon: faUsers, label: 'Forum Moderation', view: 'forumModeration' },
-    { icon: faUsers, label: 'Master Data Dashboard', view: 'masterDataDashboard' }
+    { icon: faUsers, label: 'Master Data Dashboard', view: 'masterDataDashboard' },
+    { icon: faUsers, label: 'Complaint Management', view: 'complaintManagement' }
   ];
 
   const accountMenu = [

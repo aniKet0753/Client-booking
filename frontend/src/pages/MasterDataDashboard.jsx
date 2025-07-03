@@ -76,10 +76,11 @@ const MasterDataDashboard = () => {
         const fetchAgents = async () => {
             try {
                 setLoadingAgents(true);
-                const response = await axios.get('/api/admin/all-users', {
+                const response = await axios.get('/api/admin/all-agents', {
                     headers: { Authorization: `Bearer ${token}` },
                 });
-                setAgents(Array.isArray(response.data) ? response.data : []);
+                setAgents(Array.isArray(response.data.agents) ? response.data.agents : []);
+                // console.log(response.data)
             } catch (err) {
                 setErrorAgents('Failed to fetch agents.');
                 setAgents([]); // Ensure it's always an array
@@ -96,8 +97,10 @@ const MasterDataDashboard = () => {
         const fetchCustomers = async () => {
             try {
                 setLoadingCustomers(true);
-                const response = await axios.get('/api/customer');
-                setCustomers(Array.isArray(response.data) ? response.data : []);
+                const response = await axios.get('/api/admin/all-customers',{
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                setCustomers(Array.isArray(response.data.customers) ? response.data.customers : []);
             } catch (err) {
                 setErrorCustomers('Failed to fetch customers.');
                 setCustomers([]); // Ensure it's always an array
@@ -114,8 +117,11 @@ const MasterDataDashboard = () => {
         const fetchPayments = async () => {
             try {
                 setLoadingPayments(true);
-                const response = await axios.get('/api/bookings/payments-overview');
-                setPayments(Array.isArray(response.data) ? response.data : []);
+                const response = await axios.get('/api/admin/booking-payments-overview',{
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                setPayments(Array.isArray(response.data.bookings) ? response.data.bookings : []);
+                console.log(response.data);
             } catch (err) {
                 setErrorPayments('Failed to fetch payments.');
                 setPayments([]); // Ensure it's always an array
@@ -150,26 +156,26 @@ const MasterDataDashboard = () => {
     );
 
     const filteredPayments = payments.filter(payment => {
-        const matchesSearch =
-            (payment.agentName && payment.agentName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-            (payment.customerName && payment.customerName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-            (payment.tourName && payment.tourName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-            (payment.paymentStatus && payment.paymentStatus.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesSearch =
+        (payment.agentName && payment.agentName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (payment.customerName && payment.customerName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (payment.tourName && payment.tourName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (payment.paymentStatus && payment.paymentStatus.toLowerCase().includes(searchTerm.toLowerCase()));
 
-        const currentDate = new Date();
-        const currentMonth = currentDate.getMonth() + 1;
-        const currentYear = currentDate.getFullYear();
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth() + 1;
+    const currentYear = currentDate.getFullYear();
 
-        const paymentDate = payment.paymentDate ? new Date(payment.paymentDate) : null;
-        const paymentMonth = paymentDate ? paymentDate.getMonth() + 1 : null;
-        const paymentYear = paymentDate ? paymentDate.getFullYear() : null;
+    const paymentDate = payment.paymentDate ? new Date(payment.paymentDate) : null;
+    const paymentMonth = paymentDate ? paymentDate.getMonth() + 1 : null;
+    const paymentYear = paymentDate ? paymentDate.getFullYear() : null;
 
-        const matchesTimeFilter =
-            timeFilter === 'all' ||
-            (paymentMonth === currentMonth && paymentYear === currentYear);
+    const matchesTimeFilter =
+        timeFilter === 'all' ||
+        (paymentMonth === currentMonth && paymentYear === currentYear);
 
-        return matchesSearch && matchesTimeFilter;
-    });
+    return matchesSearch && matchesTimeFilter;
+});
 
 
     // Pagination logic
@@ -368,7 +374,7 @@ const MasterDataDashboard = () => {
                                                         </td>
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.phone_calling}</td>
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(agent.createdAt).toLocaleDateString()}</td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">${(agent.walletBalance || 0).toLocaleString()}</td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium"><FaRupeeSign className="inline mr-1" />{(agent.walletBalance || 0).toLocaleString()}</td>
                                                         <td className="px-6 py-4 whitespace-nowrap">
                                                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
                                                             ${agent.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
@@ -450,7 +456,7 @@ const MasterDataDashboard = () => {
                                                 </div>
                                                 <div>
                                                     <p className="text-gray-500 text-sm">Received Amount</p>
-                                                    <p className="text-xl font-bold">${totalReceivedAmount.toLocaleString()}</p>
+                                                    <p className="text-xl font-bold"><FaRupeeSign className="inline mr-1" />{totalReceivedAmount.toLocaleString()}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -462,7 +468,7 @@ const MasterDataDashboard = () => {
                                                 </div>
                                                 <div>
                                                     <p className="text-gray-500 text-sm">Pending Amount</p>
-                                                    <p className="text-xl font-bold">${totalPendingAmount.toLocaleString()}</p>
+                                                    <p className="text-xl font-bold"><FaRupeeSign className="inline mr-1" />{totalPendingAmount.toLocaleString()}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -474,7 +480,7 @@ const MasterDataDashboard = () => {
                                                 </div>
                                                 <div>
                                                     <p className="text-gray-500 text-sm">Total Commission</p>
-                                                    <p className="text-xl font-bold">${totalCommissionFromPayments.toLocaleString()}</p>
+                                                    <p className="text-xl font-bold flex items-center"> <span><FaRupeeSign /></span> {totalCommissionFromPayments.toLocaleString()}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -524,7 +530,7 @@ const MasterDataDashboard = () => {
                                                             <div className="text-sm text-gray-500">ID: #{payment.customer?.id || 'N/A'}</div>
                                                         </td>
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.tour?.name || 'N/A'}</td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">${(payment.payment?.totalAmount || 0).toLocaleString()}</td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium"><FaRupeeSign className="inline mr-1" />{(payment.payment?.totalAmount || 0).toLocaleString()}</td>
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                             ${(payment.commissionAmount || 0).toLocaleString()} {/* Use commissionAmount from the mapped data */}
                                                         </td>

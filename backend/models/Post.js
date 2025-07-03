@@ -1,12 +1,12 @@
 const mongoose = require('mongoose');
 
 const ReplySchema = new mongoose.Schema({
-    user: { 
+    user: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         required: true
     },
-    author: { 
+    author: {
         type: String,
         required: true
     },
@@ -17,13 +17,17 @@ const ReplySchema = new mongoose.Schema({
     date: {
         type: Date,
         default: Date.now
+    },
+    // Status for moderation
+    status: {
+        type: String,
+        enum: ['pending', 'approved', 'rejected'],
+        default: 'pending'
     }
 });
 
-// After defining the initial ReplySchema, make it recursive
-// This allows a 'replies' array within a ReplySchema itself
 ReplySchema.add({
-    replies: [ReplySchema] // This makes it recursive: a reply can have replies
+    replies: [ReplySchema]
 });
 
 
@@ -58,11 +62,17 @@ const PostSchema = new mongoose.Schema({
             ref: 'User'
         }
     ],
-    // Replies to the main post are an array of ReplySchema documents
     replies: [ReplySchema],
     date: {
         type: Date,
         default: Date.now
+    },
+
+    // Status for moderation
+    status: {
+        type: String,
+        enum: ['pending', 'approved', 'rejected'],
+        default: 'pending'
     }
 });
 

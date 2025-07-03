@@ -114,7 +114,7 @@ function SuperAdmin() {
 
   const fetchAllUsers = async () => {
     try {
-      const res = await axios.get('/api/admin/all-users', {
+      const res = await axios.get('/api/admin/all-agents', {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,

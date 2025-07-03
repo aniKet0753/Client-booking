@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const authenticateSuperAdmin = require('../middleware/authSuperadminMiddleware');
 const Agent = require('../models/Agent'); 
+const Customer = require('../models/Customer');
 const Transaction = require('../models/Transaction');
 const Superadmin = require('../models/Superadmin');
 const Tour = require('../models/Tour');
@@ -106,13 +107,24 @@ router.post('/find-user', authenticateSuperAdmin, async (req, res) => {
   res.json({ success: false });
 });
 
-router.get('/all-users', authenticateSuperAdmin, async(req,res)=>{
+router.get('/all-agents', authenticateSuperAdmin, async(req,res)=>{
   try{
     const agents = await Agent.find();
     res.json({agents});
   }
   catch(error){
-    console.error("Error fetching all users : ", error);
+    console.error("Error fetching all agents : ", error);
+    res.status(500).json({ message: "Server error while fetching users" });
+  }
+})
+
+router.get('/all-customers', authenticateSuperAdmin, async(req,res)=>{ 
+  try{
+    const customers = await Customer.find();
+    res.json({customers});
+  }
+  catch(error){
+    console.error("Error fetching all customers : ", error);
     res.status(500).json({ message: "Server error while fetching users" });
   }
 })
@@ -136,6 +148,42 @@ router.post('/update-status', authenticateSuperAdmin, async (req, res) => {
     res.status(500).json({ error: 'Failed to update status' });
   }
 });
+
+router.get('/booking-payments-overview', authenticateSuperAdmin, async(req,res)=>{ 
+  try{
+    const bookings = await Booking.find().lean({});
+    // Map the bookings to the desired frontend format
+        const transformedBookings = bookings.map(booking => ({
+            _id: booking._id, // Keep the original _id
+            bookingID: booking.bookingID,
+            // Access nested properties directly from the booking object
+            agentName: booking.agent ? booking.agent.name : 'N/A',
+            agentID: booking.agent ? booking.agent.agentID : 'N/A', // For the table
+            customerName: booking.customer ? booking.customer.name : 'N/A',
+            customerID: booking.customer ? booking.customer.id : 'N/A', // For the table
+            tourName: booking.tour ? booking.tour.name : 'N/A',
+            paymentStatus: booking.payment ? booking.payment.paymentStatus : 'N/A',
+            amount: booking.payment ? booking.payment.totalAmount : 0, // Used for total calculations
+            commissionAmount: booking.agent ? booking.agent.commission : 0, // Use agent.commission
+            paymentDate: booking.payment ? booking.payment.paymentDate : null,
+            
+            // Pass the full nested objects if the frontend uses them for table display
+            agent: booking.agent,
+            customer: booking.customer,
+            tour: booking.tour,
+            payment: booking.payment,
+            createdAt: booking.createdAt,
+            updatedAt: booking.updatedAt
+        }));
+
+        res.status(200).json({ bookings: transformedBookings });
+
+  }
+  catch(error){
+    console.error("Error fetching booking payments overview : ", error);
+    res.status(500).json({ message: "Server error while fetching users" });
+  }
+})
 
 router.post('/agent/:id/remarks', authenticateSuperAdmin, async (req, res) => {
   const { id } = req.params;

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from '../api';
+import axios from '../api'; // Ensure this path is correct for your axios instance
 import {
     FiSearch,
     FiPlusCircle,
@@ -11,13 +11,13 @@ import {
 
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
+// ReplyComponent remains largely the same, but the onReplySubmit will now trigger moderation
 const ReplyComponent = ({ reply, postId, loggedInUser, onReplySubmit, level = 0 }) => {
     const [showNestedReplies, setShowNestedReplies] = useState(false);
     const [showSubReplyForm, setShowSubReplyForm] = useState(false);
     const [subReplyText, setSubReplyText] = useState('');
-    const userRole = localStorage.getItem('role');
 
     const handleSubReplySubmit = async (e) => {
         e.preventDefault();
@@ -27,11 +27,15 @@ const ReplyComponent = ({ reply, postId, loggedInUser, onReplySubmit, level = 0 
         }
         await onReplySubmit(e, postId, reply._id, subReplyText);
         setSubReplyText('');
-        setShowSubReplyForm(false); 
-        setShowNestedReplies(true);
+        setShowSubReplyForm(false);
     };
 
     const indentClass = `pl-${Math.min(level * 4, 20)}`;
+
+    // Do not display replies that are not approved to regular users
+    if (reply.status !== 'approved') {
+        return null; // Don't render replies that are not approved
+    }
 
     return (
         <div className={`bg-white p-3 rounded-lg border border-gray-200 mt-3 ${indentClass}`}>
@@ -52,16 +56,17 @@ const ReplyComponent = ({ reply, postId, loggedInUser, onReplySubmit, level = 0 
                     </button>
                 )}
 
-                {reply.replies && reply.replies.length > 0 && (
+                {reply.replies && reply.replies.filter(r => r.status === 'approved').length > 0 && (
                     <button
                         onClick={() => setShowNestedReplies(!showNestedReplies)}
                         className="text-gray-600 hover:underline text-sm"
                     >
-                        {showNestedReplies ? `Hide ${reply.replies.length} replies` : `View ${reply.replies.length} replies`}
+                        {showNestedReplies ?
+                            `Hide ${reply.replies.filter(r => r.status === 'approved').length} replies` :
+                            `View ${reply.replies.filter(r => r.status === 'approved').length} replies`}
                     </button>
                 )}
             </div>
-
 
             {showSubReplyForm && loggedInUser && (
                 <form onSubmit={handleSubReplySubmit} className="mt-3">
@@ -84,19 +89,21 @@ const ReplyComponent = ({ reply, postId, loggedInUser, onReplySubmit, level = 0 
                 </form>
             )}
 
-            {/* Recursively render sub-replies only if showNestedReplies is true */}
+            {/* Recursively render approved sub-replies only if showNestedReplies is true */}
             {showNestedReplies && reply.replies && reply.replies.length > 0 && (
                 <div className="mt-3">
-                    {reply.replies.map(subReply => (
-                        <ReplyComponent
-                            key={subReply._id}
-                            reply={subReply}
-                            postId={postId}
-                            loggedInUser={loggedInUser}
-                            onReplySubmit={onReplySubmit}
-                            level={level + 1}
-                        />
-                    ))}
+                    {reply.replies
+                        .filter(subReply => subReply.status === 'approved') // Only render approved sub-replies
+                        .map(subReply => (
+                            <ReplyComponent
+                                key={subReply._id}
+                                reply={subReply}
+                                postId={postId}
+                                loggedInUser={loggedInUser}
+                                onReplySubmit={onReplySubmit}
+                                level={level + 1}
+                            />
+                        ))}
                 </div>
             )}
         </div>
@@ -111,9 +118,9 @@ const ForumPage = () => {
     const [showNewPostForm, setShowNewPostForm] = useState(false);
     const [expandedPosts, setExpandedPosts] = useState([]);
     const [showTopLevelReplyForm, setShowTopLevelReplyForm] = useState({});
-    const [bookmarkedPosts, setBookmarkedPosts] = useState([]);
+    const [bookmarkedPosts, setBookmarkedPosts] = useState([]); // This is client-side only
     const [likedPosts, setLikedPosts] = useState([]);
-    const [allPosts, setAllPosts] = useState([]);
+    const [allPosts, setAllPosts] = useState([]); // Will only store APPROVED posts
 
     const [newPostTitle, setNewPostTitle] = useState('');
     const [newPostCategory, setNewPostCategory] = useState('Destination Tips');
@@ -139,22 +146,35 @@ const ForumPage = () => {
     useEffect(() => {
         if (token && username) {
             setLoggedInUser(username);
+        } else {
+            setLoggedInUser(null);
         }
     }, [token, username]);
 
+    // This fetchPosts function will now receive only APPROVED posts from the backend
     const fetchPosts = async () => {
         try {
             const response = await axios.get('/api/posts');
+            // console.log(response.data);
             setAllPosts(response.data);
+            // Initialize likedPosts from fetched data for the logged-in user
+            if (loggedInUser) {
+                const userLikedPostIds = response.data
+                    .filter(post => post.likedBy && post.likedBy.includes(localStorage.getItem('agentID')))
+                    .map(post => post._id);
+                setLikedPosts(userLikedPostIds);
+            }
         } catch (error) {
             console.error('Error fetching posts:', error);
+            window.alert('Failed to load forum posts.');
         }
     };
 
     useEffect(() => {
         fetchPosts();
-    }, []);
+    }, [loggedInUser]); // Re-fetch when loggedInUser changes to update liked posts
 
+    // Filtering remains client-side based on category/search, but the base data is already approved
     const filteredPosts = allPosts.filter(post => {
         const matchesCategory = activeCategory === 'All Topics' || post.category === activeCategory;
         const matchesSearch = post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -178,6 +198,14 @@ const ForumPage = () => {
     };
 
     const toggleBookmark = (postId) => {
+        if (!loggedInUser) {
+            const response = window.confirm('Please log in to bookmark posts. Do you want to go to the login page?');
+            if (response) {
+                navigate('/login');
+            }
+            return;
+        }
+        // This remains client-side for now, consider backend persistence for bookmarks
         if (bookmarkedPosts.includes(postId)) {
             setBookmarkedPosts(bookmarkedPosts.filter(id => id !== postId));
         } else {
@@ -190,7 +218,6 @@ const ForumPage = () => {
             const response = window.confirm('Please log in to like posts. Do you want to go to the login page?');
             if (response) {
                 navigate('/login');
-                console.log("User wants to go to login page.");
             }
             return;
         }
@@ -199,26 +226,28 @@ const ForumPage = () => {
         const isCurrentlyLiked = likedPosts.includes(postId);
 
         try {
-            const response = await axios.post(`/api/posts/${postId}/toggle-like`, { isLiked: isCurrentlyLiked }, {
+            const response = await axios.post(`/api/posts/${postId}/toggle-like`, {}, { // No need to send isLiked in body
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${currentToken}`
                 }
             });
 
+            // Update likedPosts state based on the new status
             if (isCurrentlyLiked) {
                 setLikedPosts(likedPosts.filter(id => id !== postId));
             } else {
                 setLikedPosts([...likedPosts, postId]);
             }
 
+            // Update the likes count on the specific post
             setAllPosts(prevPosts => prevPosts.map(post =>
                 post._id === postId ? { ...post, likes: response.data.likes } : post
             ));
 
         } catch (error) {
             console.error('Error toggling like:', error);
-            window.confirm('Failed to toggle like. Please try again.');
+            window.alert('Failed to toggle like. Please try again.');
         }
     };
 
@@ -229,7 +258,6 @@ const ForumPage = () => {
             const response = window.confirm('Please log in to create a new post. Do you want to go to the login page?');
             if (response) {
                 navigate('/login');
-                console.log("User wants to go to login page.");
             }
             return;
         }
@@ -237,11 +265,11 @@ const ForumPage = () => {
         const currentToken = localStorage.getItem('Token');
 
         try {
-            const response = await axios.post('/api/posts', {
+            await axios.post('/api/posts', {
                 title: newPostTitle,
                 category: newPostCategory,
                 content: newPostContent,
-                role,
+                // role is now inferred on the backend from the token/user
             }, {
                 headers: {
                     'Content-Type': 'application/json',
@@ -249,16 +277,16 @@ const ForumPage = () => {
                 }
             });
 
-            const newPost = response.data;
-            setAllPosts([newPost, ...allPosts]);
             setNewPostTitle('');
             setNewPostContent('');
             setShowNewPostForm(false);
-            window.confirm('Post created successfully!');
+            window.alert('Post created successfully! It will appear once approved by the moderator.'); // IMPORTANT FEEDBACK
 
+            // Do NOT re-fetch posts immediately, as the new post is pending
+            // fetchPosts(); // Removed this line
         } catch (error) {
             console.error('Error creating post:', error);
-            window.confirm('Failed to create post. Please try again.');
+            window.alert('Failed to create post. Please try again.');
         }
     };
 
@@ -271,15 +299,14 @@ const ForumPage = () => {
         }
 
         const currentToken = localStorage.getItem('Token');
-        // Ensure content is not empty
         if (!replyContent || replyContent.trim() === '') {
-            window.confirm('Reply content cannot be empty.');
+            window.alert('Reply content cannot be empty.');
             return;
         }
 
         try {
             let apiEndpoint;
-            let payload = { replyContent: replyContent, role };
+            let payload = { replyContent: replyContent }; // role is now inferred on backend
 
             if (parentReplyId) {
                 apiEndpoint = `/api/posts/${postId}/replies/${parentReplyId}`;
@@ -294,19 +321,19 @@ const ForumPage = () => {
                 }
             });
 
-            // Re-fetch posts to get the latest replies structure after a successful post
-            fetchPosts();
-
             if (!parentReplyId) {
                 setTopLevelReplyTexts(prev => ({ ...prev, [postId]: '' }));
                 setShowTopLevelReplyForm(prev => ({ ...prev, [postId]: false }));
+            } else {
+                // For sub-replies, hide the form
+                // This would be handled inside ReplyComponent, not directly here.
             }
-            
-            window.confirm('Reply posted successfully!');
+
+            window.alert('Reply sent! It will appear once approved by the moderator.'); // IMPORTANT FEEDBACK
 
         } catch (error) {
             console.error('Error posting reply:', error);
-            window.confirm('Failed to post reply. Please try again.');
+            window.alert('Failed to post reply. Please try again.');
         }
     };
 
@@ -336,6 +363,14 @@ const ForumPage = () => {
                                             </button>
                                         </li>
                                     ))}
+                                    <li>
+                                        <button
+                                            onClick={() => setActiveCategory('Complaint Management')}
+                                            className={`w-full text-left px-3 py-2 rounded-md transition-colors ${activeCategory === 'Complaint Management' ? 'bg-blue-100 text-blue-700 font-medium' : 'hover:bg-gray-100'}`}
+                                        >
+                                            Complaint Management
+                                        </button>
+                                    </li>
                                 </ul>
 
                                 <div className="mt-8">
@@ -439,115 +474,121 @@ const ForumPage = () => {
                                 <div className="space-y-6">
                                     {filteredPosts.length > 0 ? (
                                         filteredPosts.map(post => (
-                                            <div key={post._id} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-sm transition-shadow">
-                                                <div className="bg-white p-5">
-                                                    <div className="flex justify-between items-start mb-3">
-                                                        <div>
-                                                            <span className="inline-block px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full mb-2">
-                                                                {post.category}
-                                                            </span>
-                                                            <h3 className="text-xl font-semibold text-gray-800">{post.title}</h3>
-                                                        </div>
-                                                        <button
-                                                            onClick={() => toggleBookmark(post._id)}
-                                                            className={`p-2 rounded-full ${bookmarkedPosts.includes(post._id) ? 'text-yellow-500' : 'text-gray-400 hover:text-gray-600'}`}
-                                                        >
-                                                            <FiBookmark />
-                                                        </button>
-                                                    </div>
-
-                                                    <div className="flex items-center text-sm text-gray-500 mb-4">
-                                                        <span className="font-medium text-gray-700">{post.author}</span>
-                                                        <span className="mx-2">•</span>
-                                                        <span>{new Date(post.date).toLocaleDateString()}</span>
-                                                    </div>
-
-                                                    <p className={`text-gray-700 mb-4 ${!expandedPosts.includes(post._id) ? 'line-clamp-3' : ''}`}>
-                                                        {post.content}
-                                                    </p>
-
-                                                    {post.content.length > 150 && (
-                                                        <button
-                                                            onClick={() => togglePostExpansion(post._id)}
-                                                            className="text-blue-600 hover:text-blue-800 text-sm font-medium mb-4"
-                                                        >
-                                                            {expandedPosts.includes(post._id) ? 'Show less' : 'Read more'}
-                                                        </button>
-                                                    )}
-
-                                                    <div className="flex items-center justify-between border-t border-gray-100 pt-4">
-                                                        <div className="flex items-center space-x-4">
+                                            // Only render posts that are APPROVED
+                                            post.status === 'approved' && (
+                                                <div key={post._id} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-sm transition-shadow">
+                                                    <div className="bg-white p-5">
+                                                        <div className="flex justify-between items-start mb-3">
+                                                            <div>
+                                                                <span className="inline-block px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full mb-2">
+                                                                    {post.category}
+                                                                </span>
+                                                                <h3 className="text-xl font-semibold text-gray-800">{post.title}</h3>
+                                                            </div>
                                                             <button
-                                                                onClick={() => toggleLike(post._id)}
-                                                                className={`flex items-center space-x-1 ${likedPosts.includes(post._id) ? 'text-red-500' : 'text-gray-500 hover:text-red-500'}`}
+                                                                onClick={() => toggleBookmark(post._id)}
+                                                                className={`p-2 rounded-full ${bookmarkedPosts.includes(post._id) ? 'text-yellow-500' : 'text-gray-400 hover:text-gray-600'}`}
                                                             >
-                                                                <FiHeart className={likedPosts.includes(post._id) ? 'fill-current' : ''} />
-                                                                <span>{post.likes || 0}</span>
-                                                            </button>
-                                                            <button
-                                                                onClick={() => toggleTopLevelReplyForm(post._id)}
-                                                                className="flex items-center space-x-1 text-gray-500 hover:text-blue-500"
-                                                            >
-                                                                <FiMessageSquare />
-                                                                <span>{post.replies ? post.replies.length : 0}</span>
+                                                                <FiBookmark />
                                                             </button>
                                                         </div>
-                                                        <button className="text-gray-500 hover:text-gray-700">
-                                                            <FiShare2 />
-                                                        </button>
-                                                    </div>
-                                                </div>
 
-                                                {/* Top-Level Reply Form */}
-                                                {showTopLevelReplyForm[post._id] && loggedInUser && (
-                                                    <div className="bg-gray-50 p-5 border-t border-gray-200">
-                                                        <form onSubmit={(e) => handleReplySubmit(e, post._id, null, topLevelReplyTexts[post._id])}>
-                                                            <textarea
-                                                                value={topLevelReplyTexts[post._id] || ''}
-                                                                onChange={(e) => setTopLevelReplyTexts({ ...topLevelReplyTexts, [post._id]: e.target.value })}
-                                                                placeholder="Write your reply..."
-                                                                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
-                                                                rows="3"
-                                                                required
-                                                            ></textarea>
-                                                            <div className="flex justify-end space-x-2">
+                                                        <div className="flex items-center text-sm text-gray-500 mb-4">
+                                                            <span className="font-medium text-gray-700">{post.author}</span>
+                                                            <span className="mx-2">•</span>
+                                                            <span>{new Date(post.date).toLocaleDateString()}</span>
+                                                        </div>
+
+                                                        <p className={`text-gray-700 mb-4 ${!expandedPosts.includes(post._id) ? 'line-clamp-3' : ''}`}>
+                                                            {post.content}
+                                                        </p>
+
+                                                        {post.content.length > 150 && ( // Assuming a content length check for 'Read more'
+                                                            <button
+                                                                onClick={() => togglePostExpansion(post._id)}
+                                                                className="text-blue-600 hover:text-blue-800 text-sm font-medium mb-4"
+                                                            >
+                                                                {expandedPosts.includes(post._id) ? 'Show less' : 'Read more'}
+                                                            </button>
+                                                        )}
+
+                                                        <div className="flex items-center justify-between border-t border-gray-100 pt-4">
+                                                            <div className="flex items-center space-x-4">
                                                                 <button
-                                                                    type="button"
-                                                                    onClick={() => toggleTopLevelReplyForm(post._id)}
-                                                                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100"
+                                                                    onClick={() => toggleLike(post._id)}
+                                                                    className={`flex items-center space-x-1 ${likedPosts.includes(post._id) ? 'text-red-500' : 'text-gray-500 hover:text-red-500'}`}
                                                                 >
-                                                                    Cancel
+                                                                    <FiHeart className={likedPosts.includes(post._id) ? 'fill-current' : ''} />
+                                                                    <span>{post.likes || 0}</span>
                                                                 </button>
                                                                 <button
-                                                                    type="submit"
-                                                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                                                                    onClick={() => toggleTopLevelReplyForm(post._id)}
+                                                                    className="flex items-center space-x-1 text-gray-500 hover:text-blue-500"
                                                                 >
-                                                                    Post Reply
+                                                                    <FiMessageSquare />
+                                                                    {/* Count only approved replies */}
+                                                                    <span>{post.replies ? post.replies.filter(r => r.status === 'approved').length : 0}</span>
                                                                 </button>
                                                             </div>
-                                                        </form>
-                                                    </div>
-                                                )}
-
-                                                {/* Display Replies Section (top-level and nested) */}
-                                                {(expandedPosts.includes(post._id) || showTopLevelReplyForm[post._id]) && post.replies && post.replies.length > 0 && (
-                                                    <div className="bg-gray-100 p-5 border-t border-gray-200">
-                                                        <h4 className="font-semibold text-lg mb-3">Replies ({post.replies.length})</h4>
-                                                        <div className="space-y-3">
-                                                            {post.replies.map((reply) => (
-                                                                <ReplyComponent
-                                                                    key={reply._id}
-                                                                    reply={reply}
-                                                                    postId={post._id}
-                                                                    loggedInUser={loggedInUser}
-                                                                    onReplySubmit={handleReplySubmit}
-                                                                    level={0}
-                                                                />
-                                                            ))}
+                                                            <button className="text-gray-500 hover:text-gray-700">
+                                                                <FiShare2 />
+                                                            </button>
                                                         </div>
                                                     </div>
-                                                )}
-                                            </div>
+
+                                                    {/* Top-Level Reply Form */}
+                                                    {showTopLevelReplyForm[post._id] && loggedInUser && (
+                                                        <div className="bg-gray-50 p-5 border-t border-gray-200">
+                                                            <form onSubmit={(e) => handleReplySubmit(e, post._id, null, topLevelReplyTexts[post._id])}>
+                                                                <textarea
+                                                                    value={topLevelReplyTexts[post._id] || ''}
+                                                                    onChange={(e) => setTopLevelReplyTexts({ ...topLevelReplyTexts, [post._id]: e.target.value })}
+                                                                    placeholder="Write your reply..."
+                                                                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
+                                                                    rows="3"
+                                                                    required
+                                                                ></textarea>
+                                                                <div className="flex justify-end space-x-2">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => toggleTopLevelReplyForm(post._id)}
+                                                                        className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100"
+                                                                    >
+                                                                        Cancel
+                                                                    </button>
+                                                                    <button
+                                                                        type="submit"
+                                                                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                                                                    >
+                                                                        Post Reply
+                                                                    </button>
+                                                                </div>
+                                                            </form>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Display Replies Section (top-level and nested) */}
+                                                    {(expandedPosts.includes(post._id) || showTopLevelReplyForm[post._id]) && post.replies && post.replies.length > 0 && (
+                                                        <div className="bg-gray-100 p-5 border-t border-gray-200">
+                                                            <h4 className="font-semibold text-lg mb-3">Replies ({post.replies.filter(r => r.status === 'approved').length})</h4>
+                                                            <div className="space-y-3">
+                                                                {post.replies
+                                                                    .filter(reply => reply.status === 'approved') // Only render approved replies
+                                                                    .map((reply) => (
+                                                                        <ReplyComponent
+                                                                            key={reply._id}
+                                                                            reply={reply}
+                                                                            postId={post._id}
+                                                                            loggedInUser={loggedInUser}
+                                                                            onReplySubmit={handleReplySubmit}
+                                                                            level={0}
+                                                                        />
+                                                                    ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )
                                         ))
                                     ) : (
                                         <div className="text-center py-10">

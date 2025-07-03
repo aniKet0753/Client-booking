@@ -61,7 +61,7 @@ const AgentRequests = () => {
     const fetchAgents = async () => {
       setLoading(true);
       try {
-        const res = await axios.get('/api/admin/all-users', {
+        const res = await axios.get('/api/admin/all-agents', {
           headers: { Authorization: `Bearer ${token}` },
         });
         setUsers(res.data.agents || []);
