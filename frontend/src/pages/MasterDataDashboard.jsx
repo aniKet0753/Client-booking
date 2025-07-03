@@ -8,11 +8,15 @@ import {
     FiRefreshCw,
     FiChevronLeft,
     FiChevronRight,
-    FiDownload
+    FiDownload,
+    FiToggleLeft, // Added for status change icon
+    FiToggleRight, // Added for status change icon
 } from 'react-icons/fi';
 import { FaRupeeSign } from 'react-icons/fa';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { ToastContainer, toast } from 'react-toastify'; // Import for toasts
+import 'react-toastify/dist/ReactToastify.css'; // Import toast CSS
 
 // Utility function to convert array of objects to CSV
 const convertToCSV = (data) => {
@@ -66,32 +70,35 @@ const MasterDataDashboard = () => {
 
     const [activeTab, setActiveTab] = useState('agents');
     // New state for agent sub-tabs
-    const [agentSubTab, setAgentSubTab] = useState('all'); // 'all', 'active', 'inactive', 'rejected'
+    const [agentSubTab, setAgentSubTab] = useState('all'); // 'all', 'active', 'pending', 'rejected', 'inactive' (re-added based on user's prompt)
 
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [timeFilter, setTimeFilter] = useState('currentMonth');
     const itemsPerPage = 5;
     const token = localStorage.getItem('Token');
-    // Fetch Agents
+
+    // Helper to fetch agents (can be called by refresh button)
+    const fetchAgents = async () => {
+        try {
+            setLoadingAgents(true);
+            const response = await axios.get('/api/admin/all-agents', {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            setAgents(Array.isArray(response.data.agents) ? response.data.agents : []);
+        } catch (err) {
+            setErrorAgents('Failed to fetch agents.');
+            setAgents([]);
+            console.error('Error fetching agents:', err);
+        } finally {
+            setLoadingAgents(false);
+        }
+    };
+
+    // Fetch Agents on component mount
     useEffect(() => {
-        const fetchAgents = async () => {
-            try {
-                setLoadingAgents(true);
-                const response = await axios.get('/api/admin/all-agents', {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                setAgents(Array.isArray(response.data.agents) ? response.data.agents : []);
-            } catch (err) {
-                setErrorAgents('Failed to fetch agents.');
-                setAgents([]);
-                console.error('Error fetching agents:', err);
-            } finally {
-                setLoadingAgents(false);
-            }
-        };
         fetchAgents();
-    }, []);
+    }, [token]);
 
     // Fetch Customers
     useEffect(() => {
@@ -111,7 +118,7 @@ const MasterDataDashboard = () => {
             }
         };
         fetchCustomers();
-    }, []);
+    }, [token]);
 
     // Fetch Payments (Transactions and Bookings for payment info)
     useEffect(() => {
@@ -131,7 +138,7 @@ const MasterDataDashboard = () => {
             }
         };
         fetchPayments();
-    }, []);
+    }, [token]);
 
 
     // Filter data based on search term and agent sub-tab
@@ -144,7 +151,8 @@ const MasterDataDashboard = () => {
         const matchesSubTab =
             agentSubTab === 'all' ||
             (agentSubTab === 'active' && agent.status === 'active') ||
-            (agentSubTab === 'inactive' && agent.status === 'inactive') ||
+            (agentSubTab === 'pending' && agent.status === 'pending') ||
+            (agentSubTab === 'inactive' && agent.status === 'inactive') || // Re-added inactive filter
             (agentSubTab === 'rejected' && agent.status === 'rejected');
 
         return matchesSearch && matchesSubTab;
@@ -218,9 +226,42 @@ const MasterDataDashboard = () => {
         document.body.removeChild(link);
     };
 
+    // --- New: Function to toggle agent status ---
+    const toggleAgentStatus = async (agentId, currentStatus) => {
+        const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+        toast.info(`Changing agent status to ${newStatus}...`);
+
+        try {
+            await axios.post(
+                '/api/admin/update-status',
+                JSON.stringify({ userId: agentId, status: newStatus }),
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                }
+            );
+
+            // Update local state to reflect the change
+            setAgents(prevAgents =>
+                prevAgents.map(agent =>
+                    agent._id === agentId ? { ...agent, status: newStatus } : agent
+                )
+            );
+            toast.success(`Agent status updated to ${newStatus} successfully!`);
+        } catch (error) {
+            console.error('Failed to update agent status:', error);
+            toast.error('Failed to update agent status.');
+        }
+    };
+
+
     return (
         <div className="min-h-screen bg-gray-50 p-4 md:p-8">
             <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6">Master Data Dashboard</h1>
+
+            <ToastContainer position="top-right" autoClose={3000} hideProgressBar />
 
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -246,12 +287,12 @@ const MasterDataDashboard = () => {
                     </div>
                 </div>
 
-                <div className="bg-white rounded-lg shadow p-4 flex items-center">
-                    <div className="bg-yellow-100 p-3 rounded-full mr-4">
-                        <FaRupeeSign className="text-yellow-600 text-xl" />
+                <div className="bg-yellow-100 rounded-lg shadow p-4 flex items-center">
+                    <div className="bg-yellow-200 p-3 rounded-full mr-4">
+                        <FaRupeeSign className="text-yellow-700 text-xl" />
                     </div>
                     <div>
-                        <p className="text-gray-500 text-sm">Pending Payments</p>
+                        <p className="text-gray-600 text-sm">Pending Payments</p>
                         {loadingPayments ? <p className="text-2xl font-bold">Loading...</p> : <p className="text-2xl font-bold">{totalPendingPaymentsCount}</p>}
                         {errorPayments && <p className="text-red-500 text-xs">{errorPayments}</p>}
                     </div>
@@ -262,7 +303,7 @@ const MasterDataDashboard = () => {
                         <FaRupeeSign className="text-purple-600 text-xl" />
                     </div>
                     <div>
-                        <p className="text-gray-500 text-sm">Total Commission</p>
+                        <p className="text-gray-500 text-sm">Total Commission (yet to be paid)</p>
                         {loadingAgents ? <p className="text-2xl font-bold">Loading...</p> : <p className="text-2xl font-bold flex items-center gap-1"> <FaRupeeSign className='text-base'/> {totalCommissionEarned.toLocaleString()}</p>}
                         {errorAgents && <p className="text-red-500 text-xs">{errorAgents}</p>}
                     </div>
@@ -319,7 +360,7 @@ const MasterDataDashboard = () => {
                             className="px-3 py-2 bg-gray-100 rounded-md"
                             onClick={() => { setSearchTerm(''); setCurrentPage(1); }}
                         >
-                            <FiRefreshCw />
+                            <FiRefreshCw onClick={fetchAgents} /> {/* Added onClick to refresh agents */}
                         </button>
                     </div>
                 </div>
@@ -341,6 +382,12 @@ const MasterDataDashboard = () => {
                                     className={`px-4 py-2 rounded-md ${agentSubTab === 'active' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
                                 >
                                     Active Agents
+                                </button>
+                                <button
+                                    onClick={() => { setAgentSubTab('pending'); setCurrentPage(1); }}
+                                    className={`px-4 py-2 rounded-md ${agentSubTab === 'pending' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                >
+                                    Pending Agents
                                 </button>
                                 <button
                                     onClick={() => { setAgentSubTab('inactive'); setCurrentPage(1); }}
@@ -367,8 +414,9 @@ const MasterDataDashboard = () => {
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration Date</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Pending</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pending Commission</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th> {/* New Actions column */}
                                         </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
@@ -382,18 +430,40 @@ const MasterDataDashboard = () => {
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.phone_calling}</td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(agent.createdAt).toLocaleDateString()}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">${(agent.walletBalance || 0).toLocaleString()}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">₹{(agent.walletBalance || 0).toLocaleString()}</td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                                                            ${agent.status === 'active' ? 'bg-green-100 text-green-800' : agent.status === 'inactive' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                            ${agent.status === 'active' ? 'bg-green-100 text-green-800' :
+                                                              agent.status === 'inactive' ? 'bg-red-100 text-red-800' :
+                                                              agent.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : // Added pending color
+                                                              'bg-gray-100 text-gray-800' // Default for rejected or unknown
+                                                            }`}>
                                                             {agent.status}
                                                         </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                        {/* Toggle Button for Active/Inactive */}
+                                                        {agent.status === 'active' || agent.status === 'inactive' ? (
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation(); // Prevent row click from activating
+                                                                    toggleAgentStatus(agent._id, agent.status);
+                                                                }}
+                                                                className={`p-2 rounded-full text-white transition-colors duration-200
+                                                                    ${agent.status === 'active' ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'}`}
+                                                                title={agent.status === 'active' ? 'Deactivate Agent' : 'Activate Agent'}
+                                                            >
+                                                                {agent.status === 'active' ? <FiToggleLeft size={18} /> : <FiToggleRight size={18} />}
+                                                            </button>
+                                                        ) : (
+                                                            <span className="text-gray-400 text-xs">N/A</span> // Cannot toggle pending/rejected
+                                                        )}
                                                     </td>
                                                 </tr>
                                             ))
                                         ) : (
                                             <tr>
-                                                <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500">
+                                                <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500">
                                                     No agents found
                                                 </td>
                                             </tr>
@@ -461,7 +531,7 @@ const MasterDataDashboard = () => {
                                                 </div>
                                                 <div>
                                                     <p className="text-gray-500 text-sm">Received Amount</p>
-                                                    <p className="text-xl font-bold">${totalReceivedAmount.toLocaleString()}</p>
+                                                    <p className="text-xl font-bold">₹{totalReceivedAmount.toLocaleString()}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -473,7 +543,7 @@ const MasterDataDashboard = () => {
                                                 </div>
                                                 <div>
                                                     <p className="text-gray-500 text-sm">Pending Amount</p>
-                                                    <p className="text-xl font-bold">${totalPendingAmount.toLocaleString()}</p>
+                                                    <p className="text-xl font-bold">₹{totalPendingAmount.toLocaleString()}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -485,7 +555,7 @@ const MasterDataDashboard = () => {
                                                 </div>
                                                 <div>
                                                     <p className="text-gray-500 text-sm">Total Commission</p>
-                                                    <p className="text-xl font-bold">${totalCommissionFromPayments.toLocaleString()}</p>
+                                                    <p className="text-xl font-bold">₹{totalCommissionFromPayments.toLocaleString()}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -534,14 +604,14 @@ const MasterDataDashboard = () => {
                                                             <div className="text-sm font-medium text-gray-900">{payment.customer?.name || 'N/A'}</div>
                                                             <div className="text-sm text-gray-500">ID: #{payment.customer?.id || 'N/A'}</div>
                                                         </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.tour?.name || 'N/A'}</td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">${(payment.payment?.totalAmount || 0).toLocaleString()}</td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                            ${(payment.commissionAmount || 0).toLocaleString()}
-                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.tourName || 'N/A'}</td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">₹{(payment.amount || 0).toLocaleString()}</td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">₹{(payment.commissionAmount || 0).toLocaleString()}</td>
                                                         <td className="px-6 py-4 whitespace-nowrap">
                                                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                                                                ${payment.paymentStatus === 'Paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                                ${payment.paymentStatus === 'Paid' ? 'bg-green-100 text-green-800' :
+                                                                  payment.paymentStatus === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                                                                  'bg-gray-100 text-gray-800'}`}>
                                                                 {payment.paymentStatus || 'N/A'}
                                                             </span>
                                                         </td>
@@ -563,49 +633,44 @@ const MasterDataDashboard = () => {
                             )}
                         </>
                     )}
-
-                    {/* Pagination */}
-                    {(activeTab === 'agents' && filteredAgents.length > itemsPerPage) ||
-                     (activeTab === 'customers' && filteredCustomers.length > itemsPerPage) ||
-                     (activeTab === 'payments' && filteredPayments.length > itemsPerPage) ? (
-                        <div className="flex justify-center items-center space-x-2 mt-6">
-                            <button
-                                onClick={() => paginate(currentPage - 1)}
-                                disabled={currentPage === 1}
-                                className="p-2 border rounded-md bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-50"
-                            >
-                                <FiChevronLeft />
-                            </button>
-                            {Array.from({ length: Math.ceil(
-                                activeTab === 'agents' ? filteredAgents.length / itemsPerPage :
-                                activeTab === 'customers' ? filteredCustomers.length / itemsPerPage :
-                                filteredPayments.length / itemsPerPage
-                            )}, (_, i) => (
-                                <button
-                                    key={i + 1}
-                                    onClick={() => paginate(i + 1)}
-                                    className={`px-3 py-1 rounded-md ${currentPage === i + 1 ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
-                                >
-                                    {i + 1}
-                                </button>
-                            ))}
-                            <button
-                                onClick={() => paginate(currentPage + 1)}
-                                disabled={currentPage === Math.ceil(
-                                    activeTab === 'agents' ? filteredAgents.length / itemsPerPage :
-                                    activeTab === 'customers' ? filteredCustomers.length / itemsPerPage :
-                                    filteredPayments.length / itemsPerPage
-                                )}
-                                className="p-2 border rounded-md bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-50"
-                            >
-                                <FiChevronRight />
-                            </button>
-                        </div>
-                    ) : null}
                 </div>
+
+                {/* Pagination */}
+                {(activeTab === 'agents' && filteredAgents.length > itemsPerPage) ||
+                 (activeTab === 'customers' && filteredCustomers.length > itemsPerPage) ||
+                 (activeTab === 'payments' && filteredPayments.length > itemsPerPage) ? (
+                    <div className="p-4 flex justify-between items-center border-t border-gray-200">
+                        <button
+                            onClick={() => paginate(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md disabled:opacity-50 flex items-center"
+                        >
+                            <FiChevronLeft className="mr-2" /> Previous
+                        </button>
+                        <span className="text-sm text-gray-700">
+                            Page {currentPage} of{' '}
+                            {activeTab === 'agents'
+                                ? Math.ceil(filteredAgents.length / itemsPerPage)
+                                : activeTab === 'customers'
+                                ? Math.ceil(filteredCustomers.length / itemsPerPage)
+                                : Math.ceil(filteredPayments.length / itemsPerPage)}
+                        </span>
+                        <button
+                            onClick={() => paginate(currentPage + 1)}
+                            disabled={
+                                (activeTab === 'agents' && currentPage === Math.ceil(filteredAgents.length / itemsPerPage)) ||
+                                (activeTab === 'customers' && currentPage === Math.ceil(filteredCustomers.length / itemsPerPage)) ||
+                                (activeTab === 'payments' && currentPage === Math.ceil(filteredPayments.length / itemsPerPage))
+                            }
+                            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md disabled:opacity-50 flex items-center"
+                        >
+                            Next <FiChevronRight className="ml-2" />
+                        </button>
+                    </div>
+                ) : null}
             </div>
-            {/* <Footer />
-            <Navbar /> */}
+            {/* <Navbar />
+            <Footer /> */}
         </div>
     );
 };

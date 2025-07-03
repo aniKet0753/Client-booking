@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import ReactSwitch from 'react-switch';
+import ReactSwitch from 'react-switch'; // This might be removed or adapted
 import axios from '../api';
-import { MessageSquare, Printer, Search, Filter, User, Info, Home, Banknote, FileText, X, Save, Eye } from "lucide-react";
+import { MessageSquare, Printer, Search, Filter, User, Info, Home, Banknote, FileText, X, Save, Eye, CheckCircle, XCircle } from "lucide-react"; // Added CheckCircle, XCircle
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -25,9 +25,9 @@ const LoadingSpinner = () => (
 // --- Status Badge Component ---
 const StatusBadge = ({ status }) => {
   const statusColors = {
-    active: 'bg-green-100 text-green-800',
-    inactive: 'bg-red-100 text-red-800',
-    pending: 'bg-yellow-100 text-yellow-800'
+    approved: 'bg-green-100 text-green-800',
+    pending: 'bg-yellow-100 text-yellow-800',
+    rejected: 'bg-red-100 text-red-800'
   };
 
   return (
@@ -56,24 +56,29 @@ const AgentRequests = () => {
 
   const token = localStorage.getItem('Token');
 
-  // --- Effect Hook for Fetching All Agents ---
+  // --- Effect Hook for Fetching Only Pending Agents ---
   useEffect(() => {
-    const fetchAgents = async () => {
+    const fetchPendingAgents = async () => {
       setLoading(true);
       try {
-        const res = await axios.get('/api/admin/all-agents', {
+        // Assuming your backend supports filtering by status,
+        // or we filter after fetching all if not.
+        // For this example, we'll fetch all and filter client-side.
+        // Ideally, you'd have an endpoint like '/api/admin/agents?status=pending'
+        const res = await axios.get('/api/admin/all-agents', { // Consider changing this endpoint if your API supports status filtering
           headers: { Authorization: `Bearer ${token}` },
         });
-        setUsers(res.data.agents || []);
+        // Filter agents to only show those with 'pending' status
+        setUsers(res.data.agents.filter(agent => agent.status === 'pending') || []);
       } catch (error) {
-        console.error('Failed to fetch agents:', error);
-        toast.error('Failed to fetch agents list.');
+        console.error('Failed to fetch pending agents:', error);
+        toast.error('Failed to fetch pending agents list.');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchAgents();
+    fetchPendingAgents();
   }, [token]);
 
   // --- Function to Show Individual User Data in Modal ---
@@ -106,9 +111,8 @@ const AgentRequests = () => {
     }
   };
 
-  // --- Function to Toggle Agent Status (Active/Inactive) ---
-  const toggleStatus = async (id, currentStatus) => {
-    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+  // --- Function to Update Agent Status (Approve/Reject) ---
+  const updateAgentStatus = async (id, newStatus) => {
     toast.info(`Updating status to ${newStatus}...`);
 
     try {
@@ -123,15 +127,14 @@ const AgentRequests = () => {
         }
       );
 
-      setUsers((prevUsers) =>
-        prevUsers.map((user) =>
-          user._id === id ? { ...user, status: newStatus } : user
-        )
-      );
+      // Remove the agent from the list if their status is no longer 'pending'
+      setUsers((prevUsers) => prevUsers.filter((user) => user._id !== id));
 
-      // If the modal is open for this agent, update its status too
+      // If the modal is open for this agent, close it as they're no longer 'pending'
       if (profile && profile._id === id) {
-        setProfile({ ...profile, status: newStatus });
+        setIsModalOpen(false);
+        setProfile(null);
+        setParentAgentProfile(null);
       }
 
       toast.success(`Status updated to ${newStatus} successfully!`);
@@ -161,11 +164,17 @@ const AgentRequests = () => {
         }
       );
 
+      // Update remarks for the user still in the pending list (if any)
       setUsers((prevUsers) =>
         prevUsers.map((user) =>
           user._id === remarksAgentId ? { ...user, remarks: currentRemarks } : user
         )
       );
+
+      // Update profile in modal if open
+      if (profile && profile._id === remarksAgentId) {
+        setProfile((prevProfile) => ({ ...prevProfile, remarks: currentRemarks }));
+      }
 
       toast.success('Remarks saved successfully!');
       setRemarksModalOpen(false);
@@ -488,17 +497,12 @@ const AgentRequests = () => {
   return (
     <main className="p-4 md:p-6 flex-1">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4">
-        <h2 className="text-2xl font-bold text-gray-800">Agent Requests</h2>
+        <h2 className="text-2xl font-bold text-gray-800">Pending Agent Requests</h2>
         <div className="flex items-center text-sm text-gray-600">
           <span className="bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full mr-2">
-            {users.length} agents
+            {users.length} pending requests {/* Updated text */}
           </span>
-          <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full mr-2">
-            {users.filter(u => u.status === 'active').length} active
-          </span>
-          <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
-            {users.filter(u => u.status === 'inactive').length} inactive
-          </span>
+          {/* Removed approved and rejected counts from here as only pending are displayed */}
         </div>
       </div>
 
@@ -506,7 +510,7 @@ const AgentRequests = () => {
 
       <div className="bg-white shadow rounded-lg overflow-hidden">
         <div className="bg-indigo-800 p-4 text-white font-semibold text-lg flex items-center">
-          <User className="mr-2" size={20} /> Agent List
+          <User className="mr-2" size={20} /> Agents Awaiting Review
         </div>
 
         <div className="p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-gray-50">
@@ -552,8 +556,8 @@ const AgentRequests = () => {
                 <div className="text-gray-400 mb-2">
                   <User size={48} className="mx-auto" />
                 </div>
-                <p className="text-gray-500">No agents found.</p>
-                <p className="text-sm text-gray-400">Try adjusting your search criteria</p>
+                <p className="text-gray-500">No pending agent requests found.</p>
+                <p className="text-sm text-gray-400">All agents have been reviewed or there are no new requests.</p>
               </div>
             ) : (
               users
@@ -591,6 +595,7 @@ const AgentRequests = () => {
                           className="w-10 h-10 rounded-full object-cover"
                         />
                         <div className="absolute -bottom-1 -right-1">
+                          {/* Only show badge if status is pending, though all should be pending here */}
                           <StatusBadge status={user.status} />
                         </div>
                       </div>
@@ -663,20 +668,26 @@ const AgentRequests = () => {
                     </h3>
                     <div className="flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-full">
                       <span className="text-sm font-medium capitalize">
-                        {profile.status}
+                        Status: <StatusBadge status={profile.status} />
                       </span>
-                      <ReactSwitch
-                        checked={profile.status === 'active'}
-                        onChange={() => toggleStatus(profile._id, profile.status)}
-                        offColor="#888"
-                        onColor="#4CAF50"
-                        offHandleColor="#fff"
-                        onHandleColor="#fff"
-                        uncheckedIcon={false}
-                        checkedIcon={false}
-                        height={20}
-                        width={50}
-                      />
+                      {/* Action buttons for status change */}
+                      {/* These buttons only appear if the current agent is 'pending' */}
+                      {profile.status === 'pending' && (
+                        <>
+                          <button
+                            onClick={() => updateAgentStatus(profile._id, 'approved')}
+                            className="ml-2 px-3 py-1 bg-green-500 hover:bg-green-600 text-white rounded-md text-xs font-semibold flex items-center gap-1 transition"
+                          >
+                            <CheckCircle size={14} /> Approve
+                          </button>
+                          <button
+                            onClick={() => updateAgentStatus(profile._id, 'rejected')}
+                            className="ml-2 px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-md text-xs font-semibold flex items-center gap-1 transition"
+                          >
+                            <XCircle size={14} /> Reject
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                   <button

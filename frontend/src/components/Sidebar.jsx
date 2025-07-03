@@ -20,25 +20,25 @@ import axios from '../api';
 
 const Sidebar = ({ collapsed, setCollapsed, setView }) => {
   const [activeView, setActiveView] = useState('dashboard');
-  const [inactiveCount, setInactiveCount] = useState(0);
+  const [pendingCount, setPendingCount] = useState(0);
   const token = localStorage.getItem('Token');
   const role = localStorage.getItem('role');
 
   useEffect(() => {
-    const fetchInactiveUsers = async () => {
+    const fetchPendingUsers = async () => {
       try {
-        const res = await axios.get('/api/admin/inactive-count', {
+        const res = await axios.get('/api/admin/pending-count', {
           headers: {
             Authorization: `Bearer ${token}`
           }
         });
-        setInactiveCount(res.data.count);
+        setPendingCount(res.data.count);
       } catch (error) {
-        console.error('Failed to fetch inactive user count:', error);
+        console.error('Failed to fetch pending user count:', error);
       }
     };
-    fetchInactiveUsers();
-    const intervalId = setInterval(fetchInactiveUsers, 2000);
+    fetchPendingUsers();
+    const intervalId = setInterval(fetchPendingUsers, 2000);
     return () => clearInterval(intervalId);
   }, []);
 
@@ -64,7 +64,7 @@ const Sidebar = ({ collapsed, setCollapsed, setView }) => {
   ];
 
   const businessMenu = [
-    { icon: faPaperPlane, label: 'Requests', view: 'requests', badge: inactiveCount },
+    { icon: faPaperPlane, label: 'Requests', view: 'requests', badge: pendingCount },
     { icon: faTasks, label: 'Cancellations', view: 'cancellations' }
   ];
 
@@ -72,7 +72,8 @@ const Sidebar = ({ collapsed, setCollapsed, setView }) => {
     { icon: faFileContract, label: 'Terms & Conditions', view: 'terms' },
     { icon: faChartBar, label: 'Check Booking', view: 'checkBooking' },
     { icon: faUsers, label: 'Forum Moderation', view: 'forumModeration' },
-    { icon: faUsers, label: 'Master Data Dashboard', view: 'masterDataDashboard' }
+    { icon: faUsers, label: 'Master Data Dashboard', view: 'masterDataDashboard' },
+    { icon: faUsers, label: 'Complaint Management', view: 'complaintManagement' }
   ];
 
   const accountMenu = [
@@ -82,7 +83,7 @@ const Sidebar = ({ collapsed, setCollapsed, setView }) => {
   ];
 
   return (
-    <div className={`fixed inset-y-0 left-0 ${collapsed ? 'w-20' : 'w-66'} bg-blue-900 text-white z-10 transition-all duration-300 ease-in-out hidden md:block`}>
+    <div className={`fixed inset-y-0 left-0 ${collapsed ? 'w-20' : 'w-[270px]'} bg-blue-900 text-white z-10 transition-all duration-300 ease-in-out hidden md:block`}>
       {/* Header */}
       <div className="p-5 flex items-center justify-between border-b border-indigo-400 border-opacity-30 relative">
         <Link to="/" className="flex items-center">

@@ -140,84 +140,111 @@ router.post('/register', multiUpload, async (req, res) => {
         const trimmedEmail = email.trim().toLowerCase();
         const trimmedAadhar = aadhar_card.trim();
 
-        const existingAgentByPhone = await Agent.findOne({ phone_calling: trimmedPhone });
-        const existingAgentByEmail = await Agent.findOne({ email: trimmedEmail });
-        const existingAgentByAdharNum = await Agent.findOne({ aadhar_card: trimmedAadhar });
-        
+        // --- Start of Modified Logic ---
+
+        // Check for existing agent by phone, email, or Aadhar card
+        let existingAgent = await Agent.findOne({
+            $or: [
+                { phone_calling: trimmedPhone },
+                { email: trimmedEmail },
+                { aadhar_card: trimmedAadhar }
+            ]
+        });
+
+        if (existingAgent) {
+            // If an agent exists and their status is 'rejected', allow re-registration (update)
+            if (existingAgent.status === 'rejected') {
+                console.log(`Agent with status 'rejected' found: ${existingAgent._id}. Updating data.`);
+                // The rest of the logic will proceed to update this existingAgent
+            } else {
+                // If an agent exists and status is not 'rejected', block registration
+                if (existingAgent.phone_calling === trimmedPhone) {
+                    return res.status(400).json({ error: 'An agent account with this phone number already exists.' });
+                }
+                if (existingAgent.email === trimmedEmail) {
+                    return res.status(400).json({ error: 'An agent account with this email already exists.' });
+                }
+                if (existingAgent.aadhar_card === trimmedAadhar) {
+                    return res.status(400).json({ error: 'An agent account with this Aadhar Card already exists.' });
+                }
+            }
+        }
+
+        // Check for existing customer by email or phone (always block if customer exists)
         const existingCustomerByEmail = await Customer.findOne({email: trimmedEmail});
         const existingCustomerByPhone = await Customer.findOne({phone: trimmedPhone});
         
-        if (existingAgentByPhone || existingCustomerByPhone) {
-          return res.status(400).json({ error: 'An account with this phone number already exists.' });
+        if (existingCustomerByPhone) {
+          return res.status(400).json({ error: 'An account with this phone number already exists as a customer.' });
         }
 
-        if (existingAgentByEmail || existingCustomerByEmail) {
-            return res.status(400).json({ error: 'An account with this email already exists.' });
+        if (existingCustomerByEmail) {
+            return res.status(400).json({ error: 'An account with this email already exists as a customer.' });
         }
 
-        if (existingAgentByAdharNum) {
-            return res.status(400).json({ error: 'An account with this aadhar Card already exists.' });
-        }
+        // --- End of Modified Logic for checking existing accounts ---
 
         if( !mongoose.Types.ObjectId.isValid(parentAgent))
           return res.status(400).json({ error: 'Invalid referral ID provided.' });
 
-        if (parentAgent) {
-          const refAgent = await Agent.findById(parentAgent);
-          if (!refAgent) {
-            return res.status(400).json({ error: 'Invalid referral ID provided.' });
-          }
-        }
-
-        const refAgent = await Agent.findById(parentAgent).lean();
-        // 032-2025-000A
-        // 000A-032-2025-000B
+        const refAgent = await Agent.findById(parentAgent).lean(); // Use .lean() for performance if not modifying
         if (!refAgent) {
           return res.status(400).json({ error: 'Invalid referral ID provided.' });
         }
+
         const lastCodeDoc = await LastCode.findOne();
         console.log(lastCodeDoc);
         
         if (!lastCodeDoc) {
           return res.status(500).json({ error: 'LastCode document not found' });
         }
-        const newCode = incrementCode(lastCodeDoc.lastCode);
-        console.log(`New incremented code: ${newCode}`);
-        const year = new Date().getFullYear();
-        const parsedPermanent = JSON.parse(permanent_address);
-        const pin = parsedPermanent?.pincode?.toString() ;
-        if(!pin){
-          // console.log(permanent_address.pincode);
-          // console.log(parsedPermanent.pincode);
-          // console.log(pin);
-          return res.status(500).json({ error: 'Error with the pincode' });
-        }
-        const last3Pin = pin.slice(-3);
-        const parentAgentLast4 = refAgent.agentID.slice(-4);
-        const agentID = `${parentAgentLast4}-${last3Pin}-${year}-${newCode}`;
 
-        console.log(`agentID: ${agentID}`);
-        // console.log("Received Data:", req.body);
-        // console.log("Uploaded File:", req.file);
+        let agentIDToUse;
+        let newCodeToUse;
+        let walletIDToUse;
+        let hashedPasswordToUse;
+
+        if (existingAgent && existingAgent.status === 'rejected') {
+            // If re-registering a rejected agent, keep existing IDs, but update password if provided
+            agentIDToUse = existingAgent.agentID;
+            walletIDToUse = existingAgent.walletID; // Keep existing wallet ID
+            newCodeToUse = existingAgent.lastCode; // Assuming lastCode is tied to agentID generation, keep it same for rejected agent re-reg.
+            hashedPasswordToUse = password ? await bcrypt.hash(password, 10) : existingAgent.password; // Only update if new password is provided
+        } else {
+            // For new registrations
+            newCodeToUse = incrementCode(lastCodeDoc.lastCode);
+            console.log(`New incremented code: ${newCodeToUse}`);
+            const year = new Date().getFullYear();
+            const parsedPermanent = JSON.parse(permanent_address);
+            const pin = parsedPermanent?.pincode?.toString();
+            if(!pin){
+              return res.status(500).json({ error: 'Error with the pincode' });
+            }
+            const last3Pin = pin.slice(-3);
+            const parentAgentLast4 = refAgent.agentID.slice(-4);
+            agentIDToUse = `${parentAgentLast4}-${last3Pin}-${year}-${newCodeToUse}`;
+            hashedPasswordToUse = await bcrypt.hash(password, 10);
+            walletIDToUse = await generateWalletID(name); // Generate new wallet ID for new agent
+        }
+
+        console.log(`agentID: ${agentIDToUse}`);
         console.log(dob);
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const walletID = await generateWalletID(name);
-        console.log(walletID);
-        const newAgent = new Agent({
+
+        const agentData = {
             name,
             gender,
             dob,
             age: calculateAge(dob),
-            phone_calling,
+            phone_calling: trimmedPhone, // Ensure trimmed phone is saved
             phone_whatsapp,
-            email,
-            aadhar_card,
+            email: trimmedEmail, // Ensure trimmed email is saved
+            aadhar_card: trimmedAadhar, // Ensure trimmed Aadhar is saved
             pan_card,
             aadhaarPhotoFront: req.files['aadhaarPhotoFront'] ? `data:image/png;base64,${req.files['aadhaarPhotoFront'][0].buffer.toString('base64')}` : '',
             aadhaarPhotoBack: req.files['aadhaarPhotoBack'] ? `data:image/png;base64,${req.files['aadhaarPhotoBack'][0].buffer.toString('base64')}` : '',
             panCardPhoto: req.files['panCardPhoto'] ? `data:image/png;base64,${req.files['panCardPhoto'][0].buffer.toString('base64')}` : '',
             photo: req.files['photo'] ? `data:image/png;base64,${req.files['photo'][0].buffer.toString('base64')}` : '',
-            password:hashedPassword,
+            password: hashedPasswordToUse,
             profession,
             income: Number(income),
             office_address,
@@ -225,16 +252,26 @@ router.post('/register', multiUpload, async (req, res) => {
             exclusive_zone: JSON.parse(exclusive_zone),
             banking_details: JSON.parse(banking_details),
             parentAgent: parentAgent || null,
-            agentID,
-            lastCode : newCode,
-            walletID
-            // walletID : First2Letters of the name-current day-month-W-01
-        });
+            agentID: agentIDToUse,
+            walletID: walletIDToUse,
+            lastCode: newCodeToUse,
+            status: 'pending', // Reset status to inactive upon re-registration
+            remarks: '' // Clear remarks on re-registration
+        };
 
-        await newAgent.save();
-        lastCodeDoc.lastCode = newCode;
-        await lastCodeDoc.save();
-        res.status(201).json({ message: 'Agent registered successfully!' });
+        if (existingAgent && existingAgent.status === 'rejected') {
+            // Update the existing agent document
+            await Agent.findByIdAndUpdate(existingAgent._id, agentData, { new: true });
+            res.status(200).json({ message: 'Agent data updated successfully!' });
+        } else {
+            // Create a new agent document
+            const newAgent = new Agent(agentData);
+            await newAgent.save();
+            lastCodeDoc.lastCode = newCodeToUse; // Update lastCode only for truly new registrations
+            await lastCodeDoc.save();
+            res.status(201).json({ message: 'Agent registered successfully!' });
+        }
+
     } catch (error) {
         console.error("Error Occured while registering: ", error);
         res.status(500).json({ error: 'Registration failed: An error occurred while registration' });
@@ -285,6 +322,9 @@ router.post('/login', async (req, res) => {
         const isMatch = await bcrypt.compare(password, agent.password);
         if (!isMatch) {
             return res.status(400).json({ error: 'Invalid credentials!' });
+        }
+        if(agent.status == 'rejected'){
+          return res.status(400).json({ error: 'Your account has been rejected, please contact support!!'});
         }
         if(agent.status != 'active'){
           return res.status(400).json({ error: 'Your ID is inactive. Wait till your ID is getting active'});

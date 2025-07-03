@@ -14,7 +14,7 @@ import {
 function TopNav({ collapsed }) {
   const [profile, setProfile] = useState(null);
   const [message, setMessage] = useState(null);
-  const [inactiveCount, setInactiveCount] = useState(0);
+  const [pendingCount, setPendingCount] = useState(0);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [activeTab, setActiveTab] = useState('completed');
   const [transactions, setTransactions] = useState([]);
@@ -75,20 +75,20 @@ function TopNav({ collapsed }) {
 
   if (role == 'superadmin') {
     useEffect(() => {
-      const fetchInactiveUsers = async () => {
+      const fetchPendingUsers = async () => {
         try {
-          const res = await axios.get('/api/admin/inactive-count', {
+          const res = await axios.get('/api/admin/pending-count', {
             headers: {
               Authorization: `Bearer ${token}`
             }
           });
-          setInactiveCount(res.data.count);
+          setPendingCount(res.data.count);
         } catch (error) {
-          console.error('Failed to fetch inactive user count:', error);
+          console.error('Failed to fetch pending user count:', error);
         }
       };
-      fetchInactiveUsers();
-      const intervalId = setInterval(fetchInactiveUsers, 2000);
+      fetchPendingUsers();
+      const intervalId = setInterval(fetchPendingUsers, 2000);
       return () => clearInterval(intervalId);
     }, []);
   }
@@ -146,9 +146,9 @@ function TopNav({ collapsed }) {
           </button>
           <button className="bg-gray-100 p-2 rounded-full relative hover:bg-gray-200 transition-colors duration-200">
             <FontAwesomeIcon icon={faBellRegular} />
-            {inactiveCount > 0 && (
+            {pendingCount > 0 && (
               <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
-                {inactiveCount}
+                {pendingCount}
               </span>
             )}
           </button>
