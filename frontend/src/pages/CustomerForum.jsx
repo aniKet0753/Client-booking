@@ -129,6 +129,11 @@ const ForumPage = () => {
 
     const [loggedInUser, setLoggedInUser] = useState(null);
 
+    const [complaintSubject, setComplaintSubject] = useState('');
+    const [complaintType, setComplaintType] = useState('');
+    const [complaintDescription, setComplaintDescription] = useState('');
+    const [preferredResolution, setPreferredResolution] = useState('');
+
     const token = localStorage.getItem('Token');
     const username = localStorage.getItem('username');
     const role = localStorage.getItem('role');
@@ -142,6 +147,22 @@ const ForumPage = () => {
         'Travel Stories',
         'Questions'
     ];
+
+    const handleComplaintSubmit = (e) => {
+        e.preventDefault();
+        // Handle complaint submission logic here
+        console.log({
+            subject: complaintSubject,
+            type: complaintType,
+            description: complaintDescription,
+            resolution: preferredResolution
+        });
+        // Reset form
+        setComplaintSubject('');
+        setComplaintType('');
+        setComplaintDescription('');
+        setPreferredResolution('');
+    };
 
     useEffect(() => {
         if (token && username) {
@@ -395,28 +416,92 @@ const ForumPage = () => {
                             <div className="bg-white rounded-lg shadow-md p-6 mb-6">
                                 <h1 className="text-3xl font-bold text-gray-800 mb-6">Travel Community Forum</h1>
 
-                                <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
-                                    <div className="relative flex-1">
-                                        <FiSearch className="absolute left-3 top-3 text-gray-400" />
-                                        <input
-                                            type="text"
-                                            placeholder="Search forum posts..."
-                                            className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            value={searchQuery}
-                                            onChange={(e) => setSearchQuery(e.target.value)}
-                                        />
+                                {activeCategory !== 'Complaint Management' && (
+                                    <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
+                                        <div className="relative flex-1">
+                                            <FiSearch className="absolute left-3 top-3 text-gray-400" />
+                                            <input
+                                                type="text"
+                                                placeholder="Search forum posts..."
+                                                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                value={searchQuery}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                            />
+                                        </div>
+                                        {loggedInUser && (
+                                            <button
+                                                onClick={() => setShowNewPostForm(true)}
+                                                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+                                            >
+                                                <FiPlusCircle /> New Post
+                                            </button>
+                                        )}
                                     </div>
-                                    {loggedInUser && (
-                                        <button
-                                            onClick={() => setShowNewPostForm(true)}
-                                            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
-                                        >
-                                            <FiPlusCircle /> New Post
-                                        </button>
-                                    )}
-                                </div>
+                                )}
 
-                                {showNewPostForm && loggedInUser && (
+                                {activeCategory === 'Complaint Management' ? (
+                                    <div className="bg-gray-50 p-4 rounded-lg mb-6">
+                                        <h3 className="text-lg font-semibold mb-3">File a Complaint</h3>
+                                        <form onSubmit={handleComplaintSubmit}>
+                                            <div className="mb-3">
+                                                <label className="block text-gray-700 mb-1">Subject</label>
+                                                <input
+                                                    type="text"
+                                                    className="w-full p-2 border border-gray-300 rounded"
+                                                    value={complaintSubject}
+                                                    onChange={(e) => setComplaintSubject(e.target.value)}
+                                                    required
+                                                    placeholder="Brief description of your complaint"
+                                                />
+                                            </div>
+                                            <div className="mb-3">
+                                                <label className="block text-gray-700 mb-1">Complaint Type</label>
+                                                <select
+                                                    className="w-full p-2 border border-gray-300 rounded"
+                                                    value={complaintType}
+                                                    onChange={(e) => setComplaintType(e.target.value)}
+                                                    required
+                                                >
+                                                    <option value="">Select complaint type</option>
+                                                    <option value="Service Issue">Service Issue</option>
+                                                    <option value="Billing Problem">Billing Problem</option>
+                                                    <option value="Staff Behavior">Staff Behavior</option>
+                                                    <option value="Facility Problem">Facility Problem</option>
+                                                    <option value="Other">Other</option>
+                                                </select>
+                                            </div>
+                                            <div className="mb-3">
+                                                <label className="block text-gray-700 mb-1">Detailed Description</label>
+                                                <textarea
+                                                    rows="4"
+                                                    className="w-full p-2 border border-gray-300 rounded"
+                                                    value={complaintDescription}
+                                                    onChange={(e) => setComplaintDescription(e.target.value)}
+                                                    required
+                                                    placeholder="Please provide detailed information about your complaint"
+                                                ></textarea>
+                                            </div>
+                                            <div className="mb-3">
+                                                <label className="block text-gray-700 mb-1">Preferred Resolution</label>
+                                                <textarea
+                                                    rows="2"
+                                                    className="w-full p-2 border border-gray-300 rounded"
+                                                    value={preferredResolution}
+                                                    onChange={(e) => setPreferredResolution(e.target.value)}
+                                                    placeholder="How would you like this issue to be resolved?"
+                                                ></textarea>
+                                            </div>
+                                            <div className="flex justify-end gap-2">
+                                                <button
+                                                    type="submit"
+                                                    className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                                                >
+                                                    Submit Complaint
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                ) : showNewPostForm && loggedInUser && (
                                     <div className="bg-gray-50 p-4 rounded-lg mb-6">
                                         <h3 className="text-lg font-semibold mb-3">Create New Post</h3>
                                         <form onSubmit={handleNewPostSubmit}>
@@ -437,7 +522,7 @@ const ForumPage = () => {
                                                     value={newPostCategory}
                                                     onChange={(e) => setNewPostCategory(e.target.value)}
                                                 >
-                                                    {forumCategories.filter(cat => cat !== 'All Topics').map(category => (
+                                                    {forumCategories.filter(cat => cat !== 'All Topics' && cat !== 'Complaint Management').map(category => (
                                                         <option key={category} value={category}>{category}</option>
                                                     ))}
                                                 </select>
