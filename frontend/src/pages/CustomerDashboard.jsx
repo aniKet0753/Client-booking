@@ -156,7 +156,6 @@ const Dashboard = () => {
     try {
       await axios.post(`/api/complaints/${complaintId}/reply`, {
         message: replyMessage,
-        isInternal: false, // Customer replies are not internal
       }, {
         headers: {
           'Content-Type': 'application/json',
@@ -170,7 +169,8 @@ const Dashboard = () => {
       alert('Message sent successfully!');
     } catch (err) {
       console.error('Error sending message:', err);
-      alert('Failed to send message. Please try again.');
+      const errorMessage = err.response?.data?.message || 'Failed to send message. Please try again.';
+      alert(errorMessage);
     }
   };
 
@@ -194,225 +194,228 @@ const Dashboard = () => {
   return (
     <>
       <Navbar />
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-6xl mx-auto">
-          <h1 className="text-3xl font-bold text-gray-800 mb-6">My Dashboard</h1>
+      <div className="min-h-screen bg-gray-50 p-6 sm:p-8">
+        <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-lg p-6 sm:p-8"> {/* Added main content wrapper */}
+          <h1 className="text-4xl font-extrabold text-gray-900 mb-8 text-center sm:text-left">My Dashboard</h1>
 
-          <div className="flex border-b border-gray-200 mb-6">
+          <div className="flex flex-col sm:flex-row border-b border-gray-200 mb-8">
             <button
-              className={`py-2 px-4 font-medium flex items-center ${activeTab === 'upcoming' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
+              className={`py-3 px-6 font-semibold flex items-center justify-center sm:justify-start transition-all duration-300 ${activeTab === 'upcoming' ? 'text-blue-700 border-b-2 border-blue-700' : 'text-gray-600 hover:text-blue-500'}`}
               onClick={() => setActiveTab('upcoming')}
             >
-              <FiShoppingCart className="mr-2" />
-              Upcoming Tours ({upcomingTour.length})
+              <FiShoppingCart className="mr-2 text-xl" />
+              Upcoming Tours <span className="ml-2 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">{upcomingTour.length}</span>
             </button>
             <button
-              className={`py-2 px-4 font-medium flex items-center ${activeTab === 'previous' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
+              className={`py-3 px-6 font-semibold flex items-center justify-center sm:justify-start transition-all duration-300 ${activeTab === 'previous' ? 'text-blue-700 border-b-2 border-blue-700' : 'text-gray-600 hover:text-blue-500'}`}
               onClick={() => setActiveTab('previous')}
             >
-              <FiClock className="mr-2" />
-              Previous Tours ({previousTours.length})
+              <FiClock className="mr-2 text-xl" />
+              Previous Tours <span className="ml-2 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">{previousTours.length}</span>
             </button>
-            {/* New Complaints Tab */}
             <button
-              className={`py-2 px-4 font-medium flex items-center ${activeTab === 'complaints' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
+              className={`py-3 px-6 font-semibold flex items-center justify-center sm:justify-start transition-all duration-300 ${activeTab === 'complaints' ? 'text-blue-700 border-b-2 border-blue-700' : 'text-gray-600 hover:text-blue-500'}`}
               onClick={() => setActiveTab('complaints')}
             >
-              <FiFileText className="mr-2" />
-              My Complaints ({ongoingComplaints.length + resolvedComplaints.length})
+              <FiFileText className="mr-2 text-xl" />
+              My Complaints <span className="ml-2 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">{ongoingComplaints.length + resolvedComplaints.length}</span>
             </button>
           </div>
 
           {loading ? (
-            <div className="text-center py-12 text-gray-600">Loading your data...</div>
+            <div className="text-center py-20 text-gray-600 text-lg">Loading your data...</div>
           ) : error ? (
-            <div className="text-center py-12 text-red-600">
-              <FiInfo className="mx-auto text-4xl mb-4" />
-              {error}
+            <div className="text-center py-20 text-red-600">
+              <FiInfo className="mx-auto text-5xl mb-6 text-red-500" />
+              <p className="text-xl font-medium">{error}</p>
             </div>
           ) : (
             <>
               {activeTab === 'upcoming' || activeTab === 'previous' ? (
                 <>
-                  {(activeTab === 'upcoming' ? upcomingTour : previousTours).map((tour) => (
-                    <div key={tour.id} className="bg-white rounded-xl shadow-md overflow-hidden mb-6">
-                      <div className="md:flex">
-                        <div className="md:w-48 h-48 bg-cover bg-center" style={{ backgroundImage: `url(${tour.image})` }}></div>
-                        <div className="p-6 flex-1">
-                          <div className="flex justify-between items-start">
+                  {(activeTab === 'upcoming' ? upcomingTour : previousTours).length === 0 ? (
+                    <div className="text-center py-16">
+                      {activeTab === 'upcoming' ? (
+                        <FiShoppingCart className="mx-auto text-6xl text-gray-400 mb-6" />
+                      ) : (
+                        <FiClock className="mx-auto text-6xl text-gray-400 mb-6" />
+                      )}
+                      <h3 className="text-2xl font-semibold text-gray-700 mb-2">
+                        {activeTab === 'upcoming' ? 'No upcoming tours booked!' : 'No previous tours completed yet.'}
+                      </h3>
+                      <p className="text-gray-500 text-lg mt-2">
+                        {activeTab === 'upcoming' ?
+                          'It looks like you haven\'t booked any tours yet. Explore our exciting destinations!' :
+                          'Your past adventures will appear here once you complete them.'}
+                      </p>
+                    </div>
+                  ) : (
+                    (activeTab === 'upcoming' ? upcomingTour : previousTours).map((tour) => (
+                      <div key={tour.id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden mb-6 border border-gray-100">
+                        <div className="md:flex">
+                          <div className="md:w-56 h-56 bg-cover bg-center flex-shrink-0" style={{ backgroundImage: `url(${tour.image})` }}></div>
+                          <div className="p-6 flex-1 flex flex-col justify-between">
                             <div>
-                              <h2 className="text-xl font-semibold text-gray-800">{tour.title}</h2>
-                              <div className="mt-2 flex items-center text-gray-600">
-                                <FiMapPin className="mr-1" />
-                                <span>{tour.location}</span>
+                              <div className="flex justify-between items-start mb-2">
+                                <div>
+                                  <h2 className="text-2xl font-bold text-gray-800 mb-1">{tour.title}</h2>
+                                  <div className="flex items-center text-gray-600 text-sm">
+                                    <FiMapPin className="mr-1 text-base" />
+                                    <span>{tour.location}</span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                                  <FiStar className="mr-1 text-base" />
+                                  <span>{tour.rating === 0 ? 'N/A' : tour.rating.toFixed(1)}</span>
+                                </div>
+                              </div>
+
+                              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-4 text-gray-700 text-base">
+                                <div className="flex items-center">
+                                  <FiCalendar className="mr-2 text-gray-500 text-lg" />
+                                  <span>{new Date(tour.date).toLocaleDateString()}</span>
+                                </div>
+                                <div className="flex items-center">
+                                  <FiUsers className="mr-2 text-gray-500 text-lg" />
+                                  <span>{tour.people} {tour.people > 1 ? 'People' : 'Person'}</span>
+                                </div>
+                                <div className="flex items-center font-semibold">
+                                  <span>{tour.paymentStatus === 'Pending' ? 'Payment: Pending' : `Paid: ₹${tour.price}`}</span>
+                                </div>
                               </div>
                             </div>
-                            <div className="flex items-center bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                              <FiStar className="mr-1" />
-                              <span>{tour.rating === 0 ? 'N/A' : tour.rating}</span>
-                            </div>
-                          </div>
 
-                          <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-4">
-                            <div className="flex items-center text-gray-700">
-                              <FiCalendar className="mr-2 text-gray-500" />
-                              <span>{new Date(tour.date).toLocaleDateString()}</span>
-                            </div>
-                            <div className="flex items-center text-gray-700">
-                              <FiUsers className="mr-2 text-gray-500" />
-                              <span>{tour.people} {tour.people > 1 ? 'People' : 'Person'}</span>
-                            </div>
-                            <div className="flex items-center text-gray-700">
-                              <span>{tour.paymentStatus === 'Pending' ? 'Payment: Pending' : `Paid amount: ₹${tour.price}`}</span>
-                            </div>
-                          </div>
+                            <button onClick={() => toggleTourExpand(tour.id)} className="mt-6 flex items-center text-blue-600 hover:text-blue-800 transition-colors duration-200 self-start">
+                              {expandedTour === tour.id ? (
+                                <>
+                                  <span className="font-medium">Show less details</span>
+                                  <FiChevronUp className="ml-1 text-lg" />
+                                </>
+                              ) : (
+                                <>
+                                  <span className="font-medium">View full details</span>
+                                  <FiChevronDown className="ml-1 text-lg" />
+                                </>
+                              )}
+                            </button>
 
-                          <button onClick={() => toggleTourExpand(tour.id)} className="mt-4 flex items-center text-blue-600 hover:text-blue-800 transition-colors">
-                            {expandedTour === tour.id ? (
-                              <>
-                                <span>Show less</span>
-                                <FiChevronUp className="ml-1" />
-                              </>
-                            ) : (
-                              <>
-                                <span>Show details</span>
-                                <FiChevronDown className="ml-1" />
-                              </>
+                            {expandedTour === tour.id && (
+                              <div className="mt-6 pt-6 border-t border-gray-200">
+                                <p className="text-gray-700 leading-relaxed mb-4">{tour.description}</p>
+                                <p className="text-gray-600 text-sm mb-1"><span className="font-semibold text-gray-800">Booking ID:</span> {tour.bookingID}</p>
+                                <p className="text-gray-600 text-sm mb-4"><span className="font-semibold text-gray-800">Status:</span> <span className="capitalize">{tour.status}</span></p>
+
+                                {tour.inclusions.length > 0 && (
+                                  <div className="mb-4">
+                                    <p className="font-bold text-gray-800 mb-2">What's Included:</p>
+                                    <ul className="list-disc ml-6 text-gray-700 text-sm space-y-1">
+                                      {tour.inclusions.map((item, idx) => <li key={idx}>{item}</li>)}
+                                    </ul>
+                                  </div>
+                                )}
+
+                                {tour.exclusions.length > 0 && (
+                                  <div className="mb-6">
+                                    <p className="font-bold text-gray-800 mb-2">What's Not Included:</p>
+                                    <ul className="list-disc ml-6 text-gray-700 text-sm space-y-1">
+                                      {tour.exclusions.map((item, idx) => <li key={idx}>{item}</li>)}
+                                    </ul>
+                                  </div>
+                                )}
+
+                                {activeTab === 'upcoming' && (
+                                  <div className="mt-4 flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
+                                    <button
+                                      onClick={() =>
+                                        setShowItineraryTourId(
+                                          showItineraryTourId === tour.id ? null : tour.id
+                                        )
+                                      }
+                                      className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-300 transform hover:scale-105 text-lg font-medium"
+                                    >
+                                      {showItineraryTourId === tour.id ? 'Hide Itinerary' : 'View Itinerary'}
+                                    </button>
+
+                                    {showItineraryTourId === tour.id && tour.itinerary.length > 0 && (
+                                      <div className="mt-4 bg-blue-50 p-5 rounded-lg shadow-inner w-full">
+                                        <h4 className="text-lg font-semibold text-blue-800 mb-3">Detailed Itinerary:</h4>
+                                        <ul className="space-y-5">
+                                          {tour.itinerary.map((item, i) => (
+                                            <li key={item._id || i} className="border-l-4 border-blue-300 pl-4">
+                                              <p className="text-blue-700 text-md font-bold mb-1">Day {item.dayNumber}: {item.title}</p>
+                                              <p className="text-gray-700 text-sm mb-2">{item.description}</p>
+                                              {item.activities?.length > 0 && (
+                                                <ul className="ml-4 list-disc text-gray-600 text-sm space-y-0.5">
+                                                  {item.activities.map((act, j) => (
+                                                    <li key={j} className="flex items-center"><span className="mr-2 text-blue-400">&bull;</span> {act.title} - <span className="font-medium ml-1">{act.time}</span></li>
+                                                  ))}
+                                                </ul>
+                                              )}
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+
+                                    <button className="px-6 py-3 border border-red-500 text-red-600 rounded-lg hover:bg-red-50 transition-all duration-300 transform hover:scale-105 text-lg font-medium">
+                                      Cancel Tour
+                                    </button>
+                                  </div>
+                                )}
+
+                                {activeTab === 'previous' && (
+                                  <button className="mt-4 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-300 transform hover:scale-105 text-lg font-medium">
+                                    Book Again
+                                  </button>
+                                )}
+                              </div>
                             )}
-                          </button>
-
-                          {expandedTour === tour.id && (
-                            <div className="mt-4 pt-4 border-t border-gray-200">
-                              <p className="text-gray-700 mb-2">{tour.description}</p>
-                              <p className="text-gray-600 text-sm mb-1">Booking ID: <span className="font-semibold">{tour.bookingID}</span></p>
-                              <p className="text-gray-600 text-sm mb-3">Status: <span className="font-semibold capitalize">{tour.status}</span></p>
-
-                              {tour.inclusions.length > 0 && (
-                                <div className="mb-2">
-                                  <p className="font-semibold text-gray-800 mb-1">Inclusions:</p>
-                                  <ul className="list-disc ml-6 text-gray-600 text-sm">
-                                    {tour.inclusions.map((item, idx) => <li key={idx}>{item}</li>)}
-                                  </ul>
-                                </div>
-                              )}
-
-                              {tour.exclusions.length > 0 && (
-                                <div className="mb-4">
-                                  <p className="font-semibold text-gray-800 mb-1">Exclusions:</p>
-                                  <ul className="list-disc ml-6 text-gray-600 text-sm">
-                                    {tour.exclusions.map((item, idx) => <li key={idx}>{item}</li>)}
-                                  </ul>
-                                </div>
-                              )}
-
-                              {activeTab === 'upcoming' && (
-                                <div className="mt-4 flex flex-col space-y-3">
-                                  <button
-                                    onClick={() =>
-                                      setShowItineraryTourId(
-                                        showItineraryTourId === tour.id ? null : tour.id
-                                      )
-                                    }
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 w-max"
-                                  >
-                                    {showItineraryTourId === tour.id ? 'Hide Itinerary' : 'View Itinerary'}
-                                  </button>
-
-                                  {showItineraryTourId === tour.id && tour.itinerary.length > 0 && (
-                                    <div className="mt-2 bg-gray-100 p-4 rounded-lg">
-                                      <h4 className="text-md font-semibold text-gray-700 mb-2">Itinerary:</h4>
-                                      <ul className="space-y-4">
-                                        {tour.itinerary.map((item, i) => (
-                                          <li key={item._id || i}>
-                                            <p><strong>Day {item.dayNumber}: {item.title}</strong></p>
-                                            <p>{item.description}</p>
-                                            {item.activities?.length > 0 && (
-                                              <ul className="ml-4 list-disc">
-                                                {item.activities.map((act, j) => (
-                                                  <li key={j}>{act.title} - {act.time}</li>
-                                                ))}
-                                              </ul>
-                                            )}
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  )}
-
-                                  <button className="px-4 py-2 border border-red-500 text-red-500 rounded-lg hover:bg-red-50 w-max">
-                                    Cancel Tour
-                                  </button>
-                                </div>
-                              )}
-
-                              {activeTab === 'previous' && (
-                                <button className="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 w-max">
-                                  Book Again
-                                </button>
-                              )}
-                            </div>
-                          )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-
-                  {activeTab === 'upcoming' && upcomingTour.length === 0 && (
-                    <div className="text-center py-12">
-                      <FiShoppingCart className="mx-auto text-4xl text-gray-400 mb-4" />
-                      <h3 className="text-lg font-medium text-gray-700">No upcoming tours booked</h3>
-                      <p className="text-gray-500 mt-2">Browse our amazing tours and start your next adventure!</p>
-                    </div>
-                  )}
-
-                  {activeTab === 'previous' && previousTours.length === 0 && (
-                    <div className="text-center py-12">
-                      <FiClock className="mx-auto text-4xl text-gray-400 mb-4" />
-                      <h3 className="text-lg font-medium text-gray-700">No previous tours completed</h3>
-                      <p className="text-gray-500 mt-2">Your past adventures will appear here after completion.</p>
-                    </div>
+                    ))
                   )}
                 </>
               ) : ( /* Complaints Tab Content */
-                <div>
-                  <div className="flex border-b border-gray-200 mb-6">
+                <div className="mt-8">
+                  <div className="flex border-b border-gray-200 mb-8">
                     <button
-                      className={`py-2 px-4 font-medium flex items-center ${activeComplaintSubTab === 'ongoing' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
+                      className={`py-3 px-6 font-semibold flex items-center transition-all duration-300 ${activeComplaintSubTab === 'ongoing' ? 'text-blue-700 border-b-2 border-blue-700' : 'text-gray-600 hover:text-blue-500'}`}
                       onClick={() => setActiveComplaintSubTab('ongoing')}
                     >
-                      Ongoing ({ongoingComplaints.length})
+                      Ongoing <span className="ml-2 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">{ongoingComplaints.length}</span>
                     </button>
                     <button
-                      className={`py-2 px-4 font-medium flex items-center ${activeComplaintSubTab === 'resolved' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
+                      className={`py-3 px-6 font-semibold flex items-center transition-all duration-300 ${activeComplaintSubTab === 'resolved' ? 'text-blue-700 border-b-2 border-blue-700' : 'text-gray-600 hover:text-blue-500'}`}
                       onClick={() => setActiveComplaintSubTab('resolved')}
                     >
-                      Resolved ({resolvedComplaints.length})
+                      Resolved <span className="ml-2 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">{resolvedComplaints.length}</span>
                     </button>
                   </div>
 
                   {(activeComplaintSubTab === 'ongoing' ? ongoingComplaints : resolvedComplaints).length === 0 ? (
-                    <div className="text-center py-12 text-gray-600">
-                      <FiFileText className="mx-auto text-4xl text-gray-400 mb-4" />
-                      <h3 className="text-lg font-medium text-gray-700">
+                    <div className="text-center py-16 text-gray-600">
+                      <FiFileText className="mx-auto text-6xl text-gray-400 mb-6" />
+                      <h3 className="text-2xl font-semibold text-gray-700 mb-2">
                         {activeComplaintSubTab === 'ongoing' ? 'No ongoing complaints.' : 'No resolved complaints.'}
                       </h3>
-                      <p className="text-gray-500 mt-2">
+                      <p className="text-gray-500 text-lg mt-2">
                         {activeComplaintSubTab === 'ongoing' ?
-                          'All your active complaints will appear here.' :
-                          'Your completed complaints will appear here.'}
+                          'All your active complaints will appear here for tracking.' :
+                          'Your completed complaints will be archived here.'}
                       </p>
                     </div>
                   ) : (
                     (activeComplaintSubTab === 'ongoing' ? ongoingComplaints : resolvedComplaints).map(complaint => (
-                      <div key={complaint._id} className="bg-white rounded-xl shadow-md overflow-hidden mb-6">
+                      <div key={complaint._id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden mb-6 border border-gray-100">
                         <div className="p-6">
-                          <div className="flex justify-between items-start mb-3">
+                          <div className="flex justify-between items-start mb-4">
                             <div>
-                              <h2 className="text-xl font-semibold text-gray-800">{complaint.subject}</h2>
-                              <p className="text-sm text-gray-600">Type: {complaint.type}</p>
-                              <p className="text-sm text-gray-600">Filed on: {new Date(complaint.createdAt).toLocaleDateString()}</p>
+                              <h2 className="text-2xl font-bold text-gray-800 mb-1">{complaint.subject}</h2>
+                              <p className="text-sm text-gray-600">Type: <span className="font-medium">{complaint.type}</span></p>
+                              <p className="text-sm text-gray-600">Filed on: <span className="font-medium">{new Date(complaint.createdAt).toLocaleDateString()}</span></p>
                             </div>
-                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                            <span className={`px-4 py-1.5 rounded-full text-sm font-semibold capitalize ${
                                 complaint.status === 'open' ? 'bg-red-100 text-red-800' :
                                 complaint.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
                                 'bg-green-100 text-green-800'
@@ -421,66 +424,86 @@ const Dashboard = () => {
                             </span>
                           </div>
 
-                          <button onClick={() => toggleComplaintExpand(complaint._id)} className="mt-2 flex items-center text-blue-600 hover:text-blue-800 transition-colors">
+                          <button onClick={() => toggleComplaintExpand(complaint._id)} className="mt-2 flex items-center text-blue-600 hover:text-blue-800 transition-colors duration-200 self-start">
                             {expandedComplaintId === complaint._id ? (
                               <>
-                                <span>Hide details</span>
-                                <FiChevronUp className="ml-1" />
+                                <span className="font-medium">Hide conversation</span>
+                                <FiChevronUp className="ml-1 text-lg" />
                               </>
                             ) : (
                               <>
-                                <span>View conversation</span>
-                                <FiChevronDown className="ml-1" />
+                                <span className="font-medium">View conversation history</span>
+                                <FiChevronDown className="ml-1 text-lg" />
                               </>
                             )}
                           </button>
 
                           {expandedComplaintId === complaint._id && (
-                            <div className="mt-4 pt-4 border-t border-gray-200">
-                              <p className="text-gray-700 mb-4">
-                                <span className="font-semibold">Description: </span>
+                            <div className="mt-6 pt-6 border-t border-gray-200">
+                              <p className="text-gray-700 leading-relaxed mb-4">
+                                <span className="font-bold text-gray-800">Your Original Description: </span>
                                 {complaint.description}
                               </p>
                               {complaint.preferredResolution && (
-                                <p className="text-gray-700 mb-4">
-                                  <span className="font-semibold">Preferred Resolution: </span>
+                                <p className="text-gray-700 leading-relaxed mb-4">
+                                  <span className="font-bold text-gray-800">Your Preferred Resolution: </span>
                                   {complaint.preferredResolution}
                                 </p>
                               )}
                                {complaint.agentInfo?.name && (
-                                <p className="text-gray-700 mb-4">
-                                  <span className="font-semibold">Agent Involved: </span>
-                                  {complaint.agentInfo.name} ({complaint.agentInfo.id})
+                                <p className="text-gray-700 leading-relaxed mb-4">
+                                  <span className="font-bold text-gray-800">Assigned Agent: </span>
+                                  {complaint.agentInfo.name}
+                                  {complaint.agentInfo.id && ` (ID: ${complaint.agentInfo.id})`}
                                 </p>
                               )}
 
-                              <h3 className="font-semibold text-gray-800 mb-3">Conversation History</h3>
-                              <div className="space-y-4 max-h-60 overflow-y-auto pr-2">
-                                {complaint.adminReplies.length === 0 ? (
-                                  <p className="text-gray-600 text-sm">No replies yet.</p>
-                                ) : (
-                                  complaint.adminReplies.map((reply, index) => (
-                                    <div key={index} className={`p-3 rounded-lg ${reply.isInternal ? 'bg-yellow-50 border border-yellow-200' : 'bg-blue-50 border border-blue-200'}`}>
-                                      <div className="flex justify-between text-xs text-gray-600 mb-1">
-                                        <span className="font-medium">
-                                          {reply.isInternal ? 'Admin (Internal Note)' : 'Admin Reply'}
-                                        </span>
-                                        <span>{new Date(reply.createdAt).toLocaleString()}</span>
-                                      </div>
-                                      <p className="text-gray-800 text-sm whitespace-pre-line">{reply.message}</p>
-                                    </div>
-                                  ))
-                                )}
+                              <h3 className="font-bold text-gray-900 mb-4 text-xl">Conversation History</h3>
+                              {/* --- MODIFIED SCROLL AREA --- */}
+                              <div className="relative"> {/* Added relative for positioning absolute gradients */}
+                                <div className="space-y-4 h-60 overflow-y-auto pr-2 custom-scrollbar p-2 bg-gray-50 rounded-lg shadow-inner">
+                                  {complaint.adminReplies.length === 0 ? (
+                                    <p className="text-gray-600 text-sm text-center py-4">No messages in this conversation yet.</p>
+                                  ) : (
+                                    complaint.adminReplies.map((reply, index) => {
+                                      const isCustomerReply = reply.repliedByType === 'Customer';
+                                      const senderName = isCustomerReply ? 'You' : 'Admin';
+
+                                      return (
+                                        <div
+                                          key={index}
+                                          className={`p-4 rounded-xl shadow-sm ${
+                                            isCustomerReply
+                                              ? 'bg-blue-100 self-end ml-auto max-w-[80%]'
+                                              : 'bg-gray-200 self-start mr-auto max-w-[80%]'
+                                          }`}
+                                        >
+                                          <div className="flex justify-between items-center text-xs text-gray-600 mb-2">
+                                            <span className="font-bold text-sm">
+                                              {senderName}
+                                            </span>
+                                            <span className="text-gray-500">{new Date(reply.createdAt).toLocaleString()}</span>
+                                          </div>
+                                          <p className="text-gray-800 text-base whitespace-pre-line break-words">{reply.message}</p>
+                                        </div>
+                                      );
+                                    })
+                                  )}
+                                </div>
+                                {/* Top fade gradient */}
+                                <div className="absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-gray-50 to-transparent pointer-events-none"></div>
+                                {/* Bottom fade gradient */}
+                                <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-gray-50 to-transparent pointer-events-none"></div>
                               </div>
+                              {/* --- END MODIFIED SCROLL AREA --- */}
 
                               {/* Message Input for Ongoing Complaints */}
-                              {/* Conditionally render reply section based on complaint status */}
                               {complaint.status !== 'resolved' && activeComplaintSubTab === 'ongoing' && (
-                                <div className="mt-4 pt-4 border-t border-gray-200">
-                                  <h3 className="font-semibold text-gray-800 mb-2">Send Message</h3>
+                                <div className="mt-6 pt-6 border-t border-gray-200">
+                                  <h3 className="font-bold text-gray-900 mb-3 text-xl">Send a New Message</h3>
                                   <textarea
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
-                                    rows="3"
+                                    className="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 mb-4 text-gray-700 resize-y"
+                                    rows="4"
                                     placeholder="Type your message here..."
                                     value={replyMessage}
                                     onChange={(e) => setReplyMessage(e.target.value)}
@@ -488,18 +511,18 @@ const Dashboard = () => {
                                   <div className="flex justify-end">
                                     <button
                                       onClick={() => handleSendMessage(complaint._id)}
-                                      className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center"
+                                      className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center font-semibold text-lg transition-all duration-300 transform hover:scale-105"
                                     >
-                                      <FiMessageSquare className="mr-2" /> Send
+                                      <FiMessageSquare className="mr-2 text-xl" /> Send Message
                                     </button>
                                   </div>
                                 </div>
                               )}
                               {/* Display a message if complaint is resolved */}
                               {complaint.status === 'resolved' && (
-                                <div className="mt-4 pt-4 border-t border-gray-200 text-center text-gray-600">
-                                  <p className="font-medium text-lg">This complaint has been resolved.</p>
-                                  <p className="text-sm">You cannot send further messages for resolved complaints.</p>
+                                <div className="mt-6 pt-6 border-t border-gray-200 text-center text-gray-600">
+                                  <p className="font-semibold text-xl mb-2">This complaint has been resolved!</p>
+                                  <p className="text-md">You cannot send further messages for resolved complaints.</p>
                                 </div>
                               )}
                             </div>

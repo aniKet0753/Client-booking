@@ -15,16 +15,15 @@ const SuperadminComplaints = () => {
   const [complaints, setComplaints] = useState([]);
   const [selectedComplaint, setSelectedComplaint] = useState(null);
   const [replyMessage, setReplyMessage] = useState('');
-  const [isInternal, setIsInternal] = useState(false);
-  const [status, setStatus] = useState('open'); // Stores the status for the selected complaint dropdown
-  const [filterType, setFilterType] = useState('All'); // 'All', 'open', 'in_progress', 'resolved'
+  const [status, setStatus] = useState('open'); 
+  const [filterType, setFilterType] = useState('All'); 
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchComplaints();
-  }, [filterType]); // Re-fetch complaints when filter changes
+  }, [filterType]); 
 
   const fetchComplaints = async () => {
     try {
@@ -37,13 +36,12 @@ const SuperadminComplaints = () => {
       const res = await axios.get(url, {
         headers: { Authorization: `Bearer ${localStorage.getItem('Token')}` }
       });
-      console.log(res)
+      // console.log(res)
       setComplaints(Array.isArray(res.data) ? res.data : []);
-      // If a complaint was selected and it's no longer in the list after filtering/refresh, deselect it
+      
       if (selectedComplaint && !res.data.some(c => c._id === selectedComplaint._id)) {
         setSelectedComplaint(null);
       } else if (selectedComplaint) {
-        // If selected complaint is still in the list, update its data to reflect any changes
         setSelectedComplaint(res.data.find(c => c._id === selectedComplaint._id) || null);
       }
     } catch (err) {
@@ -65,8 +63,7 @@ const SuperadminComplaints = () => {
     try {
       await axios.post(`/api/complaints/${complaintId}/reply`, {
         message: replyMessage,
-        isInternal,
-        status // Send the selected status to update complaint status
+        status 
       }, {
         headers: {
            'Content-Type': 'application/json',
@@ -75,9 +72,8 @@ const SuperadminComplaints = () => {
       });
 
       setReplyMessage('');
-      setIsInternal(false);
       alert('Response sent!');
-      fetchComplaints(); // Re-fetch to get updated conversation and status
+      fetchComplaints(); 
     } catch (err) {
       console.error('Error submitting reply:', err);
       const errorMessage = err.response?.data?.message || 'Failed to submit response. Please try again.';
@@ -95,9 +91,9 @@ const SuperadminComplaints = () => {
             Authorization: `Bearer ${localStorage.getItem('Token')}` 
         }
       });
-      setStatus(newStatus); // Update local state for dropdown
+      setStatus(newStatus); 
       alert(`Complaint status updated to ${newStatus.replace('_', ' ')}.`);
-      fetchComplaints(); // Re-fetch to update list and ensure consistency
+      fetchComplaints(); 
     } catch (err) {
       console.error('Error updating status:', err);
       const errorMessage = err.response?.data?.message || 'Failed to update status. Please try again.';
@@ -112,7 +108,6 @@ const SuperadminComplaints = () => {
     (complaint._id?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  // Determine status badge color
   const getStatusBadgeColor = (complaintStatus) => {
     switch (complaintStatus) {
       case 'open': return 'bg-red-100 text-red-800';
@@ -150,15 +145,13 @@ const SuperadminComplaints = () => {
   }
 
   return (
-    // The main container for the complaint management area, assuming it's placed within an existing layout
-    <div className="flex flex-col flex-1 p-6 bg-gray-50 rounded-xl shadow-md overflow-hidden h-full"> {/* Adjusted to fill available height */}
-      {/* Header Section */}
+    <div className="flex flex-col flex-1 p-6 bg-gray-50 rounded-xl shadow-md overflow-hidden h-full">
       <header className="mb-6">
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-3xl font-bold text-gray-800">Complaint Management</h1>
           {selectedComplaint && (
             <div className="flex items-center space-x-2">
-              <span className="text-gray-700 font-medium">Payment not processed</span> {/* Static text from screenshot based on selection */}
+              <span className="text-gray-700 font-medium">Payment not processed</span>
               <span className="text-gray-500 font-medium">{selectedComplaint._id}</span>
               <select
                 value={status}
@@ -193,7 +186,6 @@ const SuperadminComplaints = () => {
           </button>
         </div>
 
-        {/* Filter Tabs */}
         <div className="flex space-x-2 mb-6 border-b border-gray-200 pb-2">
           {['All', 'open', 'in_progress', 'resolved'].map(type => (
             <button
@@ -211,10 +203,8 @@ const SuperadminComplaints = () => {
         </div>
       </header>
 
-      {/* Complaints Layout */}
-      <div className="flex flex-1 gap-6 min-h-0"> {/* min-h-0 is crucial for flex items in a flex container with overflow */}
-        {/* Complaint List Panel */}
-        <div className="w-1/3 flex-shrink-0 bg-white rounded-xl shadow-md overflow-y-auto custom-scrollbar"> {/* Added overflow-y-auto */}
+      <div className="flex flex-1 gap-6 min-h-0">
+        <div className="w-1/3 flex-shrink-0 bg-white rounded-xl shadow-md overflow-y-auto custom-scrollbar">
           {filteredComplaints.length === 0 && !loading ? (
             <div className="text-gray-500 py-10 text-center">No complaints found matching your criteria.</div>
           ) : (
@@ -228,7 +218,6 @@ const SuperadminComplaints = () => {
                     setSelectedComplaint(complaint);
                     setStatus(complaint.status);
                     setReplyMessage('');
-                    setIsInternal(false);
                   }}
                 >
                   <div className="flex justify-between items-start mb-1">
@@ -260,7 +249,6 @@ const SuperadminComplaints = () => {
           )}
         </div>
 
-        {/* Complaint Details and Reply Panel */}
         <div className="flex-1 bg-white rounded-xl shadow-md overflow-hidden flex flex-col">
           {!selectedComplaint ? (
             <div className="flex-1 flex items-center justify-center text-center text-gray-600 p-6">
@@ -272,13 +260,11 @@ const SuperadminComplaints = () => {
             </div>
           ) : (
             <div className="flex-1 flex flex-col">
-              {/* Complaint Header (inside details panel, not top-level header) */}
               <div className="p-6 bg-gray-50 border-b border-gray-200">
                 <h2 className="text-2xl font-bold text-gray-800 mb-1">{selectedComplaint.subject}</h2>
                 <p className="text-sm text-gray-600">Complaint ID: <span className="font-medium">{selectedComplaint._id}</span></p>
               </div>
 
-              {/* Complaint Description */}
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center text-sm text-gray-600 mb-2">
                   <FiUser className="mr-1" />
@@ -306,36 +292,48 @@ const SuperadminComplaints = () => {
                 )}
               </div>
 
-              {/* Conversation History */}
               <div className="flex-1 p-6 overflow-y-auto custom-scrollbar">
                 <h3 className="font-semibold text-gray-800 mb-4">Conversation History</h3>
                 <div className="space-y-4">
                   {selectedComplaint.adminReplies.length === 0 ? (
                     <p className="text-gray-600 text-sm text-center py-4">No conversation history yet for this complaint.</p>
                   ) : (
-                    selectedComplaint.adminReplies.map((reply, index) => (
-                      <div
-                        key={index} // Using index as key is okay if replies don't reorder or get deleted
-                        className={`p-4 rounded-lg border ${
-                          reply.isInternal
-                            ? 'bg-yellow-50 border-yellow-200' // Internal note
-                            : 'bg-blue-50 border-blue-200' // Customer or Admin reply
-                        }`}
-                      >
-                        <div className="flex justify-between items-center text-sm mb-1">
-                          <span className="font-medium text-gray-800">
-                            {reply.isInternal ? 'Internal Note (Admin)' : `Reply by ${reply.repliedBy?.username || 'Admin'}`}
-                          </span>
-                          <span className="text-gray-500">{new Date(reply.createdAt).toLocaleString()}</span>
+                    selectedComplaint.adminReplies.map((reply, index) => {
+                      // console.log(reply);
+
+                      const isReplyFromCustomer = reply.repliedByType === 'Customer';
+                      const isReplyFromAdmin = reply.repliedByType === 'Superadmin';
+
+                      let senderDisplayName = 'Unknown';
+                      if (isReplyFromCustomer) {
+                        senderDisplayName = reply.repliedBy?.name || reply.repliedBy?.username || 'Customer';
+                      } else if (isReplyFromAdmin) {
+                        senderDisplayName = 'Admin';
+                      }
+
+                      return (
+                        <div
+                          key={index} 
+                          className={`p-4 rounded-lg border ${
+                            isReplyFromCustomer
+                              ? 'bg-blue-50 border-blue-200' // Customer reply
+                              : 'bg-gray-100 border-gray-200' // Admin/Agent reply
+                          }`}
+                        >
+                          <div className="flex justify-between items-center text-sm mb-1">
+                            <span className="font-medium text-gray-800">
+                              Reply by {senderDisplayName}
+                            </span>
+                            <span className="text-gray-500">{new Date(reply.createdAt).toLocaleString()}</span>
+                          </div>
+                          <p className="whitespace-pre-line text-gray-700">{reply.message}</p>
                         </div>
-                        <p className="whitespace-pre-line text-gray-700">{reply.message}</p>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>
 
-              {/* Reply Form */}
               <div className="p-6 bg-gray-50 border-t border-gray-200">
                 <h3 className="font-semibold text-gray-800 mb-3">Send a Response</h3>
                 <textarea
@@ -346,16 +344,7 @@ const SuperadminComplaints = () => {
                   placeholder="Type your response here..."
                 ></textarea>
 
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                  <label className="flex items-center text-gray-700 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={isInternal}
-                      onChange={(e) => setIsInternal(e.target.checked)}
-                      className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    Mark as Internal Note
-                  </label>
+                <div className="flex flex-wrap items-center justify-end gap-4">
                   <button
                     onClick={() => handleReplySubmit(selectedComplaint._id)}
                     className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"

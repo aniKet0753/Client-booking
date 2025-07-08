@@ -7,6 +7,7 @@ import AgentDashboardCom from '../components/AgentDashboardCom';
 import AgentTreeView from '../components/AgentTreeView';
 import CommissionHistory from '../components/CommissionHistory'; 
 import BookingHistory from '../components/BookingHistory';
+import AgentComplaintView from './AgentComplaintView';
 
 function AgentDashboard() {
   const [view, setView] = useState('dashboard');
@@ -26,6 +27,8 @@ function AgentDashboard() {
         return <BookingHistory />;
       case 'CommissionHistory': 
         return <CommissionHistory />;
+      case 'Complaints': 
+        return <AgentComplaintView />;
       default:
         return <AgentDashboardCom />;
     }

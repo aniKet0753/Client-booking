@@ -38,6 +38,7 @@ const AgentSidebar = ({ collapsed, setCollapsed, setView }) => {
     { icon: faUser, label: 'Tree View', view: 'TreeView' },
     { icon: faHistory, label: 'Booking History', view: 'BookingHistory' },
     { icon: faHistory, label: 'Commission History', view: 'CommissionHistory' },
+    { icon: faHistory, label: 'Complaints', view: 'Complaints' },
   ];
 
   const accountItems = [
