@@ -14,7 +14,7 @@ import {
 function TopNav({ collapsed }) {
   const [profile, setProfile] = useState(null);
   const [message, setMessage] = useState(null);
-  const [inactiveCount, setInactiveCount] = useState(0);
+  const [pendingCount, setPendingCount] = useState(0);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [activeTab, setActiveTab] = useState('completed');
   const [transactions, setTransactions] = useState([]);
@@ -75,20 +75,20 @@ function TopNav({ collapsed }) {
 
   if (role == 'superadmin') {
     useEffect(() => {
-      const fetchInactiveUsers = async () => {
+      const fetchPendingUsers = async () => {
         try {
-          const res = await axios.get('/api/admin/inactive-count', {
+          const res = await axios.get('/api/admin/pending-count', {
             headers: {
               Authorization: `Bearer ${token}`
             }
           });
-          setInactiveCount(res.data.count);
+          setPendingCount(res.data.count);
         } catch (error) {
-          console.error('Failed to fetch inactive user count:', error);
+          console.error('Failed to fetch pending user count:', error);
         }
       };
-      fetchInactiveUsers();
-      const intervalId = setInterval(fetchInactiveUsers, 2000);
+      fetchPendingUsers();
+      const intervalId = setInterval(fetchPendingUsers, 2000);
       return () => clearInterval(intervalId);
     }, []);
   }
@@ -130,14 +130,17 @@ function TopNav({ collapsed }) {
           )}
         </div>
         <div className="flex items-center space-x-4">
-          <button 
-            onClick={() => setShowWalletModal(true)}
-            className="text-lg font-bold text-gray-800 bg-gray-100 rounded p-2 hover:bg-gray-200 transition-colors duration-200 flex items-center cursor-pointer"
-          >
-            {/*  wallet: {profile?.walletBalance || 0} */}
-            <span className='mb-1 me-2'>💳</span> Commision
+          {profile?._id && role !== 'superadmin' && (
+            <button 
+              onClick={() => setShowWalletModal(true)}
+              className="text-lg font-bold text-gray-800 bg-gray-100 rounded p-2 hover:bg-gray-200 transition-colors duration-200 flex items-center cursor-pointer"
+            >
+              {/* wallet: {profile?.walletBalance || 0} */}
+              <span className='mb-1 me-2'>💳</span> Commision
+            </button>
+          )}
 
-          </button>
+
           <button className="bg-gray-100 p-2 rounded-full hover:bg-gray-200 transition-colors duration-200">
             <FontAwesomeIcon icon={faMoonRegular} />
           </button>
@@ -146,9 +149,9 @@ function TopNav({ collapsed }) {
           </button>
           <button className="bg-gray-100 p-2 rounded-full relative hover:bg-gray-200 transition-colors duration-200">
             <FontAwesomeIcon icon={faBellRegular} />
-            {inactiveCount > 0 && (
+            {pendingCount > 0 && (
               <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
-                {inactiveCount}
+                {pendingCount}
               </span>
             )}
           </button>
@@ -181,13 +184,13 @@ function TopNav({ collapsed }) {
               </div>
               <div className="flex justify-between text-sm text-gray-500">
                 <span>Last updated: {new Date().toLocaleDateString()}</span>
-                <button 
+                {/* <button 
                   onClick={copyToClipboard}
                   className="text-blue-500 hover:text-blue-700 flex items-center"
                 >
                   <FontAwesomeIcon icon={faCopy} className="mr-1" />
                   Copy ID
-                </button>
+                </button> */}
               </div>
             </div>
             

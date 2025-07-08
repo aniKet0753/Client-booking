@@ -5,20 +5,29 @@ const authenticate = require('../middleware/authMiddleware');
 const authenticateSuperAdmin = require('../middleware/authSuperadminMiddleware');
 const express = require('express');
 const router = express.Router();
+const bcrypt = require('bcryptjs');
+const Customer = require('../models/Customer');
 const mongoose = require('mongoose');
+
 const createBooking = async (req, res) => {
   try {
     const { bookingID, status, bookingDate, tour, customer, travelers, agent } = req.body;
-    
+
     console.log(req.body);
     console.log("req.body data is above");
-    if ( !bookingID || !tour || !customer || !customer.name || !customer.email || !req.user || !req.user.id || !travelers || !Array.isArray(travelers) || travelers.length === 0) {
+
+    // Basic validation
+    if (
+      !bookingID || !tour || !customer || !customer.name || !customer.email ||
+      !req.user || !req.user.id || !travelers || !Array.isArray(travelers) || travelers.length === 0
+    ) {
       return res.status(400).json({ error: 'Missing required booking fields.' });
     }
 
-    if(agent){
-      agentDetails = await Agent.findOne({agentID : agent.agentID});
-      if(!agentDetails){
+    // Validate agent if provided
+    if (agent) {
+      const agentDetails = await Agent.findOne({ agentID: agent.agentID });
+      if (!agentDetails) {
         return res.status(400).json({ error: 'Invalid AgentID entered.' });
       }
     }
@@ -30,62 +39,96 @@ const createBooking = async (req, res) => {
       }
     }
 
-    customer.id = req.user.id;
-
-    // Check if booking exists for this user and tour
+    // Check if a booking already exists for this tour + customer
     const existingBooking = await Booking.findOne({
-      'customer.id': customer.id,
+      'customer.email': customer.email,
       'tour.tourID': tour.tourID,
     });
 
+    // Common logic: Get or create customer, get the _id
+    let existingCustomer = await Customer.findOne({
+      $or: [
+        { email: customer.email },
+        { phone: customer.phone }
+      ]
+    });
+
+    let customerId;
+
+    if (!existingCustomer) {
+      const namePart = (customer.name || "cust").substring(0, 4).padEnd(4, "x").toLowerCase();
+      const dob = customer.dob || "2000-01-01";
+      const dobMonthDay = new Date(dob).toISOString().slice(5, 10).replace("-", "");
+      const rawPassword = namePart + dobMonthDay;
+
+      const hashedPassword = await bcrypt.hash(rawPassword, 10);
+
+      const newCustomer = new Customer({
+        name: customer.name,
+        email: customer.email,
+        phone: customer.phone,
+        password: hashedPassword,
+      });
+
+      await newCustomer.save();
+      console.log("✅ New customer created with auto-generated password.");
+      customerId = newCustomer._id;
+    } else {
+      console.log("✅ Customer already exists.");
+      customerId = existingCustomer._id;
+    }
+
+    const customerData = {
+      ...customer,
+      id: customerId,
+    };
+
+    // IF BOOKING EXISTS, update it
     if (existingBooking) {
-      existingBooking.bookingID = bookingID; 
+      console.log("♻️ Updating existing booking");
+
+      existingBooking.bookingID = bookingID;
       existingBooking.status = status || existingBooking.status;
       existingBooking.bookingDate = bookingDate || existingBooking.bookingDate;
       existingBooking.tour = tour;
-      existingBooking.customer = customer;
+      existingBooking.customer = customerData; // ✅ Ensure id is set
       existingBooking.travelers = travelers;
       existingBooking.agent = agent;
 
       const updatedBooking = await existingBooking.save();
-      console.log("Updated booking data:",req.body);
-      console.log("Updated a existing booking data");
-      console.log(bookingID);
-      console.log("travellers:",updatedBooking.travelers);
+      console.log("✅ Updated booking:", updatedBooking.bookingID);
       return res.status(200).json(updatedBooking);
-    } else {
-      const newBooking = new Booking({
-        bookingID,
-        status: status || 'pending',
-        bookingDate: bookingDate || new Date(),
-        tour,
-        customer,
-        travelers,
-        agent,
-        payment: {
-          totalAmount: 0,
-          paidAmount: 0,
-          paymentStatus: 'Pending',
-        },
-      });
-
-      const savedBooking = await newBooking.save();
-      console.log("Submitted a new booking data:",req.body);
-      console.log("Saved new booking data");
-      console.log(bookingID);
-      console.log("travellers:",savedBooking.travelers);
-      return res.status(201).json(savedBooking);
-      
     }
+
+    // ELSE, create a new booking
+    const newBooking = new Booking({
+      bookingID,
+      status: status || 'pending',
+      bookingDate: bookingDate || new Date(),
+      tour,
+      customer: customerData,
+      travelers,
+      agent,
+      payment: {
+        totalAmount: 0,
+        paidAmount: 0,
+        paymentStatus: 'Pending',
+      },
+    });
+
+    const savedBooking = await newBooking.save();
+    console.log("✅ Created new booking:", savedBooking.bookingID);
+    return res.status(201).json(savedBooking);
+
   } catch (error) {
     if (error.code === 11000) {
-      console.log(error)
       return res.status(409).json({ error: 'Booking with this ID already exists.', details: error.message });
     }
-    console.error('Error creating or updating booking:', error);
+    console.error('❌ Error creating/updating booking:', error);
     return res.status(500).json({ error: 'Failed to create or update booking', details: error.message });
   }
 };
+
 
 // const getBookings = async (req, res) => {
 //     try {

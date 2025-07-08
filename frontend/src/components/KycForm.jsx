@@ -1806,7 +1806,7 @@ const CustomerForm = () => {
                                                 className="form-checkbox h-5 w-5 text-blue-600 rounded mt-1"
                                             />
                                             <label htmlFor="acceptTerms" className="ml-3 text-sm text-gray-700">
-                                                I have read and agree to the <span className="font-semibold text-blue-600 cursor-pointer hover:underline" onClick={() => setShowModal(true)}>Terms and Conditions</span>.
+                                                By checking this box, I confirm that I have read, understood, and agree to the instructions provided below.
                                                 {errors.acceptedTerms && <p className="text-red-500 text-xs mt-1 flex items-center"><FaInfoCircle className="mr-1" /> {errors.acceptedTerms}</p>}
                                             </label>
                                         </div>
@@ -1815,7 +1815,8 @@ const CustomerForm = () => {
                                             <FaExclamationTriangle className="text-yellow-500 mt-1 mr-3 flex-shrink-0" />
                                             <div>
                                                 <p className="text-sm text-yellow-700">
-                                                    <strong>Important:</strong> By submitting this form, you agree to our terms and conditions. You will be redirected to the payment page after submission.
+                                                    I understand that after saving this form, I will be redirected to the terms & conditions page. <br /> 
+                                                    <strong>Important:</strong>  If you are an agent so after saving the form, please go back, copy the URL, and send the KYC link to the customer to verify.
                                                 </p>
                                             </div>
                                         </div>
@@ -1850,11 +1851,11 @@ const CustomerForm = () => {
                                     {isSubmitting ? (
                                         <>
                                             <FaSpinner className="animate-spin mr-2" />
-                                            Submitting...
+                                            Saving...
                                         </>
                                     ) : (
                                         <>
-                                            Submit Form
+                                            Save Details
                                             <FaArrowRight className="ml-2" />
                                         </>
                                     )}
@@ -1894,9 +1895,9 @@ const CustomerForm = () => {
             {showModal && (
                 <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center z-50">
                     <div className="bg-white rounded-lg shadow-lg p-6 w-96">
-                        <h2 className="text-xl font-bold text-gray-800 mb-4">Confirm Submission</h2>
+                        <h2 className="text-xl font-bold text-gray-800 mb-4">Confirm save</h2>
                         <p className="text-gray-600 mb-4">
-                            Are you sure you want to submit this form? You will be redirected to the payment page after submission.
+                            Are you sure you want to save this form? You will be redirected to the terms & conditions page after confirmation.
                         </p>
                         <div className="flex justify-end space-x-4">
                             <button

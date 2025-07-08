@@ -4,7 +4,7 @@ const activitySchema = new mongoose.Schema({
     type: { type: String, required: true },
     title: { type: String, required: true },
     description: { type: String },
-    time: { type: String }
+    time: { type: String } 
 });
 
 const itineraryDaySchema = new mongoose.Schema({

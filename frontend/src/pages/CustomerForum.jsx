@@ -134,6 +134,10 @@ const ForumPage = () => {
     const [complaintDescription, setComplaintDescription] = useState('');
     const [preferredResolution, setPreferredResolution] = useState('');
 
+    const [agentId, setAgentId] = useState('');
+    const [agentName, setAgentName] = useState('');
+    const [agentLocation, setAgentLocation] = useState('');
+
     const token = localStorage.getItem('Token');
     const username = localStorage.getItem('username');
     const role = localStorage.getItem('role');
@@ -148,21 +152,92 @@ const ForumPage = () => {
         'Questions'
     ];
 
-    const handleComplaintSubmit = (e) => {
+    // const handleComplaintSubmit = (e) => {
+    //     e.preventDefault();
+    //     // Handle complaint submission logic here
+    //     console.log({
+    //         subject: complaintSubject,
+    //         type: complaintType,
+    //         description: complaintDescription,
+    //         resolution: preferredResolution,
+    //         agentInfo: {
+    //             id: agentId,
+    //             name: agentName,
+    //             location: agentLocation
+    //         }
+    //     });
+        
+    //     // Reset form
+    //     setComplaintSubject('');
+    //     setComplaintType('');
+    //     setComplaintDescription('');
+    //     setPreferredResolution('');
+    //     setAgentId('');
+    //     setAgentName('');
+    //     setAgentLocation('');
+    // };
+
+    const handleComplaintSubmit = async (e) => {
         e.preventDefault();
-        // Handle complaint submission logic here
-        console.log({
-            subject: complaintSubject,
-            type: complaintType,
-            description: complaintDescription,
-            resolution: preferredResolution
-        });
-        // Reset form
-        setComplaintSubject('');
-        setComplaintType('');
-        setComplaintDescription('');
-        setPreferredResolution('');
+
+        if (!loggedInUser) {
+            const response = window.confirm('Please log in to file a complaint. Do you want to go to the login page?');
+            if (response) {
+                navigate('/login');
+            }
+            return;
+        }
+
+        try {
+            const complaintData = {
+                subject: complaintSubject,
+                type: complaintType,
+                description: complaintDescription,
+                preferredResolution: preferredResolution,
+                agentInfo: { // Ensure agentInfo matches your schema
+                    id: agentId || undefined, // Send undefined if empty to avoid empty string for ObjectId
+                    name: agentName || undefined,
+                    location: agentLocation || undefined
+                }
+            };
+
+            const currentToken = localStorage.getItem('Token');
+
+            // POST request to your backend complaints endpoint
+            const res = await axios.post('/api/complaints', complaintData, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${currentToken}` // Send token for authentication
+                }
+            });
+            
+            console.log('Complaint submitted:', res.data);
+            window.alert('Your complaint has been submitted successfully!');
+
+            // Reset form
+            setComplaintSubject('');
+            setComplaintType('');
+            setComplaintDescription('');
+            setPreferredResolution('');
+            setAgentId('');
+            setAgentName('');
+            setAgentLocation('');
+
+        } catch (error) {
+            console.error('Error submitting complaint:', error);
+            // More specific error message if available from backend
+            const errorMessage = error.response?.data?.error || 'Failed to submit complaint. Please try again.';
+            window.alert(errorMessage);
+        }
     };
+
+    useEffect(() => {
+        if (token && username) {
+            setLoggedInUser(username);
+        } else {
+            setLoggedInUser(null);
+        }
+    }, [token, username]);
 
     useEffect(() => {
         if (token && username) {
@@ -454,6 +529,44 @@ const ForumPage = () => {
                                                     placeholder="Brief description of your complaint"
                                                 />
                                             </div>
+
+                                            {/* New Agent Complaint Section */}
+                                            <div className="mb-4 p-3 bg-gray-100 rounded-md">
+                                                <h4 className="font-medium text-gray-700 mb-2">Complaint About Agent (Optional)</h4>
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                                    <div>
+                                                        <label className="block text-gray-600 text-sm mb-1">Agent ID</label>
+                                                        <input
+                                                            type="text"
+                                                            className="w-full p-2 border border-gray-300 rounded text-sm"
+                                                            value={agentId}
+                                                            onChange={(e) => setAgentId(e.target.value)}
+                                                            placeholder="Agent ID if applicable"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-gray-600 text-sm mb-1">Agent Name</label>
+                                                        <input
+                                                            type="text"
+                                                            className="w-full p-2 border border-gray-300 rounded text-sm"
+                                                            value={agentName}
+                                                            onChange={(e) => setAgentName(e.target.value)}
+                                                            placeholder="Agent name if known"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-gray-600 text-sm mb-1">Agent Location</label>
+                                                        <input
+                                                            type="text"
+                                                            className="w-full p-2 border border-gray-300 rounded text-sm"
+                                                            value={agentLocation}
+                                                            onChange={(e) => setAgentLocation(e.target.value)}
+                                                            placeholder="Location if applicable"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+
                                             <div className="mb-3">
                                                 <label className="block text-gray-700 mb-1">Complaint Type</label>
                                                 <select

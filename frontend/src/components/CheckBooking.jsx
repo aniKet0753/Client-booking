@@ -48,7 +48,7 @@ const BookingSearchPage = () => {
                     Authorization: `Bearer ${localStorage.getItem('Token')}`,
                 },
             });
-
+console.log(response)
             const data = response.data; 
 console.log(data)
             if (Array.isArray(data) && data.length > 0) {
@@ -110,6 +110,7 @@ console.log(data)
     };
 
     const handleViewDetails = (booking) => {
+         console.log("Selected Booking Agent:", booking);
         setSelectedBooking(booking);
         // Optionally scroll to the detailed view
         const detailsSection = document.getElementById('booking-details-section');
@@ -144,6 +145,7 @@ console.log(data)
     };
 
     const handleOpenInvoiceModal = () => {
+        console.log(selectedBooking)
         if (!selectedBooking) return; // Use selectedBooking
         setInvoiceData({
             customerName: selectedBooking.customer.name,
@@ -497,7 +499,7 @@ console.log(data)
                                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                                 <div>
                                                     <p className="text-sm font-semibold text-gray-600">Agent ID</p>
-                                                    <p className="mt-1 text-base text-gray-900">{selectedBooking.agent.agentId || 'N/A'}</p>
+                                                    <p className="mt-1 text-base text-gray-900">{selectedBooking.agent.agentID || 'N/A'}</p>
                                                 </div>
                                                 <div>
                                                     <p className="text-sm font-semibold text-gray-600">Agent Name</p>

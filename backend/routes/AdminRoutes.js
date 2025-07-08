@@ -129,20 +129,25 @@ router.get('/all-customers', authenticateSuperAdmin, async(req,res)=>{
   }
 })
 
-router.get('/inactive-count',authenticateSuperAdmin, async (req, res) => {
+router.get('/pending-count',authenticateSuperAdmin, async (req, res) => {
   try {
-    const count = await Agent.countDocuments({ status: 'inactive' });
+    const count = await Agent.countDocuments({ status: 'pending' });
     res.json({ count });
   } catch (err) {
-    console.error("Error:",err);
+    console.error("Error:",err); 
     res.status(500).json({ error: 'Server error' });
   }
-});
+}); 
 
 router.post('/update-status', authenticateSuperAdmin, async (req, res) => {
   const { userId, status } = req.body;
+  let newStatusToSet = status;
+  console.log(newStatusToSet,userId)
+  if (status === 'approved') {
+    newStatusToSet = 'active';
+  }
   try {
-    await Agent.findByIdAndUpdate(userId, { status });
+    await Agent.findByIdAndUpdate(userId, { status : newStatusToSet });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Failed to update status' });
@@ -151,6 +156,7 @@ router.post('/update-status', authenticateSuperAdmin, async (req, res) => {
 
 router.get('/booking-payments-overview', authenticateSuperAdmin, async(req,res)=>{ 
   try{
+    // const Agent = await Agent.find().lean({});
     const bookings = await Booking.find().lean({});
     // Map the bookings to the desired frontend format
         const transformedBookings = bookings.map(booking => ({
@@ -839,7 +845,7 @@ router.put('/process-cancellation/:bookingId', authenticateSuperAdmin, async (re
   }
 });
 
-//Rejected Cancellation code is pending 
+//Rejected Cancellation code is pending  
 
 router.get('/:id', authenticateSuperAdmin, async (req, res) => {
   const { id } = req.params;

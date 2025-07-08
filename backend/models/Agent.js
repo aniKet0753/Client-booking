@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const agentSchema = new mongoose.Schema({
-    status: { type: String,  enum: ['active','inactive'], default:'inactive' },
+    status: { type: String,  enum: ['active','inactive', 'rejected','pending'], default:'pending' },
     remarks: { type: String, default: '' },
     isAdmin: { type: Boolean, default: false },
     name: String,

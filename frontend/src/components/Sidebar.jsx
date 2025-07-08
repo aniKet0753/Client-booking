@@ -20,25 +20,25 @@ import axios from '../api';
 
 const Sidebar = ({ collapsed, setCollapsed, setView }) => {
   const [activeView, setActiveView] = useState('dashboard');
-  const [inactiveCount, setInactiveCount] = useState(0);
+  const [pendingCount, setPendingCount] = useState(0);
   const token = localStorage.getItem('Token');
   const role = localStorage.getItem('role');
 
   useEffect(() => {
-    const fetchInactiveUsers = async () => {
+    const fetchPendingUsers = async () => {
       try {
-        const res = await axios.get('/api/admin/inactive-count', {
+        const res = await axios.get('/api/admin/pending-count', {
           headers: {
             Authorization: `Bearer ${token}`
           }
         });
-        setInactiveCount(res.data.count);
+        setPendingCount(res.data.count);
       } catch (error) {
-        console.error('Failed to fetch inactive user count:', error);
+        console.error('Failed to fetch pending user count:', error);
       }
     };
-    fetchInactiveUsers();
-    const intervalId = setInterval(fetchInactiveUsers, 2000);
+    fetchPendingUsers();
+    const intervalId = setInterval(fetchPendingUsers, 2000);
     return () => clearInterval(intervalId);
   }, []);
 
@@ -64,7 +64,7 @@ const Sidebar = ({ collapsed, setCollapsed, setView }) => {
   ];
 
   const businessMenu = [
-    { icon: faPaperPlane, label: 'Requests', view: 'requests', badge: inactiveCount },
+    { icon: faPaperPlane, label: 'Requests', view: 'requests', badge: pendingCount },
     { icon: faTasks, label: 'Cancellations', view: 'cancellations' }
   ];
 

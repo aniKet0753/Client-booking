@@ -8,38 +8,83 @@ import {
     FiRefreshCw,
     FiChevronLeft,
     FiChevronRight,
-    FiDownload
+    FiDownload,
+    FiToggleLeft, // Added for status change icon
+    FiToggleRight, // Added for status change icon
 } from 'react-icons/fi';
-import { FaRupeeSign } from 'react-icons/fa'; // Add this line
+import { FaRupeeSign } from 'react-icons/fa';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { ToastContainer, toast } from 'react-toastify'; // Import for toasts
+import 'react-toastify/dist/ReactToastify.css'; // Import toast CSS
+
+// --- Agent-specific desired headers for CSV export ---
+// This ensures the order you explicitly requested for agents
+const AGENT_CSV_HEADERS = [
+    'name', 'agentID', 'gender', 'dob', 'age', 'phone_calling',
+    'phone_whatsapp', 'email', 'adhar_card', 'pan_card',
+    'profession', 'income', 'office_address', 'permanent_address',
+    'exclusive_zone', 'banking_details', 'parentAgent', 'commissionPending'
+];
 
 // Utility function to convert array of objects to CSV
-const convertToCSV = (data) => {
+const convertToCSV = (data, type) => { // Added 'type' parameter to differentiate
     if (data.length === 0) return '';
 
-    // Dynamically get headers from the first object, excluding Mongoose internal fields
-    const headers = Object.keys(data[0]).filter(key => !key.startsWith('__') && key !== '_id' && key !== 'id' && key !== 'password');
+    let headers = [];
     const csvRows = [];
+
+    if (type === 'agents') {
+        headers = AGENT_CSV_HEADERS;
+    } else {
+        // Dynamically get headers from the first object for other types (customers, payments)
+        // Excluding Mongoose internal fields and sensitive fields like password
+        headers = Object.keys(data[0]).filter(key =>
+            !key.startsWith('__') && key !== '_id' && key !== 'id' && key !== 'password'
+        );
+        // You might want to define specific headers for customers and payments too,
+        // similar to AGENT_CSV_HEADERS if a fixed order is required.
+    }
 
     csvRows.push(headers.join(','));
 
     for (const row of data) {
         const values = headers.map(header => {
-            const value = row[header];
+            let value = row[header];
             let escaped = '';
 
-            // Handle nested objects for addresses, banking, etc.
+            // --- Custom logic for specific agent fields based on your request ---
+            if (type === 'agents') {
+                if (header === 'parentAgent') {
+                    // This value is now pre-processed in fetchAgents
+                    value = row.parentAgent || 'N/A,N/A';
+                } else if (header === 'commissionPending') {
+                    // This value is now pre-processed in fetchAgents
+                    value = row.commissionPending || 0;
+                }
+            }
+            // --- End custom logic ---
+
+            // Handle nested objects for addresses, banking, exclusive_zone etc.
             if (typeof value === 'object' && value !== null) {
                 if (Array.isArray(value)) {
-                    // For arrays of strings or simple objects (like highlights, inclusions)
-                    escaped = JSON.stringify(value);
+                    // For arrays (like exclusive_zone, which is an array of objects)
+                    // Readable format : "pincode1; village1 | pincode2; village2"
+                    escaped = value.map(item => {
+                        if (typeof item === 'object' && item !== null) {
+                            return Object.values(item).map(v => (v !== null && typeof v !== 'object') ? String(v) : (Array.isArray(v) ? v.join(',') : '')).filter(Boolean).join('; ');
+                        }
+                        return String(item);
+                    }).filter(Boolean).join(' | ');
+
                 } else {
-                    // For single nested objects (like permanent_address, banking_details)
-                    escaped = Object.values(value).join('; '); // Join nested object values
+                    // For single nested objects (like permanent_address, banking_details, office_address)
+                    // Join nested object values, converting to string and handling potential nulls
+                    escaped = Object.values(value).map(v => v !== null ? String(v) : '').filter(Boolean).join('; ');
                 }
             } else {
-                escaped = ('' + value).replace(/"/g, '""'); // Escape double quotes
+                // Ensure null or undefined values are converted to empty strings
+                escaped = ('' + (value === undefined || value === null ? '' : value)).replace(/"/g, '""'); // Escape double quotes
             }
             return `"${escaped}"`;
         });
@@ -66,31 +111,87 @@ const MasterDataDashboard = () => {
     const [agentStatusFilter, setAgentStatusFilter] = useState('all'); // 'all', 'active', 'rejected'
 
     const [activeTab, setActiveTab] = useState('agents');
+    // New state for agent sub-tabs
+    const [agentSubTab, setAgentSubTab] = useState('all');
+
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [timeFilter, setTimeFilter] = useState('currentMonth');
     const itemsPerPage = 5;
     const token = localStorage.getItem('Token');
-    // Fetch Agents
+
+    // Helper to fetch agents (can be called by refresh button)
+    const fetchAgents = async () => {
+        try {
+            setLoadingAgents(true);
+            const response = await axios.get('/api/admin/all-agents', {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const fetchedAgents = Array.isArray(response.data.agents) ? response.data.agents : [];
+
+            // --- Post-process agents to include derived fields for CSV export ---
+            const agentsWithDerivedData = await Promise.all(fetchedAgents.map(async (agent) => {
+                let parentAgentInfo = 'N/A,N/A'; // Default value
+                    console.log(agent.parentAgent)
+                if (agent.parentAgent && typeof agent.parentAgent === 'string') { // Check if parentAgent exists and is a string (an ID)
+                    try {
+                        // THIS API CALL IS A PLACEHOLDER. Replace with your actual API endpoint
+                        // that fetches parent agent details by ID.
+                        const parentResponse = await axios.get(`/api/admin/${agent.parentAgent}`, {
+                            headers: { Authorization: `Bearer ${token}` },
+                        });
+                        console.log("parent", parentResponse.data.name);
+                        if (parentResponse.data && parentResponse.data.agent) {
+                            const parent = parentResponse.data;
+                            // console.log("parent",parent)
+                            parentAgentInfo = `${parent.name || 'N/A'},${parent.agentID || 'N/A'}`; // Assuming parent.agentID exists
+                        }
+                    } catch (parentError) {
+                        console.error(`Error fetching parent agent for ID ${agent.parentAgent}:`, parentError);
+                        parentAgentInfo = `Error,Error`; // Indicate an error in fetching
+                    }
+                }
+
+                return {
+                    name: agent.name || '',
+                    agentID: agent.agentID || '',
+                    gender: agent.gender || '',
+                    dob: agent.dob ? new Date(agent.dob).toLocaleDateString() : '', // Format DOB for readability
+                    age: agent.age || 'N/A', // Age is already present
+                    phone_calling: agent.phone_calling || '',
+                    phone_whatsapp: agent.phone_whatsapp || '',
+                    email: agent.email || '',
+                    adhar_card: agent.aadhar_card || '', // Use aadhar_card from your data
+                    pan_card: agent.pan_card || '',
+                    profession: agent.profession || '',
+                    income: agent.income || 0,
+                    office_address: agent.office_address || {}, // Ensure it's an object or string
+                    permanent_address: agent.permanent_address || {}, // Ensure it's an object
+                    exclusive_zone: agent.exclusive_zone || [], // Ensure it's an array
+                    banking_details: agent.banking_details || {}, // Ensure it's an object
+                    parentAgent: parentAgentInfo, // Formatted as "name,ID"
+                    commissionPending: agent.walletBalance || 0, // Direct mapping from walletBalance
+                    // Include any other fields if you need them for other parts of the dashboard
+                    status: agent.status || '',
+                    _id: agent._id, // Keep _id for React keys and other operations
+                };
+            }));
+
+            setAgents(agentsWithDerivedData);
+        } catch (err) {
+            setErrorAgents('Failed to fetch agents.');
+            setAgents([]);
+            console.error('Error fetching agents:', err);
+        } finally {
+            setLoadingAgents(false);
+        }
+    };
+
+    // ... (rest of your component code remains largely the same)
+    // Fetch Agents on component mount
     useEffect(() => {
-        const fetchAgents = async () => {
-            try {
-                setLoadingAgents(true);
-                const response = await axios.get('/api/admin/all-agents', {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                setAgents(Array.isArray(response.data.agents) ? response.data.agents : []);
-                // console.log(response.data)
-            } catch (err) {
-                setErrorAgents('Failed to fetch agents.');
-                setAgents([]); // Ensure it's always an array
-                console.error('Error fetching agents:', err);
-            } finally {
-                setLoadingAgents(false);
-            }
-        };
         fetchAgents();
-    }, []);
+    }, [token]);
 
     // Fetch Customers
     useEffect(() => {
@@ -103,14 +204,14 @@ const MasterDataDashboard = () => {
                 setCustomers(Array.isArray(response.data.customers) ? response.data.customers : []);
             } catch (err) {
                 setErrorCustomers('Failed to fetch customers.');
-                setCustomers([]); // Ensure it's always an array
+                setCustomers([]);
                 console.error('Error fetching customers:', err);
             } finally {
                 setLoadingCustomers(false);
             }
         };
         fetchCustomers();
-    }, []);
+    }, [token]);
 
     // Fetch Payments (Transactions and Bookings for payment info)
     useEffect(() => {
@@ -121,38 +222,40 @@ const MasterDataDashboard = () => {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setPayments(Array.isArray(response.data.bookings) ? response.data.bookings : []);
-                console.log(response.data);
             } catch (err) {
                 setErrorPayments('Failed to fetch payments.');
-                setPayments([]); // Ensure it's always an array
+                setPayments([]);
                 console.error('Error fetching payments:', err);
             } finally {
                 setLoadingPayments(false);
             }
         };
         fetchPayments();
-    }, []);
+    }, [token]);
 
 
-    // Filter data based on search term
+    // Filter data based on search term and agent sub-tab
     const filteredAgents = agents.filter(agent => {
         const matchesSearch =
-            agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            agent.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            agent.phone_calling.includes(searchTerm);
+            agent.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            agent.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            agent.phone_calling?.includes(searchTerm);
 
-        const matchesStatus =
-            agentStatusFilter === 'all' ||
-            (agentStatusFilter === 'active' && agent.status === 'active') ||
-            (agentStatusFilter === 'rejected' && agent.status === 'rejected');
+        const matchesSubTab =
+            agentSubTab === 'all' ||
+            (agentSubTab === 'active' && agent.status === 'active') ||
+            (agentSubTab === 'pending' && agent.status === 'pending') ||
+            (agentSubTab === 'inactive' && agent.status === 'inactive') ||
+            (agentSubTab === 'rejected' && agent.status === 'rejected');
 
-        return matchesSearch && matchesStatus;
+        return matchesSearch && matchesSubTab;
     });
 
+
     const filteredCustomers = customers.filter(customer =>
-        customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.phone.includes(searchTerm)
+        customer.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        customer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        customer.phone?.includes(searchTerm)
     );
 
     const filteredPayments = payments.filter(payment => {
@@ -193,8 +296,8 @@ const MasterDataDashboard = () => {
     const totalAgents = agents.length;
     const totalCustomers = customers.length;
 
-    const totalPendingPaymentsCount = payments.filter(p => p.paymentStatus === 'Pending').length; // Corrected property to paymentStatus
-    const totalCommissionEarned = agents.reduce((sum, agent) => sum + (agent.walletBalance || 0), 0); // Using walletBalance for total commission
+    const totalPendingPaymentsCount = payments.filter(p => p.paymentStatus === 'Pending').length;
+    const totalCommissionEarned = agents.reduce((sum, agent) => sum + (agent.walletBalance || 0), 0);
 
     // Calculate payment summaries
     const totalReceivedAmount = filteredPayments.filter(p => p.paymentStatus === 'Paid').reduce((sum, payment) => sum + (payment.amount || 0), 0);
@@ -203,9 +306,9 @@ const MasterDataDashboard = () => {
     const totalCommissionFromPayments = filteredPayments.reduce((sum, payment) => sum + (payment.commissionAmount || 0), 0);
 
     // Function to trigger download
-    const downloadCSV = (data, filename) => {
-        const csvData = convertToCSV(data);
-        const blob = new Blob([csvData], { type: 'text/csv' });
+    const downloadCSV = (data, filename, type) => { // Pass 'type' to convertToCSV
+        const csvData = convertToCSV(data, type);
+        const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' }); // Ensure charset is specified
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.setAttribute('hidden', '');
@@ -214,11 +317,45 @@ const MasterDataDashboard = () => {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        URL.revokeObjectURL(url); // Clean up the URL object
     };
+
+    // --- New: Function to toggle agent status ---
+    const toggleAgentStatus = async (agentId, currentStatus) => {
+        const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+        toast.info(`Changing agent status to ${newStatus}...`);
+
+        try {
+            await axios.post(
+                '/api/admin/update-status',
+                JSON.stringify({ userId: agentId, status: newStatus }),
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                }
+            );
+
+            // Update local state to reflect the change
+            setAgents(prevAgents =>
+                prevAgents.map(agent =>
+                    agent._id === agentId ? { ...agent, status: newStatus } : agent
+                )
+            );
+            toast.success(`Agent status updated to ${newStatus} successfully!`);
+        } catch (error) {
+            console.error('Failed to update agent status:', error);
+            toast.error('Failed to update agent status.');
+        }
+    };
+
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 md:p-8">
             <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6">Master Data Dashboard</h1>
+
+            <ToastContainer position="top-right" autoClose={3000} hideProgressBar />
 
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -244,12 +381,12 @@ const MasterDataDashboard = () => {
                     </div>
                 </div>
 
-                <div className="bg-white rounded-lg shadow p-4 flex items-center">
-                    <div className="bg-yellow-100 p-3 rounded-full mr-4">
-                        <FaRupeeSign className="text-yellow-600 text-xl" />
+                <div className="bg-yellow-100 rounded-lg shadow p-4 flex items-center">
+                    <div className="bg-yellow-200 p-3 rounded-full mr-4">
+                        <FaRupeeSign className="text-yellow-700 text-xl" />
                     </div>
                     <div>
-                        <p className="text-gray-500 text-sm">Pending Payments</p>
+                        <p className="text-gray-600 text-sm">Pending Payments</p>
                         {loadingPayments ? <p className="text-2xl font-bold">Loading...</p> : <p className="text-2xl font-bold">{totalPendingPaymentsCount}</p>}
                         {errorPayments && <p className="text-red-500 text-xs">{errorPayments}</p>}
                     </div>
@@ -260,8 +397,8 @@ const MasterDataDashboard = () => {
                         <FaRupeeSign className="text-purple-600 text-xl" />
                     </div>
                     <div>
-                        <p className="text-gray-500 text-sm">Total Commission</p>
-                        {loadingAgents ? <p className="text-2xl font-bold">Loading...</p> : <p className="text-2xl font-bold flex items-center gap-1"> <FaRupeeSign className='text-base' /> {totalCommissionEarned.toLocaleString()}</p>}
+                        <p className="text-gray-500 text-sm">Total Commission (yet to be paid)</p>
+                        {loadingAgents ? <p className="text-2xl font-bold">Loading...</p> : <p className="text-2xl font-bold flex items-center gap-1"> <FaRupeeSign className='text-base'/> {totalCommissionEarned.toLocaleString()}</p>}
                         {errorAgents && <p className="text-red-500 text-xs">{errorAgents}</p>}
                     </div>
                 </div>
@@ -272,7 +409,7 @@ const MasterDataDashboard = () => {
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 border-b">
                     <div className="flex space-x-2 mb-4 md:mb-0">
                         <button
-                            onClick={() => { setActiveTab('agents'); setCurrentPage(1); }}
+                            onClick={() => { setActiveTab('agents'); setAgentSubTab('all'); setCurrentPage(1); }}
                             className={`px-4 py-2 rounded-md ${activeTab === 'agents' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
                         >
                             Agents
@@ -304,9 +441,9 @@ const MasterDataDashboard = () => {
                         </div>
                         <button
                             onClick={() => {
-                                if (activeTab === 'agents') downloadCSV(filteredAgents, 'agents.csv');
-                                if (activeTab === 'customers') downloadCSV(filteredCustomers, 'customers.csv');
-                                if (activeTab === 'payments') downloadCSV(filteredPayments, 'payments.csv');
+                                if (activeTab === 'agents') downloadCSV(filteredAgents, 'agents.csv', 'agents');
+                                if (activeTab === 'customers') downloadCSV(filteredCustomers, 'customers.csv', 'customers');
+                                if (activeTab === 'payments') downloadCSV(filteredPayments, 'payments.csv', 'payments');
                             }}
                             className="px-3 py-2 bg-green-600 text-white rounded-md flex items-center hover:bg-green-700"
                         >
@@ -317,7 +454,7 @@ const MasterDataDashboard = () => {
                             className="px-3 py-2 bg-gray-100 rounded-md"
                             onClick={() => { setSearchTerm(''); setCurrentPage(1); }}
                         >
-                            <FiRefreshCw />
+                            <FiRefreshCw onClick={fetchAgents} />
                         </button>
                     </div>
                 </div>
@@ -326,73 +463,102 @@ const MasterDataDashboard = () => {
                 <div className="p-4 overflow-x-auto">
                     {activeTab === 'agents' && (
                         <>
+                            {/* Agent Sub-Tabs */}
+                            <div className="flex space-x-2 mb-4">
+                                <button
+                                    onClick={() => { setAgentSubTab('all'); setCurrentPage(1); }}
+                                    className={`px-4 py-2 rounded-md ${agentSubTab === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                >
+                                    All Agents
+                                </button>
+                                <button
+                                    onClick={() => { setAgentSubTab('active'); setCurrentPage(1); }}
+                                    className={`px-4 py-2 rounded-md ${agentSubTab === 'active' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                >
+                                    Active Agents
+                                </button>
+                                <button
+                                    onClick={() => { setAgentSubTab('pending'); setCurrentPage(1); }}
+                                    className={`px-4 py-2 rounded-md ${agentSubTab === 'pending' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                >
+                                    Pending Agents
+                                </button>
+                                <button
+                                    onClick={() => { setAgentSubTab('inactive'); setCurrentPage(1); }}
+                                    className={`px-4 py-2 rounded-md ${agentSubTab === 'inactive' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                >
+                                    Inactive Agents
+                                </button>
+                                <button
+                                    onClick={() => { setAgentSubTab('rejected'); setCurrentPage(1); }}
+                                    className={`px-4 py-2 rounded-md ${agentSubTab === 'rejected' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                >
+                                    Rejected Agents
+                                </button>
+                            </div>
                             {loadingAgents ? (
                                 <div className="text-center py-8">Loading agents...</div>
                             ) : errorAgents ? (
                                 <div className="text-center py-8 text-red-500">{errorAgents}</div>
                             ) : (
-                                <>
-                                    <div className="flex space-x-2 mb-4">
-                                        <button
-                                            onClick={() => setAgentStatusFilter('all')}
-                                            className={`px-4 py-2 rounded-md ${agentStatusFilter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
-                                        >
-                                            All Agents
-                                        </button>
-                                        <button
-                                            onClick={() => setAgentStatusFilter('active')}
-                                            className={`px-4 py-2 rounded-md ${agentStatusFilter === 'active' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
-                                        >
-                                            Active Agents
-                                        </button>
-                                        <button
-                                            onClick={() => setAgentStatusFilter('rejected')}
-                                            className={`px-4 py-2 rounded-md ${agentStatusFilter === 'rejected' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
-                                        >
-                                            Rejected Agents
-                                        </button>
-                                    </div>
-                                    <table className="min-w-full divide-y divide-gray-200">
-                                        <thead className="bg-gray-50">
-                                            <tr>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent ID</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration Date</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Commission</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="bg-white divide-y divide-gray-200">
-                                            {currentAgents.length > 0 ? (
-                                                currentAgents.map(agent => (
-                                                    <tr key={agent._id}>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">#{agent.agentID}</td>
-                                                        <td className="px-6 py-4 whitespace-nowrap">
-                                                            <div className="text-sm font-medium text-gray-900">{agent.name}</div>
-                                                            <div className="text-sm text-gray-500">{agent.email}</div>
-                                                        </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.phone_calling}</td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(agent.createdAt).toLocaleDateString()}</td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium"><FaRupeeSign className="inline mr-1" />{(agent.walletBalance || 0).toLocaleString()}</td>
-                                                        <td className="px-6 py-4 whitespace-nowrap">
-                                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                                                            ${agent.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                                                {agent.status}
-                                                            </span>
-                                                        </td>
-                                                    </tr>
-                                                ))
-                                            ) : (
-                                                <tr>
-                                                    <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500">
-                                                        No agents found
+                                <table className="min-w-full divide-y divide-gray-200">
+
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent ID</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration Date</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pending Commission</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                        {currentAgents.length > 0 ? (
+                                            currentAgents.map(agent => (
+                                                <tr key={agent._id}>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">#{agent.agentID}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <div className="text-sm font-medium text-gray-900">{agent.name}</div>
+                                                        <div className="text-sm text-gray-500">{agent.email}</div>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.phone_calling}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(agent.createdAt).toLocaleDateString()}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">₹{(agent.commissionPending || 0).toLocaleString()}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                                                            ${agent.status === 'active' ? 'bg-green-100 text-green-800' :
+                                                              agent.status === 'inactive' ? 'bg-red-100 text-red-800' :
+                                                              agent.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : // Added pending color
+                                                              'bg-gray-100 text-gray-800' // Default for rejected or unknown
+                                                            }`}>
+                                                            {agent.status}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                        {/* Toggle Button for Active/Inactive */}
+                                                        {agent.status === 'active' || agent.status === 'inactive' ? (
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation(); // Prevent row click from activating
+                                                                    toggleAgentStatus(agent._id, agent.status);
+                                                                }}
+                                                                className={`p-2 rounded-full text-white transition-colors duration-200
+                                                                    ${agent.status === 'active' ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'}`}
+                                                                title={agent.status === 'active' ? 'Deactivate Agent' : 'Activate Agent'}
+                                                            >
+                                                                {agent.status === 'active' ? <FiToggleLeft size={18} /> : <FiToggleRight size={18} />}
+                                                            </button>
+                                                        ) : (
+                                                            <span className="text-gray-400 text-xs">N/A</span> // Cannot toggle pending/rejected
+                                                        )}
                                                     </td>
                                                 </tr>
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </>
+                                            ))
+                                        ) : (
+                                            <tr>
+                                                <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500">
+                                                    No agents found
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
                             )}
                         </>
                     )}
@@ -407,7 +573,6 @@ const MasterDataDashboard = () => {
                                 <table className="min-w-full divide-y divide-gray-200">
                                     <thead className="bg-gray-50">
                                         <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer ID</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration Date</th>
@@ -417,7 +582,6 @@ const MasterDataDashboard = () => {
                                         {currentCustomers.length > 0 ? (
                                             currentCustomers.map(customer => (
                                                 <tr key={customer._id}>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{customer._id}</td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <div className="text-sm font-medium text-gray-900">{customer.name}</div>
                                                         <div className="text-sm text-gray-500">{customer.email}</div>
@@ -456,7 +620,7 @@ const MasterDataDashboard = () => {
                                                 </div>
                                                 <div>
                                                     <p className="text-gray-500 text-sm">Received Amount</p>
-                                                    <p className="text-xl font-bold"><FaRupeeSign className="inline mr-1" />{totalReceivedAmount.toLocaleString()}</p>
+                                                    <p className="text-xl font-bold">₹{totalReceivedAmount.toLocaleString()}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -468,7 +632,7 @@ const MasterDataDashboard = () => {
                                                 </div>
                                                 <div>
                                                     <p className="text-gray-500 text-sm">Pending Amount</p>
-                                                    <p className="text-xl font-bold"><FaRupeeSign className="inline mr-1" />{totalPendingAmount.toLocaleString()}</p>
+                                                    <p className="text-xl font-bold">₹{totalPendingAmount.toLocaleString()}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -480,7 +644,7 @@ const MasterDataDashboard = () => {
                                                 </div>
                                                 <div>
                                                     <p className="text-gray-500 text-sm">Total Commission</p>
-                                                    <p className="text-xl font-bold flex items-center"> <span><FaRupeeSign /></span> {totalCommissionFromPayments.toLocaleString()}</p>
+                                                    <p className="text-xl font-bold">₹{totalCommissionFromPayments.toLocaleString()}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -502,56 +666,55 @@ const MasterDataDashboard = () => {
                                         </button>
                                     </div>
 
-                                    {/* Payments Table */}
                                     <table className="min-w-full divide-y divide-gray-200">
                                         <thead className="bg-gray-50">
                                             <tr>
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Booking ID</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tour Name</th>
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent</th>
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tour</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Amount</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commission</th>
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Status</th>
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Date</th>
                                             </tr>
                                         </thead>
                                         <tbody className="bg-white divide-y divide-gray-200">
-                                            {currentPayments.length > 0 ? (
-                                                currentPayments.map(payment => (
-                                                    <tr key={payment._id}>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">#{payment.bookingID || payment.transactionId}</td>
-                                                        <td className="px-6 py-4 whitespace-nowrap">
-                                                            <div className="text-sm font-medium text-gray-900">{payment.agent?.name || 'N/A'}</div>
-                                                            <div className="text-sm text-gray-500">ID: #{payment.agent?.agentID || 'N/A'}</div> {/* Corrected to agentID */}
-                                                        </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap">
-                                                            <div className="text-sm font-medium text-gray-900">{payment.customer?.name || 'N/A'}</div>
-                                                            <div className="text-sm text-gray-500">ID: #{payment.customer?.id || 'N/A'}</div>
-                                                        </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.tour?.name || 'N/A'}</td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium"><FaRupeeSign className="inline mr-1" />{(payment.payment?.totalAmount || 0).toLocaleString()}</td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                            ${(payment.commissionAmount || 0).toLocaleString()} {/* Use commissionAmount from the mapped data */}
-                                                        </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap">
-                                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                                                                ${payment.paymentStatus === 'Paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}> {/* Corrected to paymentStatus */}
-                                                                {payment.paymentStatus || 'N/A'}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {currentPayments.length > 0 ? (
+                                            currentPayments.map(payment => (
+                                                <tr key={payment._id}>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">#{payment.bookingID}</td>
+                                                    
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.tourName}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <div className="text-sm font-medium text-gray-900">{payment.agent?.name || 'N/A'}</div>
+                                                        <div className="text-sm text-gray-500">ID: #{payment.agent?.agentID || 'N/A'}</div>
+                                                    </td>
+                                                    {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.agentName}</td> */}
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.customer?.name}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">₹{(payment.amount || 0).toLocaleString()}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">₹{(payment.commissionAmount || 0).toLocaleString()}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                                                            ${payment.paymentStatus === 'Paid' ? 'bg-green-100 text-green-800' :
+                                                              payment.paymentStatus === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                                                              'bg-gray-100 text-gray-800' // Default
+                                                            }`}>
+                                                            {payment.paymentStatus}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                             {payment.paymentDate ? new Date(payment.paymentDate).toLocaleDateString() : 'N/A'}
-                                                        </td>
-                                                    </tr>
-                                                ))
-                                            ) : (
-                                                <tr>
-                                                    <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500">
-                                                        No payments found
                                                     </td>
                                                 </tr>
-                                            )}
+                                            ))
+                                        ) : (
+                                            <tr>
+                                                <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500">
+                                                    No payments found
+                                                </td>
+                                            </tr>
+                                        )}
                                         </tbody>
                                     </table>
                                 </>
@@ -559,64 +722,52 @@ const MasterDataDashboard = () => {
                         </>
                     )}
 
-                    {/* Pagination */}
-                    <div className="flex justify-between items-center mt-4">
-                        <button
-                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                            disabled={currentPage === 1}
-                            className="px-3 py-1 bg-gray-100 rounded-md flex items-center disabled:opacity-50"
-                        >
-                            <FiChevronLeft className="mr-1" />
-                            Previous
-                        </button>
-
-                        <div className="flex space-x-1">
+                    {/* Pagination for all tabs */}
+                    {(activeTab === 'agents' && filteredAgents.length > itemsPerPage) ||
+                     (activeTab === 'customers' && filteredCustomers.length > itemsPerPage) ||
+                     (activeTab === 'payments' && filteredPayments.length > itemsPerPage) ? (
+                        <div className="flex justify-center mt-4">
+                            <button
+                                onClick={() => paginate(currentPage - 1)}
+                                disabled={currentPage === 1}
+                                className="px-3 py-1 bg-gray-200 text-gray-700 rounded-md mr-2 disabled:opacity-50"
+                            >
+                                <FiChevronLeft />
+                            </button>
                             {Array.from({
                                 length: Math.ceil(
-                                    activeTab === 'agents' ? filteredAgents.length / itemsPerPage :
-                                        activeTab === 'customers' ? filteredCustomers.length / itemsPerPage :
-                                            filteredPayments.length / itemsPerPage
-                                )
-                            }).map((_, index) => (
+                                    (activeTab === 'agents' ? filteredAgents.length :
+                                     activeTab === 'customers' ? filteredCustomers.length :
+                                     filteredPayments.length) / itemsPerPage
+                                ),
+                            }, (_, i) => (
                                 <button
-                                    key={index}
-                                    onClick={() => paginate(index + 1)}
-                                    className={`w-8 h-8 rounded-md ${currentPage === index + 1 ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}
+                                    key={i + 1}
+                                    onClick={() => paginate(i + 1)}
+                                    className={`px-3 py-1 rounded-md mx-1 ${currentPage === i + 1 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
                                 >
-                                    {index + 1}
+                                    {i + 1}
                                 </button>
                             ))}
+                            <button
+                                onClick={() => paginate(currentPage + 1)}
+                                disabled={
+                                    currentPage === Math.ceil(
+                                        (activeTab === 'agents' ? filteredAgents.length :
+                                         activeTab === 'customers' ? filteredCustomers.length :
+                                         filteredPayments.length) / itemsPerPage
+                                    )
+                                }
+                                className="px-3 py-1 bg-gray-200 text-gray-700 rounded-md ml-2 disabled:opacity-50"
+                            >
+                                <FiChevronRight />
+                            </button>
                         </div>
-
-                        <button
-                            onClick={() => setCurrentPage(prev => {
-                                const totalPages = Math.ceil(
-                                    activeTab === 'agents' ? filteredAgents.length / itemsPerPage :
-                                        activeTab === 'customers' ? filteredCustomers.length / itemsPerPage :
-                                            filteredPayments.length / itemsPerPage
-                                );
-                                return Math.min(prev + 1, totalPages);
-                            })}
-                            disabled={
-                                currentPage === Math.ceil(
-                                    activeTab === 'agents' ? filteredAgents.length / itemsPerPage :
-                                        activeTab === 'customers' ? filteredCustomers.length / itemsPerPage :
-                                            filteredPayments.length / itemsPerPage
-                                ) ||
-                                (activeTab === 'agents' && filteredAgents.length === 0) ||
-                                (activeTab === 'customers' && filteredCustomers.length === 0) ||
-                                (activeTab === 'payments' && filteredPayments.length === 0)
-                            }
-                            className="px-3 py-1 bg-gray-100 rounded-md flex items-center disabled:opacity-50"
-                        >
-                            Next
-                            <FiChevronRight className="ml-1" />
-                        </button>
-                    </div>
+                    ) : null}
                 </div>
             </div>
-            {/* <Navbar /> */}
-            {/* <Footer /> */}
+            {/* <Footer />
+            <Navbar /> */}
         </div>
     );
 };

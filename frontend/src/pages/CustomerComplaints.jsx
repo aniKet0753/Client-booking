@@ -1,54 +1,45 @@
+// src/components/CustomerComplaints.js
 import { useState, useEffect } from 'react';
 import axios from '../api';
 import {
-  FiSearch,
   FiRotateCcw,
   FiInfo,
-  FiMessageSquare,
   FiMail,
   FiUser,
   FiCalendar,
-  FiMessageCircle
+  FiMessageCircle,
+  FiSend
 } from 'react-icons/fi';
 
-const SuperadminComplaints = () => {
+const CustomerComplaints = () => {
   const [complaints, setComplaints] = useState([]);
   const [selectedComplaint, setSelectedComplaint] = useState(null);
   const [replyMessage, setReplyMessage] = useState('');
-  const [isInternal, setIsInternal] = useState(false);
-  const [status, setStatus] = useState('open'); // Stores the status for the selected complaint dropdown
-  const [filterType, setFilterType] = useState('All'); // 'All', 'open', 'in_progress', 'resolved'
-  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetchComplaints();
-  }, [filterType]); // Re-fetch complaints when filter changes
+    fetchMyComplaints();
+  }, []);
 
-  const fetchComplaints = async () => {
+  const fetchMyComplaints = async () => {
     try {
       setLoading(true);
       setError(null);
-      const url = filterType === 'All'
-        ? '/api/complaints'
-        : `/api/complaints?status=${filterType}`;
-
-      const res = await axios.get(url, {
+      const res = await axios.get('/api/complaints/my-complaints', {
         headers: { Authorization: `Bearer ${localStorage.getItem('Token')}` }
       });
-      console.log(res)
+
       setComplaints(Array.isArray(res.data) ? res.data : []);
-      // If a complaint was selected and it's no longer in the list after filtering/refresh, deselect it
-      if (selectedComplaint && !res.data.some(c => c._id === selectedComplaint._id)) {
-        setSelectedComplaint(null);
-      } else if (selectedComplaint) {
-        // If selected complaint is still in the list, update its data to reflect any changes
-        setSelectedComplaint(res.data.find(c => c._id === selectedComplaint._id) || null);
+
+      // If a complaint was selected, try to update its details from the fresh fetch
+      if (selectedComplaint) {
+        const updatedSelectedComplaint = res.data.find(c => c._id === selectedComplaint._id);
+        setSelectedComplaint(updatedSelectedComplaint || null);
       }
     } catch (err) {
-      console.error('Error fetching complaints:', err);
-      setError('Failed to load complaints. Please check your network or try again.');
+      console.error('Error fetching customer complaints:', err);
+      setError('Failed to load your complaints. Please check your network or try again.');
       setComplaints([]);
       setSelectedComplaint(null);
     } finally {
@@ -63,56 +54,27 @@ const SuperadminComplaints = () => {
     }
 
     try {
+      // Customer replies are always public (isInternal: false)
       await axios.post(`/api/complaints/${complaintId}/reply`, {
         message: replyMessage,
-        isInternal,
-        status // Send the selected status to update complaint status
+        isInternal: false, // Customers cannot send internal messages
       }, {
         headers: {
            'Content-Type': 'application/json',
-            Authorization: `Bearer ${localStorage.getItem('Token')}` 
+            Authorization: `Bearer ${localStorage.getItem('Token')}`
         }
       });
 
       setReplyMessage('');
-      setIsInternal(false);
-      alert('Response sent!');
-      fetchComplaints(); // Re-fetch to get updated conversation and status
+      alert('Your reply has been sent!');
+      fetchMyComplaints(); // Re-fetch to update conversation
     } catch (err) {
       console.error('Error submitting reply:', err);
-      const errorMessage = err.response?.data?.message || 'Failed to submit response. Please try again.';
+      const errorMessage = err.response?.data?.message || 'Failed to submit your reply. Please try again.';
       alert(errorMessage);
     }
   };
 
-  const handleStatusChange = async (newStatus) => {
-    if (!selectedComplaint || newStatus === selectedComplaint.status) return;
-
-    try {
-      await axios.put(`/api/complaints/${selectedComplaint._id}/status`, { status: newStatus }, {
-        headers: { 
-           'Content-Type': 'application/json',
-            Authorization: `Bearer ${localStorage.getItem('Token')}` 
-        }
-      });
-      setStatus(newStatus); // Update local state for dropdown
-      alert(`Complaint status updated to ${newStatus.replace('_', ' ')}.`);
-      fetchComplaints(); // Re-fetch to update list and ensure consistency
-    } catch (err) {
-      console.error('Error updating status:', err);
-      const errorMessage = err.response?.data?.message || 'Failed to update status. Please try again.';
-      alert(errorMessage);
-    }
-  };
-
-  const filteredComplaints = complaints.filter(complaint =>
-    complaint.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (complaint.customerId?.name?.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (complaint.customerId?.email?.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (complaint._id?.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
-
-  // Determine status badge color
   const getStatusBadgeColor = (complaintStatus) => {
     switch (complaintStatus) {
       case 'open': return 'bg-red-100 text-red-800';
@@ -126,7 +88,7 @@ const SuperadminComplaints = () => {
     return (
       <div className="min-h-[calc(100vh-80px)] flex items-center justify-center bg-gray-100 rounded-lg shadow-md m-6">
         <div className="text-center p-6 bg-white rounded-lg shadow-md">
-          <p className="text-lg font-medium text-gray-700">Loading complaints...</p>
+          <p className="text-lg font-medium text-gray-700">Loading your complaints...</p>
         </div>
       </div>
     );
@@ -139,7 +101,7 @@ const SuperadminComplaints = () => {
           <FiInfo className="mx-auto text-4xl mb-4 text-red-500" />
           <p className="text-lg font-medium text-red-700">{error}</p>
           <button
-            onClick={fetchComplaints}
+            onClick={fetchMyComplaints}
             className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
           >
             Retry
@@ -150,85 +112,34 @@ const SuperadminComplaints = () => {
   }
 
   return (
-    // The main container for the complaint management area, assuming it's placed within an existing layout
-    <div className="flex flex-col flex-1 p-6 bg-gray-50 rounded-xl shadow-md overflow-hidden h-full"> {/* Adjusted to fill available height */}
-      {/* Header Section */}
+    <div className="flex flex-col flex-1 p-6 bg-gray-50 rounded-xl shadow-md overflow-hidden h-full">
       <header className="mb-6">
         <div className="flex justify-between items-center mb-4">
-          <h1 className="text-3xl font-bold text-gray-800">Complaint Management</h1>
-          {selectedComplaint && (
-            <div className="flex items-center space-x-2">
-              <span className="text-gray-700 font-medium">Payment not processed</span> {/* Static text from screenshot based on selection */}
-              <span className="text-gray-500 font-medium">{selectedComplaint._id}</span>
-              <select
-                value={status}
-                onChange={(e) => handleStatusChange(e.target.value)}
-                className="px-3 py-1.5 border border-gray-300 rounded-md bg-white focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              >
-                <option value="open">Open</option>
-                <option value="in_progress">In Progress</option>
-                <option value="resolved">Resolved</option>
-              </select>
-            </div>
-          )}
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <div className="relative flex-1">
-            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search complaints or IDs..."
-              className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
+          <h1 className="text-3xl font-bold text-gray-800">Your Complaints</h1>
           <button
-            onClick={fetchComplaints}
+            onClick={fetchMyComplaints}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
             title="Refresh Complaints"
           >
             <FiRotateCcw className="mr-2" /> Refresh
           </button>
         </div>
-
-        {/* Filter Tabs */}
-        <div className="flex space-x-2 mb-6 border-b border-gray-200 pb-2">
-          {['All', 'open', 'in_progress', 'resolved'].map(type => (
-            <button
-              key={type}
-              onClick={() => setFilterType(type)}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                filterType === type
-                  ? 'bg-blue-600 text-white shadow'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-            >
-              {type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' ')}
-            </button>
-          ))}
-        </div>
       </header>
 
-      {/* Complaints Layout */}
-      <div className="flex flex-1 gap-6 min-h-0"> {/* min-h-0 is crucial for flex items in a flex container with overflow */}
-        {/* Complaint List Panel */}
-        <div className="w-1/3 flex-shrink-0 bg-white rounded-xl shadow-md overflow-y-auto custom-scrollbar"> {/* Added overflow-y-auto */}
-          {filteredComplaints.length === 0 && !loading ? (
-            <div className="text-gray-500 py-10 text-center">No complaints found matching your criteria.</div>
+      <div className="flex flex-1 gap-6 min-h-0">
+        <div className="w-1/3 flex-shrink-0 bg-white rounded-xl shadow-md overflow-y-auto custom-scrollbar">
+          {complaints.length === 0 && !loading ? (
+            <div className="text-gray-500 py-10 text-center">No complaints found. <br/><a href="/customer/new-complaint" className="text-blue-600 hover:underline">Submit a new one!</a></div>
           ) : (
             <div className="divide-y divide-gray-200">
-              {filteredComplaints.map(complaint => (
+              {complaints.map(complaint => (
                 <div
                   key={complaint._id}
                   className={`p-4 cursor-pointer transition-all duration-200 ease-in-out
                     ${selectedComplaint?._id === complaint._id ? 'bg-blue-50 border-l-4 border-blue-600' : 'hover:bg-gray-50'}`}
                   onClick={() => {
                     setSelectedComplaint(complaint);
-                    setStatus(complaint.status);
                     setReplyMessage('');
-                    setIsInternal(false);
                   }}
                 >
                   <div className="flex justify-between items-start mb-1">
@@ -240,10 +151,16 @@ const SuperadminComplaints = () => {
                   <h3 className="text-base font-medium text-gray-800 leading-tight">{complaint.subject}</h3>
                   <div className="text-sm text-gray-600 flex items-center mt-1">
                     <FiUser className="mr-1 text-xs" />
-                    {complaint.customerId?.name || 'Unknown User'} -
+                    {complaint.customerId?.name || 'You'} -
                     <FiMail className="ml-2 mr-1 text-xs" />
                     <span className="truncate">{complaint.customerId?.email || 'N/A'}</span>
                   </div>
+                  {complaint.agentInfo?.id && (
+                    <div className="text-xs text-gray-500 flex items-center mt-1">
+                      <FiUserCheck className="mr-1 text-xs text-blue-500" />
+                      Assigned to: <span className="font-medium ml-1">{complaint.agentInfo.name}</span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
                     <div className="flex items-center">
                       <FiMessageCircle className="mr-1" />
@@ -260,7 +177,6 @@ const SuperadminComplaints = () => {
           )}
         </div>
 
-        {/* Complaint Details and Reply Panel */}
         <div className="flex-1 bg-white rounded-xl shadow-md overflow-hidden flex flex-col">
           {!selectedComplaint ? (
             <div className="flex-1 flex items-center justify-center text-center text-gray-600 p-6">
@@ -272,17 +188,15 @@ const SuperadminComplaints = () => {
             </div>
           ) : (
             <div className="flex-1 flex flex-col">
-              {/* Complaint Header (inside details panel, not top-level header) */}
               <div className="p-6 bg-gray-50 border-b border-gray-200">
                 <h2 className="text-2xl font-bold text-gray-800 mb-1">{selectedComplaint.subject}</h2>
                 <p className="text-sm text-gray-600">Complaint ID: <span className="font-medium">{selectedComplaint._id}</span></p>
               </div>
 
-              {/* Complaint Description */}
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center text-sm text-gray-600 mb-2">
                   <FiUser className="mr-1" />
-                  <span className="font-medium text-gray-800">{selectedComplaint.customerId?.name || 'Unknown Customer'}</span>
+                  <span className="font-medium text-gray-800">{selectedComplaint.customerId?.name || 'You'}</span>
                   <span className="mx-1">•</span>
                   <FiMail className="mr-1" />
                   <span className="text-gray-700">{selectedComplaint.customerId?.email || 'N/A'}</span>
@@ -297,34 +211,35 @@ const SuperadminComplaints = () => {
                   </p>
                 )}
                 {selectedComplaint.agentInfo?.id && (
-                  <div className="mt-4 p-3 bg-blue-50 rounded-md border border-blue-100 text-blue-800 text-sm">
-                    <p className="font-semibold">Mentioned Agent details:</p>
-                    <p>Agent ID: {selectedComplaint.agentInfo.id}</p>
-                    <p>Name: {selectedComplaint.agentInfo.name}</p>
-                    <p>Location: {selectedComplaint.agentInfo.location}</p>
-                  </div>
+                    <div className="mt-4 p-3 bg-blue-50 rounded-md border border-blue-100 text-blue-800 text-sm">
+                        <p className="font-semibold flex items-center mb-2"><FiUserCheck className="mr-2" />Assigned Agent:</p>
+                        <p><strong>Name:</strong> {selectedComplaint.agentInfo.name}</p>
+                        <p><strong>Location:</strong> {selectedComplaint.agentInfo.location}</p>
+                    </div>
                 )}
               </div>
 
-              {/* Conversation History */}
               <div className="flex-1 p-6 overflow-y-auto custom-scrollbar">
                 <h3 className="font-semibold text-gray-800 mb-4">Conversation History</h3>
                 <div className="space-y-4">
                   {selectedComplaint.adminReplies.length === 0 ? (
                     <p className="text-gray-600 text-sm text-center py-4">No conversation history yet for this complaint.</p>
                   ) : (
-                    selectedComplaint.adminReplies.map((reply, index) => (
+                    selectedComplaint.adminReplies
+                      .map((reply, index) => (
                       <div
-                        key={index} // Using index as key is okay if replies don't reorder or get deleted
+                        key={index}
+                        // Customer only sees public messages (isInternal: false messages).
+                        // These would have been filtered out by the backend already.
                         className={`p-4 rounded-lg border ${
-                          reply.isInternal
-                            ? 'bg-yellow-50 border-yellow-200' // Internal note
-                            : 'bg-blue-50 border-blue-200' // Customer or Admin reply
+                          reply.repliedByRole === 'customer'
+                            ? 'bg-green-50 border-green-200 self-end' // Assuming customer replies are green, right-aligned
+                            : 'bg-blue-50 border-blue-200 self-start' // Assuming agent/admin replies are blue, left-aligned
                         }`}
                       >
                         <div className="flex justify-between items-center text-sm mb-1">
                           <span className="font-medium text-gray-800">
-                            {reply.isInternal ? 'Internal Note (Admin)' : `Reply by ${reply.repliedBy?.username || 'Admin'}`}
+                            {reply.repliedByRole === 'customer' ? 'You' : reply.repliedByName}
                           </span>
                           <span className="text-gray-500">{new Date(reply.createdAt).toLocaleString()}</span>
                         </div>
@@ -335,32 +250,22 @@ const SuperadminComplaints = () => {
                 </div>
               </div>
 
-              {/* Reply Form */}
               <div className="p-6 bg-gray-50 border-t border-gray-200">
-                <h3 className="font-semibold text-gray-800 mb-3">Send a Response</h3>
+                <h3 className="font-semibold text-gray-800 mb-3">Send a Reply</h3>
                 <textarea
                   value={replyMessage}
                   onChange={(e) => setReplyMessage(e.target.value)}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
                   rows="4"
-                  placeholder="Type your response here..."
+                  placeholder="Type your reply here..."
                 ></textarea>
 
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                  <label className="flex items-center text-gray-700 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={isInternal}
-                      onChange={(e) => setIsInternal(e.target.checked)}
-                      className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    Mark as Internal Note
-                  </label>
+                <div className="flex justify-end">
                   <button
                     onClick={() => handleReplySubmit(selectedComplaint._id)}
                     className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
                   >
-                    <FiMessageSquare className="mr-2" /> Send Response
+                    <FiSend className="mr-2" /> Send Reply
                   </button>
                 </div>
               </div>
@@ -372,4 +277,4 @@ const SuperadminComplaints = () => {
   );
 };
 
-export default SuperadminComplaints;
+export default CustomerComplaints;
