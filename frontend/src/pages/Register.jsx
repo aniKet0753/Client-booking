@@ -21,27 +21,27 @@ const Register = () => {
 
   const onSubmit = (data) => {
     axios.post('/api/customer/register',
-    {
+      {
         name: data.name,
         email: data.email,
         phone: data.phone,
         password: data.password,
-    },
-    {
+      },
+      {
         headers: {
-        "Content-Type": "application/json",
+          "Content-Type": "application/json",
         },
-    }
+      }
     )
       .then(response => {
         toast.success("Account created successfully!", { autoClose: 3000 });
         setTimeout(() => {
-      navigate("/login");
-    }, 3000);
+          navigate("/login");
+        }, 3000);
       })
       .catch(error => {
-         toast.error(error.response?.data?.message || "Registration failed. Try again.", {
-            autoClose: 3000,
+        toast.error(error.response?.data?.message || "Registration failed. Try again.", {
+          autoClose: 3000,
         });
       });
   };
@@ -52,7 +52,7 @@ const Register = () => {
 
   return (
     <div className="bg-gray-100 p-4 pt-7">
-    <ToastContainer autoClose={3000} />
+      <ToastContainer autoClose={3000} />
 
       <div className="bg-white rounded-lg shadow-lg flex max-w-[1440px] w-full overflow-hidden">
         {/* Left Side Image */}
@@ -101,27 +101,27 @@ const Register = () => {
               />
               {errors.email && <span className="text-red-500 text-xs">This field is required</span>}
             </div>
-            
+
             {/* Phone Number */}
             <div>
-            <label className="block text-xl font-medium text-[#113A5F] mb-2">Phone Number</label>
-            <input
+              <label className="block text-xl font-medium text-[#113A5F] mb-2">Phone Number</label>
+              <input
                 type="tel"
                 {...register("phone", {
-                required: true,
-                pattern: {
+                  required: true,
+                  pattern: {
                     value: /^[0-9]{10}$/,
                     message: "Phone number must be 10 digits"
-                }
+                  }
                 })}
                 className="w-full px-4 py-3 mt-1 border rounded-lg focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Enter your phone number"
-            />
-            {errors.phone && (
+              />
+              {errors.phone && (
                 <span className="text-red-500 text-xs">
-                {errors.phone.message || "This field is required"}
+                  {errors.phone.message || "This field is required"}
                 </span>
-            )}
+              )}
             </div>
 
             {/* Password */}
@@ -129,10 +129,17 @@ const Register = () => {
               <label className="block text-xl font-medium text-[#113A5F] mb-2">Password <span className="text-gray-400 text-sm">(Minimum 8 characters)</span></label>
               <div className="relative">
                 <input
-                  type={showPass ? "text" : "password"}
-                  {...register("password", { required: true, minLength: 8 })}
                   className="w-full px-4 py-3 mt-1 border rounded-lg focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Create your password"
+                  type={showPass ? "text" : "password"}
+                  {...register("password", {
+                    required: "Password is required",
+                    pattern: {
+                      value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{6,}$/,
+                      message:
+                        "Password must be at least 6 characters, include one uppercase, one lowercase, and one special character",
+                    },
+                  })}
                 />
                 <span
                   className="absolute right-3 top-3 cursor-pointer text-gray-500"
@@ -141,7 +148,7 @@ const Register = () => {
                   {showPass ? <IoEyeOutline className="text-xl mt-2" /> : <IoEyeOffOutline className="text-xl mt-2" />}
                 </span>
               </div>
-              {errors.password && <span className="text-red-500 text-xs">Minimum 8 characters required</span>}
+              {errors.password && <span className="text-red-500 text-xs">Password must be at least 6 characters, include one uppercase, one lowercase, and one special character</span>}
             </div>
 
             {/* Register Button */}
