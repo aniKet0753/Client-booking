@@ -12,6 +12,7 @@ import InnerBanner from '../components/InnerBanner';
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import MainLogo from '../../public/main-logo.png';
+import { isValidPhoneNumber } from 'react-phone-number-input';
 
 const Input = React.memo(({ label, icon, error, ...props }) => (
   <div className="mb-4">
@@ -152,41 +153,41 @@ function AgentForm() {
   }, [message]);
 
   const validateField = (name, value) => {
-  if (!value && !['parentAgent'].includes(name)) {
-    return 'This field is required';
-  }
+    if (!value && !['parentAgent'].includes(name)) {
+      return 'This field is required';
+    }
 
-  switch (name) {
-    case 'name':
-      if (!value?.trim()) return 'Name is required';
-      break;
-    case 'email':
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value || '')) return 'Invalid email format';
-      break;
-    case 'aadhar_card':
-      if (!/^\d{12}$/.test(value || '')) return 'Aadhar must be 12 digits';
-      break;
-    case 'pan_card':
-      if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(value || '')) return 'Invalid PAN format';
-      break;
-    case 'password':
-      if ((value || '').length < 6) return 'Password must be at least 6 characters';
-      break;
-    case 'phone_calling':
-    case 'phone_whatsapp':
-      if (!/^(\+91)?[6-9]\d{9}$/.test((value || '').replace(/\s/g, ''))) {
-        return 'Enter a valid Indian phone number';
-      }
-      break;
-    default:
-      if (name.includes('permanent_address')) {
-        const field = name.split('.')[1];
-        if (!value?.trim()) return `${field.replace('_', ' ')} is required`;
-      }
-  }
+    switch (name) {
+      case 'name':
+        if (!value?.trim()) return 'Name is required';
+        break;
+      case 'email':
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value || '')) return 'Invalid email format';
+        break;
+      case 'aadhar_card':
+        if (!/^\d{12}$/.test(value || '')) return 'Aadhar must be 12 digits';
+        break;
+      case 'pan_card':
+        if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(value || '')) return 'Invalid PAN format';
+        break;
+      case 'password':
+        if ((value || '').length < 6) return 'Password must be at least 6 characters';
+        break;
+      case 'phone_calling':
+      case 'phone_whatsapp':
+        if (!isValidPhoneNumber(value || '')) {
+          return 'Enter a valid phone number';
+        }
+        break;
+      default:
+        if (name.includes('permanent_address')) {
+          const field = name.split('.')[1];
+          if (!value?.trim()) return `${field.replace('_', ' ')} is required`;
+        }
+    }
 
-  return '';
-};
+    return '';
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -220,12 +221,11 @@ function AgentForm() {
   const handlePhoneChange = (value, name) => {
     setFormData(prev => ({ ...prev, [name]: value }));
 
-    // Always validate, even if value is empty or undefined
     let error = '';
     if (!value) {
       error = 'Phone number is required';
-    } else if (!/^(\+91)?[6-9]\d{9}$/.test((value || '').replace(/\s/g, ''))) {
-      error = 'Enter a valid Indian phone number';
+    } else if (!isValidPhoneNumber(value)) {
+      error = 'Enter a valid phone number';
     }
 
     setErrors(prev => ({ ...prev, [name]: error }));
