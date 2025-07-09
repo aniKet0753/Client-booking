@@ -1,4 +1,5 @@
-import {React, useEffect} from "react";
+import { React, useEffect, useRef } from "react";
+import { motion, useInView } from "framer-motion";
 import { useLoaderData, useLocation } from "react-router-dom";
 // import AllCountries from "../components/AllCountries";
 import Banner from "../components/Banner";
@@ -11,11 +12,15 @@ import TourSection from "../components/TourSection";
 import MedicalTourism from "../components/MedicalTourism";
 import PopularTourSection from "../components/PopularTour";
 // import FeaturedProducts from "../components/FeaturedProducts";
-import SpecialOffers  from "../components/SpecialOffers";
-import ContactPage  from "../components/ContactSection";
+import SpecialOffers from "../components/SpecialOffers";
+import ContactPage from "../components/ContactSection";
 
 const Home = () => {
-//   const allTouristsSpot = useLoaderData();
+  //   const allTouristsSpot = useLoaderData();
+
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true });
+
   const location = useLocation();
   useEffect(() => {
     if (location.hash) {
@@ -28,25 +33,35 @@ const Home = () => {
   }, [location]); // Re-run this effect whenever the location object changes
 
   return (
-    <div className="">
-      <Banner />
-      <div className="px-10">
-        <KnowUs />
-      </div>
-      <section id="tours">
-          <TourSection/>
-      </section>
-      <MedicalTourism/>
-      <PopularTourSection/>
-      <SpecialOffers/>
-      {/* <FeaturedProducts /> */}
-      <ContactPage/>
-      {/* <HomeTouristsSpots allTouristsSpot={allTouristsSpot} />
+    <>
+
+      <motion.div
+        initial={{ opacity: 0, y: 50 }}
+        animate={isInView ? { opacity: 1, y: 0 } : {}}
+        transition={{ duration: 1, ease: 'easeOut' }}
+      >
+
+        <div className="" ref={ref}>
+          <Banner />
+          <div className="px-10">
+            <KnowUs />
+          </div>
+          <section id="tours">
+            <TourSection />
+          </section>
+          <MedicalTourism />
+          <PopularTourSection />
+          <SpecialOffers />
+          {/* <FeaturedProducts /> */}
+          <ContactPage />
+          {/* <HomeTouristsSpots allTouristsSpot={allTouristsSpot} />
       <AllCountries />
       <TeamMembers />
       <ClientsReview /> */}
-      <Footer />
-    </div>
+          <Footer />
+        </div>
+      </motion.div>
+    </>
   );
 };
 

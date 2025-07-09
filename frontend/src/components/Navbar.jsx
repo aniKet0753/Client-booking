@@ -1,19 +1,14 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
 import MainLogo from '../../public/Images/main-logo-03.svg';
-import { FaUser, FaBars, FaTimes, FaChevronDown, FaChevronUp, FaSearch } from "react-icons/fa";
-import axios from '../api';
+import { FaBars, FaTimes, FaChevronDown, FaChevronUp, FaSearch } from "react-icons/fa";
+import { useAuth } from '../hooks/useAuth';
 
 const Navbar = () => {
   const navigate = useNavigate();
-  const [user, setUser] = useState(() => {
-    const username = localStorage.getItem("username");
-    return username ? { name: username } : null;
-  });
+  const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [profile, setProfile] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isScrolled, setIsScrolled] = useState(false);
   const dropdownRef = useRef(null);
@@ -27,78 +22,7 @@ const Navbar = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  useEffect(() => {
-    const token = localStorage.getItem("Token");
-    const role = localStorage.getItem("role");
-    const username = localStorage.getItem("username");
 
-    if (username && username !== 'null' && username !== 'undefined') {
-      setUser({ name: username });
-    } else {
-      setUser(null);
-    }
-
-    if (token && token !== 'null' && token !== 'undefined' && !profile) {
-      fetchProfile(token, role);
-    }
-  }, []);
-
-  useEffect(() => {
-    const handleStorageChange = () => {
-      const username = localStorage.getItem("username");
-      const token = localStorage.getItem("Token");
-
-      if (username && username !== 'null' && username !== 'undefined') {
-        setUser({ name: username });
-      } else {
-        setUser(null);
-      }
-
-      if (token && token !== 'null' && token !== 'undefined' && !profile) {
-        const role = localStorage.getItem("role");
-        fetchProfile(token, role);
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, [profile]);
-
-  const fetchProfile = async (token, role) => {
-    if (!token || token === 'null' || token === 'undefined') {
-      console.warn("Invalid token");
-      setUser(null);
-      setProfile(null);
-      return;
-    }
-
-    try {
-      const route = role === 'superadmin' ? 'api/admin/profile' :
-        role === 'customer' ? 'api/customer/profile' :
-          'api/agents/profile';
-
-      const res = await axios.get(route, {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-          role,
-        },
-      });
-      setProfile(res.data);
-      if (res.data.name) {
-        setUser({ name: res.data.name });
-        localStorage.setItem("username", res.data.name);
-      }
-    } catch (err) {
-      console.log(err);
-      localStorage.removeItem("Token");
-      localStorage.removeItem("username");
-      localStorage.removeItem("role");
-      setUser(null);
-      setProfile(null);
-      toast.error("Session expired. Please log in again.");
-    }
-  };
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -116,16 +40,30 @@ const Navbar = () => {
     };
   }, [isDropdownOpen]);
 
-  const logout = () => {
-    localStorage.clear();
-    setUser(null);
-    setProfile(null);
-    toast.success("Logged out successfully");
+  const handleLogout = () => {
+    logout();
     navigate("/login");
   };
 
-  const handleSearch = (e) => {
-    e.preventDefault();
+  // Option 1: Direct navigation on Enter
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && searchQuery.trim()) {
+      navigate(`/search?query=${encodeURIComponent(searchQuery)}`);
+      setSearchQuery("");
+      setIsMobileMenuOpen(false);
+    }
+  };
+
+  // Option 2: Immediate search on input
+  const handleSearchInput = (value) => {
+    setSearchQuery(value);
+    if (value.trim()) {
+      navigate(`/search?query=${encodeURIComponent(value)}`);
+    }
+  };
+
+  // Option 3: Button click handler
+  const handleSearchClick = () => {
     if (searchQuery.trim()) {
       navigate(`/search?query=${encodeURIComponent(searchQuery)}`);
       setSearchQuery("");
@@ -138,7 +76,7 @@ const Navbar = () => {
     { path: "/About", label: "About Us" },
     { path: "/tour-programs/leisure tour", label: "Leisure Tour" },
     { path: "/tour-programs/Medical Tour", label: "Medical Tour" },
-    { path: "/l2g-services", label: "L2G Services" },
+    // { path: "/l2g-services", label: "L2G ad Services" },
     { path: "/customer-forum", label: "Forum" },
     { path: "/blog-list", label: "Community" },
     { path: "/connect-us", label: "Contact" }
@@ -153,7 +91,7 @@ const Navbar = () => {
 
       {/* Main Navbar */}
       <header className={`sticky top-0 z-50 transition-all duration-300 ${isScrolled ? 'bg-white shadow-lg' : 'bg-[#011A4D]'}`}>
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="xl:container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-3 md:py-4">
             {/* Logo */}
             <div className="flex-shrink-0 z-50">

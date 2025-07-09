@@ -1,5 +1,7 @@
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Navigation } from "swiper/modules";
+import React, { useRef } from "react";
+import { motion, useInView } from "framer-motion";
 import "swiper/css";
 import "swiper/css/navigation";
 import { FaClock } from "react-icons/fa";
@@ -22,8 +24,18 @@ const specialOffers = [
 ];
 
 const SpecialOffers = () => {
+
+    const ref = useRef(null);
+    const isInView = useInView(ref, { once: true });
+
     return (
-        <section className="bg-white py-8 px-4 sm:px-6 md:px-10 lg:px-12">
+        <>
+        <motion.div
+                initial={{ opacity: 0, y: 50 }}
+                animate={isInView ? { opacity: 1, y: 0 } : {}}
+                transition={{ duration: 1, ease: 'easeOut' }}
+            >
+            <section ref={ref} className="bg-white py-8 px-4 sm:px-6 md:px-10 lg:px-12">
             <div className="max-w-[1440px] mx-auto">
                 <h2 className="text-2xl sm:text-4xl lg:text-6xl font-bold text-[#011A4D] mb-8 sm:mb-10">Special Offers</h2>
 
@@ -66,7 +78,9 @@ const SpecialOffers = () => {
                     </Swiper>
                 </div>
             </div>
-        </section>
+            </section>
+            </motion.div>
+        </>
     );
 };
 

@@ -23,8 +23,8 @@ app.use(
 );
 
 app.use(cors({
-  origin: 'https://reboot-l2g.onrender.com',  // frontend domain
-  credentials: true, // allow cookies/auth headers if needed
+  origin: ['https://reboot-l2g.onrender.com', 'http://localhost:5173'], // both production and local frontend
+  credentials: true,
 }));
 
 // app.use(express.json());
