@@ -12,6 +12,14 @@ const paymentRoute = require("./routes/PaymentRoute");
 const webhookRoute = require("./routes/WebhookRoute");
 const PORT = process.env.PORT || 5001;
 const app = express();
+
+let apiRequestCount = 0;
+app.use((req, res, next) => {
+  apiRequestCount++;
+  console.log(`API Request #${apiRequestCount} | ${req.method} ${req.originalUrl}`);
+  next();
+});
+
 app.use(
   "/webhook",
   bodyParser.json({
