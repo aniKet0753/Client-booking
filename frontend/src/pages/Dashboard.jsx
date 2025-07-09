@@ -13,6 +13,7 @@ import CheckBooking from '../components/CheckBooking';
 import ForumModeration from '../pages/ForumModeration';
 import MasterDataDashboard from '../pages/MasterDataDashboard';
 import ComplaintManagement from '../pages/ComplaintManagement';
+import AddBlog from '../pages/AddBlog';
 
 function Dashboard() {
   const [view, setView] = useState('dashboard');
@@ -44,6 +45,8 @@ function Dashboard() {
         return <MasterDataDashboard />;
       case 'complaintManagement':
         return <ComplaintManagement />;
+      case 'addBlog':
+        return <AddBlog />;
       default:
         return <MainContent />;
     }

@@ -12,7 +12,7 @@ import {
   faUser,
   faChevronLeft,
   faChevronRight,
-  faFileContract
+  faFileContract,
 } from '@fortawesome/free-solid-svg-icons';
 import { Link } from 'react-router-dom';
 import MainLogo from '../../public/main-logo.png';
@@ -73,7 +73,8 @@ const Sidebar = ({ collapsed, setCollapsed, setView }) => {
     { icon: faChartBar, label: 'Check Booking', view: 'checkBooking' },
     { icon: faUsers, label: 'Forum Moderation', view: 'forumModeration' },
     { icon: faUsers, label: 'Master Data Dashboard', view: 'masterDataDashboard' },
-    { icon: faUsers, label: 'Complaint Management', view: 'complaintManagement' }
+    { icon: faUsers, label: 'Complaint Management', view: 'complaintManagement' },
+    { icon: faTasks, label: 'Add Blog', view: 'addBlog' }
   ];
 
   const accountMenu = [

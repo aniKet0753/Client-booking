@@ -108,6 +108,7 @@ const MasterDataDashboard = () => {
     const [errorAgents, setErrorAgents] = useState(null);
     const [errorCustomers, setErrorCustomers] = useState(null);
     const [errorPayments, setErrorPayments] = useState(null);
+    const [agentStatusFilter, setAgentStatusFilter] = useState('all'); // 'all', 'active', 'rejected'
 
     const [activeTab, setActiveTab] = useState('agents');
     // New state for agent sub-tabs

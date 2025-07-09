@@ -39,25 +39,27 @@ const Login = () => {
         headers: { "Content-Type": "application/json" },
       });
 
+      // Block superadmin login
+      if (agentResponse.data.role === "superadmin") {
+        setErrorMessage("Super Admin login is not allowed from this page.");
+        toast.error("Super Admin login is not allowed from this page.");
+        setLoading(false);
+        return;
+      }
+
       // Agent login success
       localStorage.setItem("Token", agentResponse.data.token);
       localStorage.setItem("role", agentResponse.data.role);
       localStorage.setItem("agentID", agentResponse.data.agentID);
-      if (agentResponse.data.role !== "superadmin") {
-        localStorage.setItem("username", agentResponse.data.agent.name);
-      }
+      localStorage.setItem("username", agentResponse.data.agent.name);
 
       toast.success("Login successful!");
       reset();
 
       setTimeout(() => {
-        if (agentResponse.data.role === 'superadmin') {
-          navigate("/superadmin/dashboard");
-        } else {
-          const redirectTo = location?.state?.from || "/agent/dashboard";
-          navigate(redirectTo);
-          window.location.reload(true);
-        }
+        const redirectTo = location?.state?.from || "/agent/dashboard";
+        navigate(redirectTo);
+        window.location.reload(true);
       }, 2000);
     } catch (agentError) {
       // If agent not found, try customer login

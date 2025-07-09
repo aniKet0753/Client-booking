@@ -9,7 +9,7 @@ import "swiper/css/navigation";
 // import required modules
 import { Navigation } from "swiper/modules";
 // import BannerImg1 from '../../public/Images/banner-01.jpg'
-import BannerImg1 from '../../public/Images/main-banner-image-v3.jpg'
+import BannerImg1 from '../../public/Images/banner-new-03.jpeg'
 
 const bgBanner =
   "https://www.jodogoairportassist.com/main/assets/images/blog/bangladesh/top-ten-tourist-places-to-visit-in-bangladesh-8.webp";
@@ -30,8 +30,8 @@ const Banner = () => {
             className="w-full h-[60vh] sm:h-[70vh] md:h-[80vh] lg:h-[100vh] hero bg-cover bg-no-repeat bg-center flex items-center justify-center relative"
             style={{ backgroundImage: `url(${BannerImg1})` }}
           >
-            <div className="absolute inset-0 bg-black/40"></div>
-            <div className="w-full flex justify-center items-center h-full relative z-10">
+            {/* <div className="absolute inset-0 bg-black/40"></div> */}
+            {/* <div className="w-full flex justify-center items-center h-full relative z-10">
               <div className="border-0 text-center flex flex-col gap-5 justify-center items-center w-full px-4 sm:px-8 md:px-16 lg:px-0 max-w-4xl mx-auto">
                 <h1 className="font-bold text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-[50px] text-white leading-tight">
                   Exclusive Leisure and Medical Tours for Your Ultimate Well-Being
@@ -45,7 +45,7 @@ const Banner = () => {
                   </button>
                 </div>
               </div>
-            </div>
+            </div> */}
           </div>
         </SwiperSlide>
 
