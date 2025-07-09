@@ -22,7 +22,11 @@ app.use(
   webhookRoute
 );
 
-app.use(cors());
+app.use(cors({
+  origin: 'https://reboot-l2g.onrender.com',  // frontend domain
+  credentials: true, // allow cookies/auth headers if needed
+}));
+
 // app.use(express.json());
 // app.use(express.urlencoded({ extended: true }));
 
