@@ -6,7 +6,7 @@ import Footer from '../components/Footer';
 import LoadingSpinner from '../components/LoadingSpinner';
 import InnerBanner from '../components/InnerBanner';
 
-const BlogList = () => {
+const CommunityList = () => {
     const [blogs, setBlogs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -252,7 +252,7 @@ const BlogList = () => {
                                         </span>
 
                                         <Link
-                                            to={`/blog/${blog.id}`}
+                                            to={`/community-list/${blog.id}`}
                                             className="flex items-center text-primary hover:text-primary-dark font-medium group"
                                         >
                                             Read More
@@ -271,4 +271,4 @@ const BlogList = () => {
     );
 };
 
-export default BlogList;
+export default CommunityList;

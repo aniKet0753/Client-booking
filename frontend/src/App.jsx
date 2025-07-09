@@ -30,8 +30,8 @@ import About from './pages/About';
 import SuperAdminLogin from './pages/SuperAdminLogin';
 import MasterDataDashboard from './pages/MasterDataDashboard';
 import PrivateRoute from './components/PrivateRoute';
-import BlogList from './pages/BlogList';
-import BlogDetails from './pages/BlogDetails';
+import CommunityList from './pages/CommunityList';
+import CommunityListDetails from './pages/CommunityListDetails';
 import AddBlog from './pages/AddBlog';
 
 
@@ -121,8 +121,8 @@ function App() {
         <Route path="/About" element={<About />} />
         <Route  path="/superadmin-login" element={<SuperAdminLogin />} />
         <Route path="/master-data-dashboard" element={<MasterDataDashboard />} />
-        <Route path="/blog-list" element={<BlogList />} />
-        <Route path="/blog/:id" element={<BlogDetails />} />
+        <Route path="/community-list" element={<CommunityList />} />
+        <Route path="/community-list/:id" element={<CommunityListDetails />} />
         <Route path="/add-blog" element={<AddBlog />} />
 
         {/* Login Page */}

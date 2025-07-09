@@ -78,7 +78,7 @@ const Navbar = () => {
     { path: "/tour-programs/Medical Tour", label: "Medical Tour" },
     // { path: "/l2g-services", label: "L2G ad Services" },
     { path: "/customer-forum", label: "Forum" },
-    { path: "/blog-list", label: "Community" },
+    { path: "/community-list", label: "Community" },
     { path: "/connect-us", label: "Contact" }
   ];
 

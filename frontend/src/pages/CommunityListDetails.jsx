@@ -18,7 +18,7 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import LoadingSpinner from '../components/LoadingSpinner';
 
-const BlogDetails = () => {
+const CommunityListDetails = () => {
   const { id } = useParams();
   const [blog, setBlog] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -148,7 +148,7 @@ const BlogDetails = () => {
         <Navbar />
         <main className="flex-grow container mx-auto px-4 py-12 text-center">
           <h2 className="text-2xl font-bold mb-4">Article not found</h2>
-          <Link to="/" className="text-primary hover:underline flex items-center justify-center">
+          <Link to="/community-list" className="text-primary hover:underline flex items-center justify-center">
             <FaArrowLeft className="mr-2" /> Back to all articles
           </Link>
         </main>
@@ -163,7 +163,7 @@ const BlogDetails = () => {
       
       <main className="flex-grow container mx-auto px-4 py-8">
         <Link 
-          to="/blog-list" 
+          to="/community-list" 
           className="inline-flex items-center text-primary hover:text-primary-dark mb-6 transition-colors"
         >
           <FaArrowLeft className="mr-2" /> Back to all articles
@@ -332,4 +332,4 @@ const BlogDetails = () => {
   );
 };
 
-export default BlogDetails;
+export default CommunityListDetails;
