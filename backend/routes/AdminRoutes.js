@@ -7,6 +7,7 @@ const Transaction = require('../models/Transaction');
 const Superadmin = require('../models/Superadmin');
 const Tour = require('../models/Tour');
 const Booking = require('../models/Booking');
+const AgentTourStats = require('../models/AgentTourStats');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
@@ -154,42 +155,141 @@ router.post('/update-status', authenticateSuperAdmin, async (req, res) => {
   }
 });
 
-router.get('/booking-payments-overview', authenticateSuperAdmin, async(req,res)=>{ 
-  try{
-    // const Agent = await Agent.find().lean({});
-    const bookings = await Booking.find().lean({});
-    // Map the bookings to the desired frontend format
-        const transformedBookings = bookings.map(booking => ({
-            _id: booking._id, // Keep the original _id
-            bookingID: booking.bookingID,
-            // Access nested properties directly from the booking object
-            agentName: booking.agent ? booking.agent.name : 'N/A',
-            agentID: booking.agent ? booking.agent.agentID : 'N/A', // For the table
-            customerName: booking.customer ? booking.customer.name : 'N/A',
-            customerID: booking.customer ? booking.customer.id : 'N/A', // For the table
-            tourName: booking.tour ? booking.tour.name : 'N/A',
-            paymentStatus: booking.payment ? booking.payment.paymentStatus : 'N/A',
-            amount: booking.payment ? booking.payment.totalAmount : 0, // Used for total calculations
-            commissionAmount: booking.agent ? booking.agent.commission : 0, // Use agent.commission
-            paymentDate: booking.payment ? booking.payment.paymentDate : null,
-            
-            // Pass the full nested objects if the frontend uses them for table display
-            agent: booking.agent,
-            customer: booking.customer,
-            tour: booking.tour,
-            payment: booking.payment,
-            createdAt: booking.createdAt,
-            updatedAt: booking.updatedAt
-        }));
+// Add this to your routes/complaints.js or wherever your admin routes are defined
+// Assuming you have 'express', 'router', 'Booking' (mongoose model), and 'authenticateSuperAdmin' middleware defined.
 
-        res.status(200).json({ bookings: transformedBookings });
+// Add this to your routes/complaints.js or wherever your admin routes are defined
+// Assuming you have 'express', 'router', 'Booking' (mongoose model), and 'authenticateSuperAdmin' middleware defined.
+
+router.get('/booking-payments-overview', authenticateSuperAdmin, async(req,res)=>{
+  try{
+    const { startDate, endDate } = req.query; // Extract startDate and endDate from query parameters
+    let query = {};
+
+    if (startDate || endDate) {
+        query.paymentDate = {}; // Filter by paymentDate for bookings
+        if (startDate) {
+            query.paymentDate.$gte = new Date(startDate);
+        }
+        if (endDate) {
+            const endOfDay = new Date(endDate);
+            endOfDay.setHours(23, 59, 59, 999); // Set to end of the day for inclusive range
+            query.paymentDate.$lte = endOfDay;
+        }
+    }
+
+    // Find bookings based on the constructed query
+    const bookings = await Booking.find(query)
+                                 .populate('agent') // Populate agent details
+                                 .populate('customer') // Populate customer details
+                                 .populate('tour') // Populate tour details
+                                 .populate('payment') // Populate payment details
+                                 .lean(); // Return plain JavaScript objects
+
+    // Map the bookings to the desired frontend format
+    const transformedBookings = bookings.map(booking => ({
+        _id: booking._id, // Keep the original _id
+        bookingID: booking.bookingID,
+        // Access populated properties
+        agentName: booking.agent ? booking.agent.name : 'N/A',
+        agentID: booking.agent ? booking.agent.agentID : 'N/A',
+        customerName: booking.customer ? booking.customer.name : 'N/A',
+        customerID: booking.customer ? booking.customer.id : 'N/A',
+        tourName: booking.tour ? booking.tour.name : 'N/A',
+        paymentStatus: booking.payment ? booking.payment.paymentStatus : 'N/A',
+        amount: booking.payment ? booking.payment.totalAmount : 0,
+        commissionAmount: booking.agent ? booking.agent.commission : 0, // Assuming agent.commission is the correct field
+        paymentDate: booking.payment ? booking.payment.paymentDate : null,
+
+        // Pass the full nested objects if the frontend uses them for table display
+        agent: booking.agent,
+        customer: booking.customer,
+        tour: booking.tour,
+        payment: booking.payment,
+        createdAt: booking.createdAt,
+        updatedAt: booking.updatedAt
+    }));
+
+    res.status(200).json({ bookings: transformedBookings });
 
   }
   catch(error){
     console.error("Error fetching booking payments overview : ", error);
-    res.status(500).json({ message: "Server error while fetching users" });
+    res.status(500).json({ message: "Server error while fetching booking payments overview" });
   }
 })
+
+router.get('/agent-commission-stats', authenticateSuperAdmin, async (req, res) => {
+    try {
+        const { startDate, endDate } = req.query;
+        let query = {};
+
+        if (startDate || endDate) {
+            query.tourStartDate = {};
+            if (startDate) {
+                // IMPORTANT CHANGE: Use the string directly for comparison
+                query.tourStartDate.$gte = startDate;
+            }
+            if (endDate) {
+                // IMPORTANT CHANGE: Use the string directly for comparison, no endOfDay needed for string dates
+                query.tourStartDate.$lte = endDate;
+            }
+        }
+
+        const agentTourStats = await AgentTourStats.find(query).sort({ tourStartDate: -1 }).lean();
+
+        // Manual lookup for agent details (since agentID is a string and not populated automatically)
+        const uniqueAgentIDs = [...new Set(agentTourStats.map(stat => stat.agentID))];
+        const agents = await Agent.find({ agentID: { $in: uniqueAgentIDs } }).select('name agentID').lean();
+        const agentMap = agents.reduce((acc, agent) => {
+            acc[agent.agentID] = { name: agent.name, agentID: agent.agentID };
+            return acc;
+        }, {});
+
+        const populatedAgentTourStats = agentTourStats.map(stat => {
+            const agentInfo = agentMap[stat.agentID] || { name: 'Unknown Agent', agentID: stat.agentID }; // Fallback
+            return {
+                ...stat,
+                agentID: agentInfo // Replace the string agentID with the desired object
+            };
+        });
+
+        res.status(200).json({
+            success: true,
+            agentTourStats: populatedAgentTourStats
+        });
+
+    } catch (error) {
+        console.error('Error fetching agent commission stats:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server Error',
+            error: error.message
+        });
+    }
+});
+
+// Existing: POST /api/admin/pay-commission (no changes needed)
+router.post('/pay-commission/:id', authenticateSuperAdmin, async (req, res) => { // Added :id to path
+    try {
+        const { id } = req.params; // Get id from req.params as it's a URL parameter
+
+        const updatedStat = await AgentTourStats.findByIdAndUpdate(
+            id,
+            { CommissionPaid: true },
+            { new: true } // Return the updated document
+        );
+
+        if (!updatedStat) {
+            return res.status(404).json({ success: false, message: 'Commission record not found.' });
+        }
+
+        res.status(200).json({ success: true, message: 'Commission marked as paid.', updatedStat });
+    } catch (error) {
+        console.error('Error paying commission:', error);
+        res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+    }
+});
 
 router.post('/agent/:id/remarks', authenticateSuperAdmin, async (req, res) => {
   const { id } = req.params;

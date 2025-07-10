@@ -11,24 +11,52 @@ import {
     FiDownload,
     FiToggleLeft, // Added for status change icon
     FiToggleRight, // Added for status change icon
+    FiDollarSign, // Icon for 'Pay' button
+    FiChevronDown, // For accordion
+    FiChevronUp // For accordion
 } from 'react-icons/fi';
 import { FaRupeeSign } from 'react-icons/fa';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { ToastContainer, toast } from 'react-toastify'; // Import for toasts
-import 'react-toastify/dist/ReactToastify.css'; // Import toast CSS
+// import 'react-toastify/dist/React-Toastify.css'; // Corrected import for toast CSS
 
 // --- Agent-specific desired headers for CSV export ---
-// This ensures the order you explicitly requested for agents
 const AGENT_CSV_HEADERS = [
     'name', 'agentID', 'gender', 'dob', 'age', 'phone_calling',
     'phone_whatsapp', 'email', 'adhar_card', 'pan_card',
     'profession', 'income', 'office_address', 'permanent_address',
-    'exclusive_zone', 'banking_details', 'parentAgent', 'commissionPending'
+    'exclusive_zone', 'banking_details', 'parentAgent'
 ];
 
+// Headers for Agent Commission Report CSV (more detailed per tour, for Agents tab)
+const AGENT_COMMISSION_REPORT_HEADERS = [
+    ...AGENT_CSV_HEADERS,
+    'tourID', // Specific Tour ID
+    'tourDueDate', // Specific Tour Due Date
+    'tourCommission', // Specific Tour Commission
+    'tourCommissionStatus', // Specific Tour Commission Status (Paid/Pending)
+    'totalCommissionEarned', // Overall for agent
+    'totalCommissionPaid', // Overall for agent
+    'totalCommissionPending' // Overall for agent
+];
+
+// New headers for Paid Commissions Detailed Report CSV (for Payments tab)
+const PAID_COMMISSIONS_DETAILED_HEADERS = [
+    'name',
+    'agentID',
+    'tourID',
+    'tourDueDate',
+    'tourCommission',
+    'tourCommissionStatus',
+    'totalCommissionEarned',
+    'totalCommissionPaid',
+    'totalCommissionPending'
+];
+
+
 // Utility function to convert array of objects to CSV
-const convertToCSV = (data, type) => { // Added 'type' parameter to differentiate
+const convertToCSV = (data, type) => {
     if (data.length === 0) return '';
 
     let headers = [];
@@ -36,14 +64,21 @@ const convertToCSV = (data, type) => { // Added 'type' parameter to differentiat
 
     if (type === 'agents') {
         headers = AGENT_CSV_HEADERS;
-    } else {
-        // Dynamically get headers from the first object for other types (customers, payments)
-        // Excluding Mongoose internal fields and sensitive fields like password
+    } else if (type === 'customers') {
+        headers = ['name', 'email', 'phone', 'createdAt', 'totalBookings'];
+    } else if (type === 'paymentsReceived') {
+        headers = ['bookingId', 'tourName', 'agentName', 'agentID', 'customerName', 'amount', 'commissionAmount', 'paymentStatus', 'paymentDate'];
+    } else if (type === 'paymentsPaid') {
+        headers = ['tourID', 'agentName', 'agentID', 'dueDate', 'customerGiven', 'commission', 'CommissionPaid'];
+    } else if (type === 'agentCommissionReport') {
+        headers = AGENT_COMMISSION_REPORT_HEADERS;
+    } else if (type === 'paymentsPaidDetailed') { // New type for the detailed payments report
+        headers = PAID_COMMISSIONS_DETAILED_HEADERS;
+    }
+    else {
         headers = Object.keys(data[0]).filter(key =>
             !key.startsWith('__') && key !== '_id' && key !== 'id' && key !== 'password'
         );
-        // You might want to define specific headers for customers and payments too,
-        // similar to AGENT_CSV_HEADERS if a fixed order is required.
     }
 
     csvRows.push(headers.join(','));
@@ -53,23 +88,46 @@ const convertToCSV = (data, type) => { // Added 'type' parameter to differentiat
             let value = row[header];
             let escaped = '';
 
-            // --- Custom logic for specific agent fields based on your request ---
             if (type === 'agents') {
                 if (header === 'parentAgent') {
-                    // This value is now pre-processed in fetchAgents
                     value = row.parentAgent || 'N/A,N/A';
-                } else if (header === 'commissionPending') {
-                    // This value is now pre-processed in fetchAgents
-                    value = row.commissionPending || 0;
+                }
+            } else if (type === 'paymentsReceived') {
+                if (header === 'agentName' || header === 'agentID') {
+                    value = row.agent?.[header.replace('agent', '').toLowerCase()] || 'N/A';
+                    if (header === 'agentID') value = row.agent?.agentID || 'N/A';
+                    if (header === 'agentName') value = row.agent?.name || 'N/A';
+                } else if (header === 'customerName') {
+                    value = row.customer?.name || 'N/A';
+                }
+            } else if (type === 'paymentsPaid') {
+                if (header === 'CommissionPaid') {
+                    value = value ? 'Paid' : 'Pending';
+                } else if (header === 'dueDate') {
+                    value = row.tourStartDate ? new Date(row.tourStartDate).toLocaleDateString() : 'N/A';
+                } else if (header === 'commission') {
+                    value = row.commissionReceived || 0;
+                } else if (header === 'agentName') {
+                    value = row.agentID?.name || 'N/A';
+                } else if (header === 'agentID' && typeof row.agentID !== 'string') {
+                    value = row.agentID?.agentID || 'N/A';
+                }
+            } else if (type === 'agentCommissionReport' || type === 'paymentsPaidDetailed') { // Apply similar logic for both detailed reports
+                if (['totalCommissionEarned', 'totalCommissionPaid', 'totalCommissionPending', 'tourCommission'].includes(header)) {
+                    // For tourCommission, ensure it's a number. For totals, keep as is for now.
+                    value = value || 0;
+                } else if (header === 'tourDueDate') {
+                    value = value ? new Date(value).toLocaleDateString() : ''; // Use empty string for gaps
+                } else if (header === 'tourCommissionStatus') {
+                    value = (value === true) ? 'Paid' : ((value === false) ? 'Pending' : ''); // Use empty string for gaps
+                } else if (header === 'parentAgent') {
+                    value = row.parentAgent || 'N/A,N/A';
                 }
             }
-            // --- End custom logic ---
 
-            // Handle nested objects for addresses, banking, exclusive_zone etc.
+
             if (typeof value === 'object' && value !== null) {
                 if (Array.isArray(value)) {
-                    // For arrays (like exclusive_zone, which is an array of objects)
-                    // Readable format : "pincode1; village1 | pincode2; village2"
                     escaped = value.map(item => {
                         if (typeof item === 'object' && item !== null) {
                             return Object.values(item).map(v => (v !== null && typeof v !== 'object') ? String(v) : (Array.isArray(v) ? v.join(',') : '')).filter(Boolean).join('; ');
@@ -78,13 +136,11 @@ const convertToCSV = (data, type) => { // Added 'type' parameter to differentiat
                     }).filter(Boolean).join(' | ');
 
                 } else {
-                    // For single nested objects (like permanent_address, banking_details, office_address)
-                    // Join nested object values, converting to string and handling potential nulls
                     escaped = Object.values(value).map(v => v !== null ? String(v) : '').filter(Boolean).join('; ');
                 }
             } else {
-                // Ensure null or undefined values are converted to empty strings
-                escaped = ('' + (value === undefined || value === null ? '' : value)).replace(/"/g, '""'); // Escape double quotes
+                // Ensure empty string for null/undefined values to create gaps
+                escaped = ('' + (value === undefined || value === null ? '' : value)).replace(/"/g, '""');
             }
             return `"${escaped}"`;
         });
@@ -99,28 +155,47 @@ const MasterDataDashboard = () => {
     // State for fetched data
     const [agents, setAgents] = useState([]);
     const [customers, setCustomers] = useState([]);
-    const [payments, setPayments] = useState([]);
+    const [paymentsReceived, setPaymentsReceived] = useState([]);
+    const [paymentsPaid, setPaymentsPaid] = useState([]); // This will now hold AgentTourStats data
 
     // Loading and error states
     const [loadingAgents, setLoadingAgents] = useState(true);
     const [loadingCustomers, setLoadingCustomers] = useState(true);
-    const [loadingPayments, setLoadingPayments] = useState(true);
+    const [loadingPaymentsReceived, setLoadingPaymentsReceived] = useState(true);
+    const [loadingPaymentsPaid, setLoadingPaymentsPaid] = useState(true); // For AgentTourStats
     const [errorAgents, setErrorAgents] = useState(null);
     const [errorCustomers, setErrorCustomers] = useState(null);
-    const [errorPayments, setErrorPayments] = useState(null);
-    const [agentStatusFilter, setAgentStatusFilter] = useState('all'); // 'all', 'active', 'rejected'
+    const [errorPaymentsReceived, setErrorPaymentsReceived] = useState(null);
+    const [errorPaymentsPaid, setErrorPaymentsPaid] = useState(null); // For AgentTourStats
 
     const [activeTab, setActiveTab] = useState('agents');
-    // New state for agent sub-tabs
     const [agentSubTab, setAgentSubTab] = useState('all');
+    const [paymentSubTab, setPaymentSubTab] = useState('received');
+
+    // New state for Payments Paid view: 'table', 'agentWise', 'tourWise'
+    const [commissionView, setCommissionView] = useState('table');
+    // State to manage expanded accordions
+    const [expandedAgents, setExpandedAgents] = useState({}); // For agent-wise view
+    const [expandedTours, setExpandedTours] = useState({}); // For tour-wise view
+
 
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
-    const [timeFilter, setTimeFilter] = useState('currentMonth');
+    const [timeFilterReceived, setTimeFilterReceived] = useState('currentMonth');
+    const [timeFilterPaid, setTimeFilterPaid] = useState('currentMonth');
+
+    // State for custom date range for received payments
+    const [startDateReceived, setStartDateReceived] = useState('');
+    const [endDateReceived, setEndDateReceived] = useState('');
+
+    // State for custom date range for paid payments (AgentTourStats)
+    const [startDatePaid, setStartDatePaid] = useState('');
+    const [endDatePaid, setEndDatePaid] = useState('');
+
+
     const itemsPerPage = 5;
     const token = localStorage.getItem('Token');
 
-    // Helper to fetch agents (can be called by refresh button)
     const fetchAgents = async () => {
         try {
             setLoadingAgents(true);
@@ -129,26 +204,20 @@ const MasterDataDashboard = () => {
             });
             const fetchedAgents = Array.isArray(response.data.agents) ? response.data.agents : [];
 
-            // --- Post-process agents to include derived fields for CSV export ---
             const agentsWithDerivedData = await Promise.all(fetchedAgents.map(async (agent) => {
-                let parentAgentInfo = 'N/A,N/A'; // Default value
-                    console.log(agent.parentAgent)
-                if (agent.parentAgent && typeof agent.parentAgent === 'string') { // Check if parentAgent exists and is a string (an ID)
+                let parentAgentInfo = 'N/A,N/A';
+                if (agent.parentAgent && typeof agent.parentAgent === 'string') {
                     try {
-                        // THIS API CALL IS A PLACEHOLDER. Replace with your actual API endpoint
-                        // that fetches parent agent details by ID.
                         const parentResponse = await axios.get(`/api/admin/${agent.parentAgent}`, {
                             headers: { Authorization: `Bearer ${token}` },
                         });
-                        console.log("parent", parentResponse.data.name);
                         if (parentResponse.data && parentResponse.data.agent) {
-                            const parent = parentResponse.data;
-                            // console.log("parent",parent)
-                            parentAgentInfo = `${parent.name || 'N/A'},${parent.agentID || 'N/A'}`; // Assuming parent.agentID exists
+                            const parent = parentResponse.data.agent;
+                            parentAgentInfo = `${parent.name || 'N/A'},${parent.agentID || 'N/A'}`;
                         }
                     } catch (parentError) {
                         console.error(`Error fetching parent agent for ID ${agent.parentAgent}:`, parentError);
-                        parentAgentInfo = `Error,Error`; // Indicate an error in fetching
+                        parentAgentInfo = `Error,Error`;
                     }
                 }
 
@@ -156,24 +225,23 @@ const MasterDataDashboard = () => {
                     name: agent.name || '',
                     agentID: agent.agentID || '',
                     gender: agent.gender || '',
-                    dob: agent.dob ? new Date(agent.dob).toLocaleDateString() : '', // Format DOB for readability
-                    age: agent.age || 'N/A', // Age is already present
+                    dob: agent.dob ? new Date(agent.dob).toLocaleDateString() : '',
+                    age: agent.age || 'N/A',
                     phone_calling: agent.phone_calling || '',
                     phone_whatsapp: agent.phone_whatsapp || '',
                     email: agent.email || '',
-                    adhar_card: agent.aadhar_card || '', // Use aadhar_card from your data
+                    adhar_card: agent.aadhar_card || '',
                     pan_card: agent.pan_card || '',
                     profession: agent.profession || '',
                     income: agent.income || 0,
-                    office_address: agent.office_address || {}, // Ensure it's an object or string
-                    permanent_address: agent.permanent_address || {}, // Ensure it's an object
-                    exclusive_zone: agent.exclusive_zone || [], // Ensure it's an array
-                    banking_details: agent.banking_details || {}, // Ensure it's an object
-                    parentAgent: parentAgentInfo, // Formatted as "name,ID"
-                    commissionPending: agent.walletBalance || 0, // Direct mapping from walletBalance
-                    // Include any other fields if you need them for other parts of the dashboard
+                    office_address: agent.office_address || {},
+                    permanent_address: agent.permanent_address || {},
+                    exclusive_zone: agent.exclusive_zone || [],
+                    banking_details: agent.banking_details || {},
+                    parentAgent: parentAgentInfo,
                     status: agent.status || '',
-                    _id: agent._id, // Keep _id for React keys and other operations
+                    _id: agent._id,
+                    createdAt: agent.createdAt,
                 };
             }));
 
@@ -187,13 +255,10 @@ const MasterDataDashboard = () => {
         }
     };
 
-    // ... (rest of your component code remains largely the same)
-    // Fetch Agents on component mount
     useEffect(() => {
         fetchAgents();
     }, [token]);
 
-    // Fetch Customers
     useEffect(() => {
         const fetchCustomers = async () => {
             try {
@@ -213,33 +278,116 @@ const MasterDataDashboard = () => {
         fetchCustomers();
     }, [token]);
 
-    // Fetch Payments (Transactions and Bookings for payment info)
-    useEffect(() => {
-        const fetchPayments = async () => {
-            try {
-                setLoadingPayments(true);
-                const response = await axios.get('/api/admin/booking-payments-overview',{
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                setPayments(Array.isArray(response.data.bookings) ? response.data.bookings : []);
-            } catch (err) {
-                setErrorPayments('Failed to fetch payments.');
-                setPayments([]);
-                console.error('Error fetching payments:', err);
-            } finally {
-                setLoadingPayments(false);
+    const fetchPaymentsReceived = async () => {
+        try {
+            setLoadingPaymentsReceived(true);
+            let url = '/api/admin/booking-payments-overview';
+            const params = {};
+
+            if (timeFilterReceived === 'custom') {
+                if (startDateReceived) params.startDate = startDateReceived;
+                if (endDateReceived) params.endDate = endDateReceived;
+            } else if (timeFilterReceived === 'currentMonth') {
+                const now = new Date();
+                const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+                const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
+                params.startDate = firstDay;
+                params.endDate = lastDay;
             }
-        };
-        fetchPayments();
-    }, [token]);
+
+            const response = await axios.get(url, {
+                headers: { Authorization: `Bearer ${token}` },
+                params: params
+            });
+            setPaymentsReceived(Array.isArray(response.data.bookings) ? response.data.bookings : []);
+        } catch (err) {
+            setErrorPaymentsReceived('Failed to fetch received payments.');
+            setPaymentsReceived([]);
+            console.error('Error fetching received payments:', err);
+        } finally {
+            setLoadingPaymentsReceived(false);
+        }
+    };
+
+    useEffect(() => {
+        if (activeTab === 'payments' && paymentSubTab === 'received') {
+            fetchPaymentsReceived();
+        }
+    }, [token, timeFilterReceived, startDateReceived, endDateReceived, activeTab, paymentSubTab]);
 
 
-    // Filter data based on search term and agent sub-tab
+    // Fetch Payments Paid (Commissions to Agents) using AgentTourStats model
+    const fetchPaymentsPaid = async () => {
+        try {
+            setLoadingPaymentsPaid(true);
+            let url = '/api/admin/agent-commission-stats';
+
+            const params = {};
+
+            if (timeFilterPaid === 'custom') {
+                if (startDatePaid) params.startDate = startDatePaid;
+                if (endDatePaid) params.endDate = endDatePaid;
+            } else if (timeFilterPaid === 'currentMonth') {
+                const now = new Date();
+                const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+                const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
+                params.startDate = firstDay;
+                params.endDate = lastDay;
+            }
+
+            const response = await axios.get(url, {
+                headers: { Authorization: `Bearer ${token}` },
+                params: params
+            });
+            setPaymentsPaid(Array.isArray(response.data.agentTourStats) ? response.data.agentTourStats : []);
+        } catch (err) {
+            setErrorPaymentsPaid('Failed to fetch paid payments (commissions).');
+            setPaymentsPaid([]);
+            console.error('Error fetching paid payments (commissions):', err);
+        } finally {
+            setLoadingPaymentsPaid(false);
+        }
+    };
+
+    useEffect(() => {
+        if (activeTab === 'payments' && paymentSubTab === 'paid') {
+            fetchPaymentsPaid();
+        }
+    }, [token, timeFilterPaid, startDatePaid, endDatePaid, activeTab, paymentSubTab]);
+
+
+    // Function to mark commission as paid
+    const handlePayCommission = async (tourStatsId) => {
+        toast.info("Marking commission as paid...");
+        try {
+            const response = await axios.post(`/api/admin/pay-commission/${tourStatsId}`, {}, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (response.data.success) {
+                toast.success(response.data.message);
+                // Refresh the payments paid list after successful payment
+                fetchPaymentsPaid();
+            } else {
+                toast.error(response.data.message || "Failed to mark commission as paid.");
+            }
+        } catch (error) {
+            console.error('Error paying commission:', error);
+            const errorMessage = error.response?.data?.message || 'Error marking commission as paid. Please try again.';
+            toast.error(errorMessage);
+        }
+    };
+
+
     const filteredAgents = agents.filter(agent => {
         const matchesSearch =
             agent.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             agent.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            agent.phone_calling?.includes(searchTerm);
+            agent.phone_calling?.includes(searchTerm) ||
+            agent.agentID?.toLowerCase().includes(searchTerm.toLowerCase());
 
         const matchesSubTab =
             agentSubTab === 'all' ||
@@ -258,27 +406,74 @@ const MasterDataDashboard = () => {
         customer.phone?.includes(searchTerm)
     );
 
-    const filteredPayments = payments.filter(payment => {
-    const matchesSearch =
-        (payment.agentName && payment.agentName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (payment.customerName && payment.customerName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (payment.tourName && payment.tourName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (payment.paymentStatus && payment.paymentStatus.toLowerCase().includes(searchTerm.toLowerCase()));
+    const filteredPaymentsReceived = paymentsReceived.filter(payment => {
+        const matchesSearch =
+            (payment.agent?.name && payment.agent.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (payment.customer?.name && payment.customer.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (payment.tourName && payment.tourName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (payment.bookingId && payment.bookingId.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (payment.paymentStatus && payment.paymentStatus.toLowerCase().includes(searchTerm.toLowerCase()));
 
-    const currentDate = new Date();
-    const currentMonth = currentDate.getMonth() + 1;
-    const currentYear = currentDate.getFullYear();
+        return matchesSearch;
+    });
 
-    const paymentDate = payment.paymentDate ? new Date(payment.paymentDate) : null;
-    const paymentMonth = paymentDate ? paymentDate.getMonth() + 1 : null;
-    const paymentYear = paymentDate ? paymentDate.getFullYear() : null;
+    // Filter AgentTourStats data
+    const filteredPaymentsPaid = paymentsPaid.filter(stat => {
+        const matchesSearch =
+            (stat.agentID?.name && stat.agentID.name.toLowerCase().includes(searchTerm.toLowerCase())) || // Search by agent name (populated)
+            (stat.agentID && typeof stat.agentID === 'string' && stat.agentID.toLowerCase().includes(searchTerm.toLowerCase())) || // Search by raw agent ID string
+            (stat.tourID && stat.tourID.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (stat.CommissionPaid ? 'paid' : 'pending').includes(searchTerm.toLowerCase()); // Search by 'paid' or 'pending'
 
-    const matchesTimeFilter =
-        timeFilter === 'all' ||
-        (paymentMonth === currentMonth && paymentYear === currentYear);
+        return matchesSearch;
+    });
 
-    return matchesSearch && matchesTimeFilter;
-});
+
+    // Grouping for Agent-wise and Tour-wise views
+    const groupedPaymentsPaidByAgent = filteredPaymentsPaid.reduce((acc, stat) => {
+        const agentName = stat.agentID?.name || 'Unknown Agent';
+        const agentID = stat.agentID?.agentID || stat.agentID; // Use populated agentID or raw string
+        const key = `${agentName} (${agentID})`;
+        if (!acc[key]) {
+            acc[key] = {
+                agentName: agentName,
+                agentID: agentID,
+                totalCommission: 0,
+                totalPaid: 0,
+                totalPending: 0,
+                tours: []
+            };
+        }
+        acc[key].tours.push(stat);
+        acc[key].totalCommission += stat.commissionReceived || 0;
+        if (stat.CommissionPaid) {
+            acc[key].totalPaid += stat.commissionReceived || 0;
+        } else {
+            acc[key].totalPending += stat.commissionReceived || 0;
+        }
+        return acc;
+    }, {});
+
+    const groupedPaymentsPaidByTour = filteredPaymentsPaid.reduce((acc, stat) => {
+        const tourName = stat.tourID || 'Unknown Tour';
+        if (!acc[tourName]) {
+            acc[tourName] = {
+                tourName: tourName,
+                totalCommission: 0,
+                totalPaid: 0,
+                totalPending: 0,
+                agents: []
+            };
+        }
+        acc[tourName].agents.push(stat);
+        acc[tourName].totalCommission += stat.commissionReceived || 0;
+        if (stat.CommissionPaid) {
+            acc[tourName].totalPaid += stat.commissionReceived || 0;
+        } else {
+            acc[tourName].totalPending += stat.commissionReceived || 0;
+        }
+        return acc;
+    }, {});
 
 
     // Pagination logic
@@ -287,7 +482,11 @@ const MasterDataDashboard = () => {
 
     const currentAgents = filteredAgents.slice(indexOfFirstItem, indexOfLastItem);
     const currentCustomers = filteredCustomers.slice(indexOfFirstItem, indexOfLastItem);
-    const currentPayments = filteredPayments.slice(indexOfFirstItem, indexOfLastItem);
+    const currentPaymentsReceived = filteredPaymentsReceived.slice(indexOfFirstItem, indexOfLastItem);
+
+    // Pagination for payments paid is trickier with grouped data, will adjust
+    // For now, let's keep it simple for the table view and handle other views separately.
+    const currentPaymentsPaidTable = filteredPaymentsPaid.slice(indexOfFirstItem, indexOfLastItem);
 
 
     const paginate = (pageNumber) => setCurrentPage(pageNumber);
@@ -296,19 +495,22 @@ const MasterDataDashboard = () => {
     const totalAgents = agents.length;
     const totalCustomers = customers.length;
 
-    const totalPendingPaymentsCount = payments.filter(p => p.paymentStatus === 'Pending').length;
-    const totalCommissionEarned = agents.reduce((sum, agent) => sum + (agent.walletBalance || 0), 0);
+    const totalPendingPaymentsCount = paymentsReceived.filter(p => p.paymentStatus === 'Pending').length;
 
-    // Calculate payment summaries
-    const totalReceivedAmount = filteredPayments.filter(p => p.paymentStatus === 'Paid').reduce((sum, payment) => sum + (payment.amount || 0), 0);
-    const totalPendingAmount = filteredPayments.filter(p => p.paymentStatus === 'Pending').reduce((sum, payment) => sum + (payment.amount || 0), 0);
+    // Calculate payment summaries for Received Payments Tab
+    const totalReceivedAmount = filteredPaymentsReceived.filter(p => p.paymentStatus === 'Paid').reduce((sum, payment) => sum + (payment.amount || 0), 0);
+    const totalPendingAmount = filteredPaymentsReceived.filter(p => p.paymentStatus === 'Pending').reduce((sum, payment) => sum + (payment.amount || 0), 0);
+    const totalCommissionFromReceivedPayments = filteredPaymentsReceived.reduce((sum, payment) => sum + (payment.commissionAmount || 0), 0);
 
-    const totalCommissionFromPayments = filteredPayments.reduce((sum, payment) => sum + (payment.commissionAmount || 0), 0);
+    // Calculate payment summaries for Paid Payments Tab (from AgentTourStats)
+    const totalPaidCommission = filteredPaymentsPaid.filter(stat => stat.CommissionPaid).reduce((sum, stat) => sum + (stat.commissionReceived || 0), 0);
+    const totalPendingCommissionToPay = filteredPaymentsPaid.filter(stat => !stat.CommissionPaid).reduce((sum, stat) => sum + (stat.commissionReceived || 0), 0);
+
 
     // Function to trigger download
-    const downloadCSV = (data, filename, type) => { // Pass 'type' to convertToCSV
+    const downloadCSV = (data, filename, type) => {
         const csvData = convertToCSV(data, type);
-        const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' }); // Ensure charset is specified
+        const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.setAttribute('hidden', '');
@@ -317,10 +519,136 @@ const MasterDataDashboard = () => {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        URL.revokeObjectURL(url); // Clean up the URL object
+        URL.revokeObjectURL(url);
     };
 
-    // --- New: Function to toggle agent status ---
+    // New function to prepare and download the Agent Commission Report CSV (for Agents tab)
+    const downloadAgentCommissionReportCSV = () => {
+        const reportRows = [];
+
+        agents.forEach(agent => {
+            const agentCommissions = paymentsPaid.filter(stat =>
+                (stat.agentID?.agentID === agent.agentID) || // Check populated agentID
+                (typeof stat.agentID === 'string' && stat.agentID === agent.agentID) // Check raw agentID string
+            );
+
+            let totalCommissionEarned = 0;
+            let totalCommissionPaid = 0;
+            let totalCommissionPending = 0;
+
+            agentCommissions.forEach(commission => {
+                totalCommissionEarned += commission.commissionReceived || 0;
+                if (commission.CommissionPaid) {
+                    totalCommissionPaid += commission.commissionReceived || 0;
+                } else {
+                    totalCommissionPending += commission.commissionReceived || 0;
+                }
+            });
+
+            if (agentCommissions.length === 0) {
+                // If agent has no commissions, create one row with N/A for tour details
+                reportRows.push({
+                    ...agent,
+                    tourID: 'N/A',
+                    tourDueDate: 'N/A',
+                    tourCommission: 0,
+                    tourCommissionStatus: 'N/A',
+                    totalCommissionEarned: totalCommissionEarned,
+                    totalCommissionPaid: totalCommissionPaid,
+                    totalCommissionPending: totalCommissionPending,
+                });
+            } else {
+                // For each commission record, create a row with agent details + tour details + overall totals
+                agentCommissions.forEach(commission => {
+                    reportRows.push({
+                        ...agent,
+                        tourID: commission.tourID || 'N/A',
+                        tourDueDate: commission.tourStartDate, // Use tourStartDate as due date
+                        tourCommission: commission.commissionReceived || 0,
+                        tourCommissionStatus: commission.CommissionPaid,
+                        totalCommissionEarned: totalCommissionEarned,
+                        totalCommissionPaid: totalCommissionPaid,
+                        totalCommissionPending: totalCommissionPending,
+                    });
+                });
+            }
+        });
+        downloadCSV(reportRows, 'agent_commission_report.csv', 'agentCommissionReport');
+    };
+
+    // New function to prepare and download the Payments Paid Detailed Report CSV (for Payments tab)
+    const downloadPaymentsPaidDetailedCSV = () => {
+        const reportRows = [];
+
+        // First, pre-calculate overall totals for each agent
+        const agentOverallTotalsMap = new Map(); // Map<agentID, {earned, paid, pending}>
+        paymentsPaid.forEach(stat => {
+            const agentID = stat.agentID?.agentID || stat.agentID;
+            if (!agentOverallTotalsMap.has(agentID)) {
+                agentOverallTotalsMap.set(agentID, {
+                    totalCommissionEarned: 0,
+                    totalCommissionPaid: 0,
+                    totalCommissionPending: 0
+                });
+            }
+            const totals = agentOverallTotalsMap.get(agentID);
+            totals.totalCommissionEarned += stat.commissionReceived || 0;
+            if (stat.CommissionPaid) {
+                totals.totalCommissionPaid += stat.commissionReceived || 0;
+            } else {
+                totals.totalCommissionPending += stat.commissionReceived || 0;
+            }
+        });
+
+        // Iterate through all agents to ensure everyone is included, even if no tours
+        agents.forEach(agent => {
+            const agentCommissions = paymentsPaid.filter(stat =>
+                (stat.agentID?.agentID === agent.agentID) ||
+                (typeof stat.agentID === 'string' && stat.agentID === agent.agentID)
+            );
+
+            const overallTotals = agentOverallTotalsMap.get(agent.agentID) || {
+                totalCommissionEarned: 0,
+                totalCommissionPaid: 0,
+                totalCommissionPending: 0
+            };
+
+            if (agentCommissions.length === 0) {
+                // Agent has no tours, print one row with agent details and blank tour fields
+                reportRows.push({
+                    name: agent.name || '',
+                    agentID: agent.agentID || '',
+                    tourID: '', // Blank
+                    tourDueDate: '', // Blank
+                    tourCommission: '', // Blank
+                    tourCommissionStatus: '', // Blank
+                    totalCommissionEarned: overallTotals.totalCommissionEarned,
+                    totalCommissionPaid: overallTotals.totalCommissionPaid,
+                    totalCommissionPending: overallTotals.totalCommissionPending,
+                });
+            } else {
+                // Agent has tours, iterate through them
+                agentCommissions.forEach((commission, index) => {
+                    reportRows.push({
+                        name: index === 0 ? (agent.name || '') : '', // Only print name on first row
+                        agentID: index === 0 ? (agent.agentID || '') : '', // Only print agentID on first row
+                        tourID: commission.tourID || '',
+                        tourDueDate: commission.tourStartDate,
+                        tourCommission: commission.commissionReceived || 0,
+                        tourCommissionStatus: commission.CommissionPaid,
+                        // Only print total commission details on the LAST row for the agent
+                        totalCommissionEarned: index === agentCommissions.length - 1 ? overallTotals.totalCommissionEarned : '',
+                        totalCommissionPaid: index === agentCommissions.length - 1 ? overallTotals.totalCommissionPaid : '',
+                        totalCommissionPending: index === agentCommissions.length - 1 ? overallTotals.totalCommissionPending : '',
+                    });
+                });
+            }
+        });
+        downloadCSV(reportRows, 'payments_paid_detailed_report.csv', 'paymentsPaidDetailed');
+    };
+
+
+    // Function to toggle agent status
     const toggleAgentStatus = async (agentId, currentStatus) => {
         const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
         toast.info(`Changing agent status to ${newStatus}...`);
@@ -337,7 +665,6 @@ const MasterDataDashboard = () => {
                 }
             );
 
-            // Update local state to reflect the change
             setAgents(prevAgents =>
                 prevAgents.map(agent =>
                     agent._id === agentId ? { ...agent, status: newStatus } : agent
@@ -348,6 +675,20 @@ const MasterDataDashboard = () => {
             console.error('Failed to update agent status:', error);
             toast.error('Failed to update agent status.');
         }
+    };
+
+    const toggleAgentAccordion = (agentKey) => {
+        setExpandedAgents(prevState => ({
+            ...prevState,
+            [agentKey]: !prevState[agentKey]
+        }));
+    };
+
+    const toggleTourAccordion = (tourKey) => {
+        setExpandedTours(prevState => ({
+            ...prevState,
+            [tourKey]: !prevState[tourKey]
+        }));
     };
 
 
@@ -386,9 +727,9 @@ const MasterDataDashboard = () => {
                         <FaRupeeSign className="text-yellow-700 text-xl" />
                     </div>
                     <div>
-                        <p className="text-gray-600 text-sm">Pending Payments</p>
-                        {loadingPayments ? <p className="text-2xl font-bold">Loading...</p> : <p className="text-2xl font-bold">{totalPendingPaymentsCount}</p>}
-                        {errorPayments && <p className="text-red-500 text-xs">{errorPayments}</p>}
+                        <p className="text-gray-600 text-sm">Pending Customer Payments</p>
+                        {loadingPaymentsReceived ? <p className="text-2xl font-bold">Loading...</p> : <p className="text-2xl font-bold">{totalPendingPaymentsCount}</p>}
+                        {errorPaymentsReceived && <p className="text-red-500 text-xs">{errorPaymentsReceived}</p>}
                     </div>
                 </div>
 
@@ -397,9 +738,9 @@ const MasterDataDashboard = () => {
                         <FaRupeeSign className="text-purple-600 text-xl" />
                     </div>
                     <div>
-                        <p className="text-gray-500 text-sm">Total Commission (yet to be paid)</p>
-                        {loadingAgents ? <p className="text-2xl font-bold">Loading...</p> : <p className="text-2xl font-bold flex items-center gap-1"> <FaRupeeSign className='text-base'/> {totalCommissionEarned.toLocaleString()}</p>}
-                        {errorAgents && <p className="text-red-500 text-xs">{errorAgents}</p>}
+                        <p className="text-gray-500 text-sm">Total Commission (to be paid)</p>
+                        {loadingPaymentsPaid ? <p className="text-2xl font-bold">Loading...</p> : <p className="text-2xl font-bold flex items-center gap-1"> <FaRupeeSign className='text-base'/> {totalPendingCommissionToPay.toLocaleString()}</p>}
+                        {errorPaymentsPaid && <p className="text-red-500 text-xs">{errorPaymentsPaid}</p>}
                     </div>
                 </div>
             </div>
@@ -409,19 +750,19 @@ const MasterDataDashboard = () => {
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 border-b">
                     <div className="flex space-x-2 mb-4 md:mb-0">
                         <button
-                            onClick={() => { setActiveTab('agents'); setAgentSubTab('all'); setCurrentPage(1); }}
+                            onClick={() => { setActiveTab('agents'); setAgentSubTab('all'); setCurrentPage(1); setSearchTerm(''); }}
                             className={`px-4 py-2 rounded-md ${activeTab === 'agents' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
                         >
                             Agents
                         </button>
                         <button
-                            onClick={() => { setActiveTab('customers'); setCurrentPage(1); }}
+                            onClick={() => { setActiveTab('customers'); setCurrentPage(1); setSearchTerm(''); }}
                             className={`px-4 py-2 rounded-md ${activeTab === 'customers' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
                         >
                             Customers
                         </button>
                         <button
-                            onClick={() => { setActiveTab('payments'); setCurrentPage(1); }}
+                            onClick={() => { setActiveTab('payments'); setCurrentPage(1); setSearchTerm(''); setPaymentSubTab('received'); setCommissionView('table'); }}
                             className={`px-4 py-2 rounded-md ${activeTab === 'payments' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
                         >
                             Payments
@@ -443,18 +784,46 @@ const MasterDataDashboard = () => {
                             onClick={() => {
                                 if (activeTab === 'agents') downloadCSV(filteredAgents, 'agents.csv', 'agents');
                                 if (activeTab === 'customers') downloadCSV(filteredCustomers, 'customers.csv', 'customers');
-                                if (activeTab === 'payments') downloadCSV(filteredPayments, 'payments.csv', 'payments');
+                                if (activeTab === 'payments' && paymentSubTab === 'received') downloadCSV(filteredPaymentsReceived, 'payments_received.csv', 'paymentsReceived');
+                                if (activeTab === 'payments' && paymentSubTab === 'paid') downloadCSV(filteredPaymentsPaid, 'payments_paid.csv', 'paymentsPaid');
                             }}
                             className="px-3 py-2 bg-green-600 text-white rounded-md flex items-center hover:bg-green-700"
                         >
                             <FiDownload className="mr-1" />
                             <span className="hidden md:inline">Download CSV</span>
                         </button>
+                        {/* New button for Agent Commission Report (on Agents tab) */}
+                        {activeTab === 'agents' && (
+                            <button
+                                onClick={downloadAgentCommissionReportCSV}
+                                className="px-3 py-2 bg-purple-600 text-white rounded-md flex items-center hover:bg-purple-700"
+                            >
+                                <FiDownload className="mr-1" />
+                                <span className="hidden md:inline">Agent Commission Report</span>
+                            </button>
+                        )}
+                        {/* New button for Payments Paid Detailed Report (on Payments Paid sub-tab) */}
+                        {activeTab === 'payments' && paymentSubTab === 'paid' && (
+                            <button
+                                onClick={downloadPaymentsPaidDetailedCSV}
+                                className="px-3 py-2 bg-indigo-600 text-white rounded-md flex items-center hover:bg-indigo-700"
+                            >
+                                <FiDownload className="mr-1" />
+                                <span className="hidden md:inline">Paid Commissions Detailed</span>
+                            </button>
+                        )}
                         <button
                             className="px-3 py-2 bg-gray-100 rounded-md"
-                            onClick={() => { setSearchTerm(''); setCurrentPage(1); }}
+                            onClick={() => {
+                                setSearchTerm('');
+                                setCurrentPage(1);
+                                if (activeTab === 'agents') fetchAgents();
+                                if (activeTab === 'customers') fetchCustomers();
+                                if (activeTab === 'payments' && paymentSubTab === 'received') fetchPaymentsReceived();
+                                if (activeTab === 'payments' && paymentSubTab === 'paid') fetchPaymentsPaid();
+                            }}
                         >
-                            <FiRefreshCw onClick={fetchAgents} />
+                            <FiRefreshCw />
                         </button>
                     </div>
                 </div>
@@ -505,7 +874,12 @@ const MasterDataDashboard = () => {
 
                                     <thead className="bg-gray-50">
                                         <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent ID</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration Date</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pending Commission</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent ID</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration Date</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
@@ -519,23 +893,21 @@ const MasterDataDashboard = () => {
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.phone_calling}</td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(agent.createdAt).toLocaleDateString()}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">₹{(agent.commissionPending || 0).toLocaleString()}</td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
                                                             ${agent.status === 'active' ? 'bg-green-100 text-green-800' :
                                                               agent.status === 'inactive' ? 'bg-red-100 text-red-800' :
-                                                              agent.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : // Added pending color
-                                                              'bg-gray-100 text-gray-800' // Default for rejected or unknown
+                                                              agent.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                                              'bg-gray-100 text-gray-800'
                                                             }`}>
                                                             {agent.status}
                                                         </span>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                                        {/* Toggle Button for Active/Inactive */}
                                                         {agent.status === 'active' || agent.status === 'inactive' ? (
                                                             <button
                                                                 onClick={(e) => {
-                                                                    e.stopPropagation(); // Prevent row click from activating
+                                                                    e.stopPropagation();
                                                                     toggleAgentStatus(agent._id, agent.status);
                                                                 }}
                                                                 className={`p-2 rounded-full text-white transition-colors duration-200
@@ -545,14 +917,14 @@ const MasterDataDashboard = () => {
                                                                 {agent.status === 'active' ? <FiToggleLeft size={18} /> : <FiToggleRight size={18} />}
                                                             </button>
                                                         ) : (
-                                                            <span className="text-gray-400 text-xs">N/A</span> // Cannot toggle pending/rejected
+                                                            <span className="text-gray-400 text-xs">N/A</span>
                                                         )}
                                                     </td>
                                                 </tr>
                                             ))
                                         ) : (
                                             <tr>
-                                                <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500">
+                                                <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500">
                                                     No agents found
                                                 </td>
                                             </tr>
@@ -576,6 +948,7 @@ const MasterDataDashboard = () => {
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration Date</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Bookings</th>
                                         </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
@@ -588,11 +961,12 @@ const MasterDataDashboard = () => {
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{customer.phone}</td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(customer.createdAt).toLocaleDateString()}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{customer.totalBookings || 0}</td>
                                                 </tr>
                                             ))
                                         ) : (
                                             <tr>
-                                                <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500">
+                                                <td colSpan="4" className="px-6 py-4 text-center text-sm text-gray-500">
                                                     No customers found
                                                 </td>
                                             </tr>
@@ -605,127 +979,469 @@ const MasterDataDashboard = () => {
 
                     {activeTab === 'payments' && (
                         <>
-                            {loadingPayments ? (
-                                <div className="text-center py-8">Loading payments...</div>
-                            ) : errorPayments ? (
-                                <div className="text-center py-8 text-red-500">{errorPayments}</div>
-                            ) : (
+                            {/* Payment Sub-Tabs */}
+                            <div className="flex space-x-2 mb-4">
+                                <button
+                                    onClick={() => { setPaymentSubTab('received'); setCurrentPage(1); setTimeFilterReceived('currentMonth'); setStartDateReceived(''); setEndDateReceived(''); }}
+                                    className={`px-4 py-2 rounded-md ${paymentSubTab === 'received' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                >
+                                    Payments Received (from Customers)
+                                </button>
+                                <button
+                                    onClick={() => { setPaymentSubTab('paid'); setCurrentPage(1); setTimeFilterPaid('currentMonth'); setStartDatePaid(''); setEndDatePaid(''); setCommissionView('table'); }}
+                                    className={`px-4 py-2 rounded-md ${paymentSubTab === 'paid' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                >
+                                    Payments Paid (to Agents)
+                                </button>
+                            </div>
+
+                            {paymentSubTab === 'received' && (
                                 <>
-                                    {/* Payment Summary Cards */}
+                                    {/* Payment Received Summary Cards */}
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                                        <div className="bg-white rounded-lg shadow p-4">
-                                            <div className="flex items-center">
-                                                <div className="bg-green-100 p-3 rounded-full mr-4">
-                                                    <FaRupeeSign className="text-green-600 text-xl" />
-                                                </div>
-                                                <div>
-                                                    <p className="text-gray-500 text-sm">Received Amount</p>
-                                                    <p className="text-xl font-bold">₹{totalReceivedAmount.toLocaleString()}</p>
-                                                </div>
+                                        <div className="bg-white rounded-lg shadow p-4 flex items-center">
+                                            <div className="bg-green-100 p-3 rounded-full mr-4">
+                                                <FaRupeeSign className="text-green-600 text-xl" />
+                                            </div>
+                                            <div>
+                                                <p className="text-gray-500 text-sm">Total Received Amount</p>
+                                                <p className="text-2xl font-bold flex items-center gap-1"><FaRupeeSign className='text-base'/> {totalReceivedAmount.toLocaleString()}</p>
                                             </div>
                                         </div>
-
-                                        <div className="bg-white rounded-lg shadow p-4">
-                                            <div className="flex items-center">
-                                                <div className="bg-yellow-100 p-3 rounded-full mr-4">
-                                                    <FaRupeeSign className="text-yellow-600 text-xl" />
-                                                </div>
-                                                <div>
-                                                    <p className="text-gray-500 text-sm">Pending Amount</p>
-                                                    <p className="text-xl font-bold">₹{totalPendingAmount.toLocaleString()}</p>
-                                                </div>
+                                        <div className="bg-white rounded-lg shadow p-4 flex items-center">
+                                            <div className="bg-orange-100 p-3 rounded-full mr-4">
+                                                <FaRupeeSign className="text-orange-600 text-xl" />
+                                            </div>
+                                            <div>
+                                                <p className="text-gray-500 text-sm">Total Pending Amount</p>
+                                                <p className="text-2xl font-bold flex items-center gap-1"><FaRupeeSign className='text-base'/> {totalPendingAmount.toLocaleString()}</p>
                                             </div>
                                         </div>
-
-                                        <div className="bg-white rounded-lg shadow p-4">
-                                            <div className="flex items-center">
-                                                <div className="bg-blue-100 p-3 rounded-full mr-4">
-                                                    <FaRupeeSign className="text-blue-600 text-xl" />
-                                                </div>
-                                                <div>
-                                                    <p className="text-gray-500 text-sm">Total Commission</p>
-                                                    <p className="text-xl font-bold">₹{totalCommissionFromPayments.toLocaleString()}</p>
-                                                </div>
+                                        <div className="bg-white rounded-lg shadow p-4 flex items-center">
+                                            <div className="bg-blue-100 p-3 rounded-full mr-4">
+                                                <FaRupeeSign className="text-blue-600 text-xl" />
+                                            </div>
+                                            <div>
+                                                <p className="text-gray-500 text-sm">Total Commission (from received)</p>
+                                                <p className="text-2xl font-bold flex items-center gap-1"><FaRupeeSign className='text-base'/> {totalCommissionFromReceivedPayments.toLocaleString()}</p>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Time Filter Buttons */}
-                                    <div className="flex space-x-2 mb-4">
+                                    {/* Time Filter for Payments Received */}
+                                    <div className="flex space-x-2 mb-4 items-center">
                                         <button
-                                            onClick={() => { setTimeFilter('currentMonth'); setCurrentPage(1); }}
-                                            className={`px-4 py-2 rounded-md ${timeFilter === 'currentMonth' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                            onClick={() => { setTimeFilterReceived('currentMonth'); setStartDateReceived(''); setEndDateReceived(''); fetchPaymentsReceived(); }}
+                                            className={`px-4 py-2 rounded-md ${timeFilterReceived === 'currentMonth' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
                                         >
                                             Current Month
                                         </button>
                                         <button
-                                            onClick={() => { setTimeFilter('all'); setCurrentPage(1); }}
-                                            className={`px-4 py-2 rounded-md ${timeFilter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                            onClick={() => { setTimeFilterReceived('all'); setStartDateReceived(''); setEndDateReceived(''); fetchPaymentsReceived(); }}
+                                            className={`px-4 py-2 rounded-md ${timeFilterReceived === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
                                         >
                                             All Payments
                                         </button>
+                                        <button
+                                            onClick={() => setTimeFilterReceived('custom')}
+                                            className={`px-4 py-2 rounded-md ${timeFilterReceived === 'custom' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                        >
+                                            Custom Date Range
+                                        </button>
+                                        {timeFilterReceived === 'custom' && (
+                                            <div className="flex space-x-2 ml-4">
+                                                <input
+                                                    type="date"
+                                                    value={startDateReceived}
+                                                    onChange={(e) => setStartDateReceived(e.target.value)}
+                                                    className="p-2 border rounded-md"
+                                                    placeholder="Start Date"
+                                                />
+                                                <input
+                                                    type="date"
+                                                    value={endDateReceived}
+                                                    onChange={(e) => setEndDateReceived(e.target.value)}
+                                                    className="p-2 border rounded-md"
+                                                    placeholder="End Date"
+                                                />
+                                                <button
+                                                    onClick={fetchPaymentsReceived}
+                                                    className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                                                >
+                                                    Apply
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
 
-                                    <table className="min-w-full divide-y divide-gray-200">
-                                        <thead className="bg-gray-50">
-                                            <tr>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Booking ID</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tour Name</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commission</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Status</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Date</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="bg-white divide-y divide-gray-200">
-                                        {currentPayments.length > 0 ? (
-                                            currentPayments.map(payment => (
-                                                <tr key={payment._id}>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">#{payment.bookingID}</td>
-                                                    
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.tourName}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="text-sm font-medium text-gray-900">{payment.agent?.name || 'N/A'}</div>
-                                                        <div className="text-sm text-gray-500">ID: #{payment.agent?.agentID || 'N/A'}</div>
-                                                    </td>
-                                                    {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.agentName}</td> */}
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.customer?.name}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">₹{(payment.amount || 0).toLocaleString()}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">₹{(payment.commissionAmount || 0).toLocaleString()}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                                                            ${payment.paymentStatus === 'Paid' ? 'bg-green-100 text-green-800' :
-                                                              payment.paymentStatus === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                                                              'bg-gray-100 text-gray-800' // Default
-                                                            }`}>
-                                                            {payment.paymentStatus}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                            {payment.paymentDate ? new Date(payment.paymentDate).toLocaleDateString() : 'N/A'}
-                                                    </td>
+                                    {loadingPaymentsReceived ? (
+                                        <div className="text-center py-8">Loading payments received...</div>
+                                    ) : errorPaymentsReceived ? (
+                                        <div className="text-center py-8 text-red-500">{errorPaymentsReceived}</div>
+                                    ) : (
+                                        <table className="min-w-full divide-y divide-gray-200">
+                                            <thead className="bg-gray-50">
+                                                <tr>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Booking ID</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tour Name</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commission</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Status</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Date</th>
                                                 </tr>
-                                            ))
-                                        ) : (
-                                            <tr>
-                                                <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500">
-                                                    No payments found
-                                                </td>
-                                            </tr>
+                                            </thead>
+                                            <tbody className="bg-white divide-y divide-gray-200">
+                                                {currentPaymentsReceived.length > 0 ? (
+                                                    currentPaymentsReceived.map(payment => (
+                                                        <tr key={payment._id}>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">#{payment.bookingId}</td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.tourName || 'N/A'}</td>
+                                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                                <div className="text-sm font-medium text-gray-900">{payment.agent?.name || 'N/A'}</div>
+                                                                <div className="text-sm text-gray-500">ID: #{payment.agent?.agentID || 'N/A'}</div>
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.customer?.name || 'N/A'}</td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">₹{(payment.amount || 0).toLocaleString()}</td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">₹{(payment.commissionAmount || 0).toLocaleString()}</td>
+                                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                                                                    ${payment.paymentStatus === 'Paid' ? 'bg-green-100 text-green-800' :
+                                                                      payment.paymentStatus === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                                                                      'bg-gray-100 text-gray-800'}`}>
+                                                                    {payment.paymentStatus}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                                    {payment.paymentDate ? new Date(payment.paymentDate).toLocaleDateString() : 'N/A'}
+                                                            </td>
+                                                        </tr>
+                                                    ))
+                                                ) : (
+                                                    <tr>
+                                                        <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500">
+                                                            No received payments found
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    )}
+                                </>
+                            )}
+
+                            {paymentSubTab === 'paid' && (
+                                <>
+                                    {/* Payment Paid Summary Cards */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                        <div className="bg-white rounded-lg shadow p-4 flex items-center">
+                                            <div className="bg-green-100 p-3 rounded-full mr-4">
+                                                <FaRupeeSign className="text-green-600 text-xl" />
+                                            </div>
+                                            <div>
+                                                <p className="text-gray-500 text-sm">Total Commission Paid</p>
+                                                <p className="text-2xl font-bold flex items-center gap-1"><FaRupeeSign className='text-base'/> {totalPaidCommission.toLocaleString()}</p>
+                                            </div>
+                                        </div>
+                                        <div className="bg-white rounded-lg shadow p-4 flex items-center">
+                                            <div className="bg-orange-100 p-3 rounded-full mr-4">
+                                                <FaRupeeSign className="text-orange-600 text-xl" />
+                                            </div>
+                                            <div>
+                                                <p className="text-gray-500 text-sm">Total Commission Pending To Pay</p>
+                                                <p className="text-2xl font-bold flex items-center gap-1"><FaRupeeSign className='text-base'/> {totalPendingCommissionToPay.toLocaleString()}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Time Filter for Payments Paid */}
+                                    <div className="flex space-x-2 mb-4 items-center">
+                                        <button
+                                            onClick={() => { setTimeFilterPaid('currentMonth'); setStartDatePaid(''); setEndDatePaid(''); fetchPaymentsPaid(); }}
+                                            className={`px-4 py-2 rounded-md ${timeFilterPaid === 'currentMonth' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                        >
+                                            Current Month
+                                        </button>
+                                        <button
+                                            onClick={() => { setTimeFilterPaid('all'); setStartDatePaid(''); setEndDatePaid(''); fetchPaymentsPaid(); }}
+                                            className={`px-4 py-2 rounded-md ${timeFilterPaid === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                        >
+                                            All Payments
+                                        </button>
+                                        <button
+                                            onClick={() => setTimeFilterPaid('custom')}
+                                            className={`px-4 py-2 rounded-md ${timeFilterPaid === 'custom' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                        >
+                                            Custom Date Range
+                                        </button>
+                                        {timeFilterPaid === 'custom' && (
+                                            <div className="flex space-x-2 ml-4">
+                                                <input
+                                                    type="date"
+                                                    value={startDatePaid}
+                                                    onChange={(e) => setStartDatePaid(e.target.value)}
+                                                    className="p-2 border rounded-md"
+                                                    placeholder="Start Date"
+                                                />
+                                                <input
+                                                    type="date"
+                                                    value={endDatePaid}
+                                                    onChange={(e) => setEndDatePaid(e.target.value)}
+                                                    className="p-2 border rounded-md"
+                                                    placeholder="End Date"
+                                                />
+                                                <button
+                                                    onClick={fetchPaymentsPaid}
+                                                    className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                                                >
+                                                    Apply
+                                                </button>
+                                            </div>
                                         )}
-                                        </tbody>
-                                    </table>
+                                    </div>
+
+                                    {/* Commission View Toggles */}
+                                    <div className="flex space-x-2 mb-4">
+                                        <button
+                                            onClick={() => { setCommissionView('table'); setCurrentPage(1); }}
+                                            className={`px-4 py-2 rounded-md ${commissionView === 'table' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                        >
+                                            Table View
+                                        </button>
+                                        <button
+                                            onClick={() => { setCommissionView('agentWise'); setCurrentPage(1); }}
+                                            className={`px-4 py-2 rounded-md ${commissionView === 'agentWise' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                        >
+                                            Agent-wise
+                                        </button>
+                                        <button
+                                            onClick={() => { setCommissionView('tourWise'); setCurrentPage(1); }}
+                                            className={`px-4 py-2 rounded-md ${commissionView === 'tourWise' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                        >
+                                            Tour-wise
+                                        </button>
+                                    </div>
+
+                                    {loadingPaymentsPaid ? (
+                                        <div className="text-center py-8">Loading payments paid...</div>
+                                    ) : errorPaymentsPaid ? (
+                                        <div className="text-center py-8 text-red-500">{errorPaymentsPaid}</div>
+                                    ) : commissionView === 'table' ? (
+                                        <table className="min-w-full divide-y divide-gray-200">
+                                            <thead className="bg-gray-50">
+                                                <tr>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tour ID</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent</th> {/* Now populated */}
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th> {/* Renamed from Tour Start Date */}
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer Given</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commission</th> {/* Renamed from Commission Received */}
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th> {/* Renamed from Payment Status */}
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th> {/* For Pay Button */}
+                                                </tr>
+                                            </thead>
+                                            <tbody className="bg-white divide-y divide-gray-200">
+                                                {currentPaymentsPaidTable.length > 0 ? (
+                                                    currentPaymentsPaidTable.map(stat => (
+                                                        <tr key={stat._id}>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{stat.tourID || 'N/A'}</td>
+                                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                                <div className="text-sm font-medium text-gray-900">{stat.agentID?.name || 'N/A'}</div>
+                                                                <div className="text-sm text-gray-500">ID: #{stat.agentID?.agentID || 'N/A'}</div>
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                                {stat.tourStartDate ? new Date(stat.tourStartDate).toLocaleDateString() : 'N/A'}
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{stat.customerGiven || 0}</td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">₹{(stat.commissionReceived || 0).toLocaleString()}</td>
+                                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                                                                    ${stat.CommissionPaid ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                                    {stat.CommissionPaid ? 'Paid' : 'Pending'}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                                {!stat.CommissionPaid ? (
+                                                                    <button
+                                                                        onClick={() => handlePayCommission(stat._id)}
+                                                                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                                                    >
+                                                                        <FiDollarSign className="mr-1 h-4 w-4" /> Pay
+                                                                    </button>
+                                                                ) : (
+                                                                    <span className="text-gray-500 text-xs">Already Paid</span>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    ))
+                                                ) : (
+                                                    <tr>
+                                                        <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500">
+                                                            No commission payments found
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    ) : commissionView === 'agentWise' ? (
+                                        <div className="space-y-4">
+                                            {Object.keys(groupedPaymentsPaidByAgent).length > 0 ? (
+                                                Object.entries(groupedPaymentsPaidByAgent).map(([agentKey, agentData]) => (
+                                                    <div key={agentKey} className="border border-gray-200 rounded-lg shadow-sm">
+                                                        <button
+                                                            className="flex justify-between items-center w-full p-4 bg-gray-50 hover:bg-gray-100 focus:outline-none"
+                                                            onClick={() => toggleAgentAccordion(agentKey)}
+                                                        >
+                                                            <h3 className="text-lg font-semibold text-gray-800">
+                                                                {agentData.agentName} (ID: #{agentData.agentID})
+                                                            </h3>
+                                                            <div className="flex items-center space-x-4">
+                                                                <span className="text-sm text-gray-600">Total Commission: <FaRupeeSign className='inline-block text-xs'/>{agentData.totalCommission.toLocaleString()}</span>
+                                                                <span className="text-sm text-green-600">Paid: <FaRupeeSign className='inline-block text-xs'/>{agentData.totalPaid.toLocaleString()}</span>
+                                                                <span className="text-sm text-orange-600">Pending: <FaRupeeSign className='inline-block text-xs'/>{agentData.totalPending.toLocaleString()}</span>
+                                                                {expandedAgents[agentKey] ? <FiChevronUp /> : <FiChevronDown />}
+                                                            </div>
+                                                        </button>
+                                                        {expandedAgents[agentKey] && (
+                                                            <div className="p-4 border-t border-gray-200">
+                                                                {agentData.tours.length > 0 ? (
+                                                                    <table className="min-w-full divide-y divide-gray-200">
+                                                                        <thead className="bg-gray-50">
+                                                                            <tr>
+                                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tour ID</th>
+                                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
+                                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer Given</th>
+                                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commission</th>
+                                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody className="bg-white divide-y divide-gray-200">
+                                                                            {agentData.tours.map(tourStat => (
+                                                                                <tr key={tourStat._id}>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{tourStat.tourID || 'N/A'}</td>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{tourStat.tourStartDate ? new Date(tourStat.tourStartDate).toLocaleDateString() : 'N/A'}</td>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{tourStat.customerGiven || 0}</td>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap text-sm font-medium">₹{(tourStat.commissionReceived || 0).toLocaleString()}</td>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap">
+                                                                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                                                                                            ${tourStat.CommissionPaid ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                                                            {tourStat.CommissionPaid ? 'Paid' : 'Pending'}
+                                                                                        </span>
+                                                                                    </td>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap text-right text-sm font-medium">
+                                                                                        {!tourStat.CommissionPaid ? (
+                                                                                            <button
+                                                                                                onClick={() => handlePayCommission(tourStat._id)}
+                                                                                                className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
+                                                                                            >
+                                                                                                <FiDollarSign className="mr-1 h-3 w-3" /> Pay
+                                                                                            </button>
+                                                                                        ) : (
+                                                                                            <span className="text-gray-500 text-xs">Already Paid</span>
+                                                                                        )}
+                                                                                    </td>
+                                                                                </tr>
+                                                                            ))}
+                                                                        </tbody>
+                                                                    </table>
+                                                                ) : (
+                                                                    <p className="text-center text-gray-500 py-2">No tours for this agent.</p>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="text-center py-8 text-gray-500">No agent commission data found.</div>
+                                            )}
+                                        </div>
+                                    ) : commissionView === 'tourWise' ? (
+                                        <div className="space-y-4">
+                                            {Object.keys(groupedPaymentsPaidByTour).length > 0 ? (
+                                                Object.entries(groupedPaymentsPaidByTour).map(([tourKey, tourData]) => (
+                                                    <div key={tourKey} className="border border-gray-200 rounded-lg shadow-sm">
+                                                        <button
+                                                            className="flex justify-between items-center w-full p-4 bg-gray-50 hover:bg-gray-100 focus:outline-none"
+                                                            onClick={() => toggleTourAccordion(tourKey)}
+                                                        >
+                                                            <h3 className="text-lg font-semibold text-gray-800">
+                                                                Tour ID: {tourData.tourName}
+                                                            </h3>
+                                                            <div className="flex items-center space-x-4">
+                                                                <span className="text-sm text-gray-600">Total Commission: <FaRupeeSign className='inline-block text-xs'/>{tourData.totalCommission.toLocaleString()}</span>
+                                                                <span className="text-sm text-green-600">Paid: <FaRupeeSign className='inline-block text-xs'/>{tourData.totalPaid.toLocaleString()}</span>
+                                                                <span className="text-sm text-orange-600">Pending: <FaRupeeSign className='inline-block text-xs'/>{tourData.totalPending.toLocaleString()}</span>
+                                                                {expandedTours[tourKey] ? <FiChevronUp /> : <FiChevronDown />}
+                                                            </div>
+                                                        </button>
+                                                        {expandedTours[tourKey] && (
+                                                            <div className="p-4 border-t border-gray-200">
+                                                                {tourData.agents.length > 0 ? (
+                                                                    <table className="min-w-full divide-y divide-gray-200">
+                                                                        <thead className="bg-gray-50">
+                                                                            <tr>
+                                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent Name</th>
+                                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent ID</th>
+                                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
+                                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer Given</th>
+                                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commission</th>
+                                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody className="bg-white divide-y divide-gray-200">
+                                                                            {tourData.agents.map(agentStat => (
+                                                                                <tr key={agentStat._id}>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{agentStat.agentID?.name || 'N/A'}</td>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">#{agentStat.agentID?.agentID || 'N/A'}</td>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{agentStat.tourStartDate ? new Date(agentStat.tourStartDate).toLocaleDateString() : 'N/A'}</td>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{agentStat.customerGiven || 0}</td>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap text-sm font-medium">₹{(agentStat.commissionReceived || 0).toLocaleString()}</td>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap">
+                                                                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                                                                                            ${agentStat.CommissionPaid ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                                                            {agentStat.CommissionPaid ? 'Paid' : 'Pending'}
+                                                                                        </span>
+                                                                                    </td>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap text-right text-sm font-medium">
+                                                                                        {!agentStat.CommissionPaid ? (
+                                                                                            <button
+                                                                                                onClick={() => handlePayCommission(agentStat._id)}
+                                                                                                className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
+                                                                                            >
+                                                                                                <FiDollarSign className="mr-1 h-3 w-3" /> Pay
+                                                                                            </button>
+                                                                                        ) : (
+                                                                                            <span className="text-gray-500 text-xs">Already Paid</span>
+                                                                                        )}
+                                                                                    </td>
+                                                                                </tr>
+                                                                            ))}
+                                                                        </tbody>
+                                                                    </table>
+                                                                ) : (
+                                                                    <p className="text-center text-gray-500 py-2">No agents for this tour.</p>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="text-center py-8 text-gray-500">No tour commission data found.</div>
+                                            )}
+                                        </div>
+                                    ) : null}
                                 </>
                             )}
                         </>
                     )}
 
                     {/* Pagination for all tabs */}
-                    {(activeTab === 'agents' && filteredAgents.length > itemsPerPage) ||
+                    {((activeTab === 'agents' && filteredAgents.length > itemsPerPage) ||
                      (activeTab === 'customers' && filteredCustomers.length > itemsPerPage) ||
-                     (activeTab === 'payments' && filteredPayments.length > itemsPerPage) ? (
+                     (activeTab === 'payments' && paymentSubTab === 'received' && filteredPaymentsReceived.length > itemsPerPage) ||
+                     (activeTab === 'payments' && paymentSubTab === 'paid' && commissionView === 'table' && filteredPaymentsPaid.length > itemsPerPage)) ? ( // Only show pagination for table view of payments paid
                         <div className="flex justify-center mt-4">
                             <button
                                 onClick={() => paginate(currentPage - 1)}
@@ -738,7 +1454,8 @@ const MasterDataDashboard = () => {
                                 length: Math.ceil(
                                     (activeTab === 'agents' ? filteredAgents.length :
                                      activeTab === 'customers' ? filteredCustomers.length :
-                                     filteredPayments.length) / itemsPerPage
+                                     (activeTab === 'payments' && paymentSubTab === 'received' ? filteredPaymentsReceived.length :
+                                      (activeTab === 'payments' && paymentSubTab === 'paid' && commissionView === 'table' ? filteredPaymentsPaid.length : 0))) / itemsPerPage
                                 ),
                             }, (_, i) => (
                                 <button
@@ -755,7 +1472,8 @@ const MasterDataDashboard = () => {
                                     currentPage === Math.ceil(
                                         (activeTab === 'agents' ? filteredAgents.length :
                                          activeTab === 'customers' ? filteredCustomers.length :
-                                         filteredPayments.length) / itemsPerPage
+                                         (activeTab === 'payments' && paymentSubTab === 'received' ? filteredPaymentsReceived.length :
+                                          (activeTab === 'payments' && paymentSubTab === 'paid' && commissionView === 'table' ? filteredPaymentsPaid.length : 0))) / itemsPerPage
                                     )
                                 }
                                 className="px-3 py-1 bg-gray-200 text-gray-700 rounded-md ml-2 disabled:opacity-50"

@@ -130,7 +130,12 @@ function AgentForm() {
         break;
       case 'phone_calling':
       case 'phone_whatsapp':
-        if (!value) error = 'Phone number is required';
+        if (!value) {
+          error = 'Phone number is required';
+          console.log(value);
+        }else{
+          console.log(value);
+        }
         break;
       default:
         if (name.includes('permanent_address') && !value.trim()) {
