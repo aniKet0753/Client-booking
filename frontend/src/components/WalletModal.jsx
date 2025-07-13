@@ -7,27 +7,14 @@ import {
   faArrowUp
 } from '@fortawesome/free-solid-svg-icons';
 
-/**
- * WalletModal Component
- * Displays user's wallet details and transaction history in a modal.
- *
- * @param {object} props - Component props.
- * @param {object} props.profile - User profile object containing walletBalance and other details.
- * @param {string} props.role - User's role (e.g., 'superadmin', 'admin', 'agent').
- * @param {boolean} props.showWalletModal - Controls the visibility of the modal.
- * @param {function} props.setShowWalletModal - Function to close the modal.
- */
+
 function WalletModal({ profile, role, showWalletModal, setShowWalletModal }) {
   const [activeTab, setActiveTab] = useState('completed');
   const [transactions, setTransactions] = useState([]);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
-
+  const [totalIncomingPayments, setTotalIncomingPayments] = useState(null);
   const token = localStorage.getItem('Token');
 
-  /**
-   * Fetches transaction data based on the user's role.
-   * Sets loading state and handles errors.
-   */
   const fetchTransactions = async () => {
     setIsLoadingTransactions(true);
     try {
@@ -41,6 +28,7 @@ function WalletModal({ profile, role, showWalletModal, setShowWalletModal }) {
         },
       });
       console.log(res)
+      setTotalIncomingPayments(res.data.totalIncomingPayments);
       setTransactions(res.data.transactions || []); // Assuming the response structure remains the same
     } catch (err) {
       console.error('Failed to fetch transactions:', err);
@@ -57,21 +45,12 @@ function WalletModal({ profile, role, showWalletModal, setShowWalletModal }) {
     }
   }, [showWalletModal, activeTab, role, token]); // Added role and token to dependencies for correctness
 
-  /**
-   * Filters transactions based on the currently active tab (completed or pending).
-   * @returns {Array} - An array of filtered transaction objects.
-   */
   const filteredTransactions = transactions.filter(tx => {
     if (activeTab === 'completed') return tx.status === 'completed';
     if (activeTab === 'pending') return tx.status === 'pending';
     return true; // Should not happen with current tabs, but good for robustness
   });
 
-  /**
-   * Formats a date string into a short, readable format.
-   * @param {string} dateString - The date string to format.
-   * @returns {string} - Formatted date string.
-   */
   const formatDate = (dateString) => {
     const options = { year: 'numeric', month: 'short', day: 'numeric' };
     return new Date(dateString).toLocaleDateString(undefined, options);
@@ -101,7 +80,7 @@ function WalletModal({ profile, role, showWalletModal, setShowWalletModal }) {
         <div className="p-4 bg-blue-50">
           <div className="flex justify-between items-center mb-2">
             <span className="text-gray-600">Total Incoming Payments:</span>
-            <span className="text-2xl font-bold">₹{profile?.walletBalance || 0}</span>
+            <span className="text-2xl font-bold">₹{totalIncomingPayments || 0}</span>
           </div>
           <div className="flex justify-between text-sm text-gray-500">
             <span>Last updated: {new Date().toLocaleDateString()}</span>
