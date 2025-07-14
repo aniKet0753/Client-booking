@@ -121,7 +121,7 @@ function AgentForm() {
       village: '',
       district: '',
       state: '',
-      thana: '',
+      police_station: '',
       post_office: '',
     },
     exclusive_zone: [
@@ -683,7 +683,7 @@ function AgentForm() {
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {['house_no', 'road_no', 'flat_name', 'pincode', 'village', 'district', 'thana', 'post_office'].map((key) => (
+                {['house_no', 'road_no', 'flat_name', 'pincode', 'village', 'district', 'police_station', 'post_office'].map((key) => (
                   <Input
                     key={key}
                     label={key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}

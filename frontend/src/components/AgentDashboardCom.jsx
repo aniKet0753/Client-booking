@@ -28,7 +28,7 @@ function AgentDashboard() {
             pincode: '',
             village: '',
             district: '',
-            thana: '',
+            police_station: '',
             post_office: '',
         },
         exclusive_zone: [],
@@ -287,7 +287,7 @@ function AgentDashboard() {
                         <div className='bg-gray-200 p-2 text-black rounded'><strong>Pincode:</strong> {profile.permanent_address?.pincode}</div>
                         <div className='bg-gray-200 p-2 text-black rounded'><strong>Village:</strong> {profile.permanent_address?.village}</div>
                         <div className='bg-gray-200 p-2 text-black rounded'><strong>District:</strong> {profile.permanent_address?.district}</div>
-                        <div className='bg-gray-200 p-2 text-black rounded'><strong>Thana:</strong> {profile.permanent_address?.thana}</div>
+                        <div className='bg-gray-200 p-2 text-black rounded'><strong>Police Station:</strong> {profile.permanent_address?.police_station}</div>
                         <div className='bg-gray-200 p-2 text-black rounded'><strong>Post Office:</strong> {profile.permanent_address?.post_office}</div>
                     </div>
                 </div>
