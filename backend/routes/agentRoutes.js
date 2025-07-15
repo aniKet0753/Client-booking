@@ -847,6 +847,15 @@ router.get('/my-commission-overview', authenticate, async (req, res) => {
   }
 });
 
+router.get('/active-agents', async(req,res)=>{
+  try{
+    const agents = await Agent.find({status:'active'},{ aadhaarPhotoFront: 0, aadhaarPhotoBack: 0, panCardPhoto: 0, photo: 0 });
+    res.status(200).json({agents});
+  } catch(err){
+    console.log("Error fetching Agents:", err);
+  }
+});
+
 const buildAgentTree = async (agent) => {
   const children = await Agent.find({ parentAgent: agent._id });
 
