@@ -1,4 +1,4 @@
-import React from 'react';
+import { useEffect, useState } from "react";
 import { FaSearch, FaUserFriends } from 'react-icons/fa';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
@@ -7,6 +7,7 @@ import DiscountCover from '../../public/Images/planning-img-About.jpg';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import InnerBanner from '../components/InnerBanner';
+import axios from '../api';
 
 // Fix for default marker icons in Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -16,24 +17,59 @@ L.Icon.Default.mergeOptions({
     shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
-const agents = [
-    {
-        id: 'AG001',
-        name: 'Rahul Kumar',
-        phone: '+91 98765 43210',
-        avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
-        position: [28.6139, 77.2090],
-    },
-    {
-        id: 'AG002',
-        name: 'Priya Singh',
-        phone: '+91 98765 43211',
-        avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
-        position: [19.0760, 72.8777],
-    },
-];
+// const agents = [
+//     {
+//         id: 'AG001',
+//         name: 'Rahul Kumar',
+//         phone: '+91 98765 43210',
+//         avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
+//         position: [28.6139, 77.2090],
+//     },
+//     {
+//         id: 'AG002',
+//         name: 'Priya Singh',
+//         phone: '+91 98765 43211',
+//         avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
+//         position: [19.0760, 72.8777],
+//     },
+// ];
 
 const AboutL2G = () => {
+
+    const [agents, setAgents] = useState([]);
+    const token = localStorage.getItem('Token');
+
+    const fetchAgents = async () => {
+        const token = localStorage.getItem("Token"); // ✅ move this inside fetchAgents
+        console.log("Token being used:", token);
+
+        if (!token) {
+            console.warn("⚠️ No token found in localStorage");
+            return;
+        }
+
+        try {
+            const res = await axios.get("api/agents/active-agents", {
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            console.log("✅ Fetched agents:", res.data);
+        } catch (error) {
+            if (error.response) {
+                console.error("❌ Backend error:", error.response.status, error.response.data);
+            } else {
+                console.error("❌ Unknown error:", error.message);
+            }
+        }
+    };
+
+    useEffect(() => {
+        fetchAgents();
+    }, []);
+
     return (
         <>
             <Navbar />
@@ -81,17 +117,25 @@ const AboutL2G = () => {
                 <div className="max-w-7xl mx-auto px-4 md:px-8">
                     <h3 className="text-3xl md:text-4xl font-bold mb-4">Agents</h3>
                     <div className="rounded-md overflow-hidden border border-gray-300 mb-8">
-                        <MapContainer center={[22.9734, 78.6569]} zoom={5} scrollWheelZoom={false} className="h-[570px] w-full z-0">
+                        <MapContainer
+                            center={[22.9734, 78.6569]}
+                            zoom={5}
+                            scrollWheelZoom={true}
+                            className="h-[570px] w-full z-0"
+                        >
+                            {/* For Google-like roadmap style */}
                             <TileLayer
-                                attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a>'
-                                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+                                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
                             />
+
                             {agents.map((agent, idx) => (
                                 <Marker key={idx} position={agent.position}>
                                     <Popup>{agent.name}</Popup>
                                 </Marker>
                             ))}
                         </MapContainer>
+
                     </div>
                 </div>
 

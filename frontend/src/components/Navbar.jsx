@@ -85,12 +85,12 @@ const Navbar = () => {
   return (
     <>
       {/* Top Announcement Bar */}
-      <div className="bg-[#0c3588] text-white text-center py-2 px-4 text-sm">
-        <p>✨ Special offers available! Book now and get 10% off on selected tours. ✨</p>
+      <div className="bg-[#92ac1f] text-white text-center py-2 px-4 text-4xl font-semibold uppercase">
+        <p>L2G Cruise & Cure</p>
       </div>
 
       {/* Main Navbar */}
-      <header className={`sticky top-0 z-50 transition-all duration-300 ${isScrolled ? 'bg-white shadow-lg' : 'bg-[#011A4D]'}`}>
+      <header className={`sticky top-0 z-50 transition-all duration-300 ${isScrolled ? 'bg-white shadow-lg' : 'bg-white'}`}>
         <div className="xl:container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-3 md:py-4">
             {/* Logo */}
@@ -100,23 +100,14 @@ const Navbar = () => {
                   <img
                     src={MainLogo}
                     alt="L2G Cruise & Cure"
-                    className="h-12 lg:h-[90px] transition-all duration-300"
+                    className="h-12 lg:h-[100px] transition-all duration-300"
                     style={{
-                      filter: isScrolled ? 'none' : 'invert(1) brightness(100)',
-                      height: isScrolled ? '60px' : '90px',
+                      height: isScrolled ? '70px' : '105px',
                     }}
+
                   />
-                  <span className="absolute top-0 -right-1.5 text-[14px] lg:text-sm font-semibold" style={{
-                    filter: isScrolled ? 'none' : 'invert(1) brightness(100)',
-                  }}>™</span>
+                  <span className="absolute top-0 -right-1.5 text-[14px] lg:text-sm font-semibold">™</span>
                 </div>
-                <span className="ml-5 text-xs text-[#011A4D] font-bold hidden sm:block"
-                  style={{
-                    filter: isScrolled ? 'none' : 'invert(1) brightness(100)',
-                  }}>
-                  <span className="block text-lg lg:text-xl">L2G Cruise & Cure</span>
-                  <span className="text-sm">Travel Management</span>
-                </span>
               </Link>
             </div>
 
@@ -127,10 +118,10 @@ const Navbar = () => {
                   key={link.path}
                   to={link.path}
                   className={({ isActive }) =>
-                    `px-3 py-2 rounded-md text-[15px] font-medium transition-colors duration-200
+                    `px-3 py-2 rounded-md xl:text-[17px] text-[15px] font-medium transition-colors duration-200
                     ${isActive ?
                       'text-[#F4B41A] font-bold' :
-                      `hover:text-[#F4B41A] ${isScrolled ? 'text-[#011A4D]' : 'text-white'}`
+                      `hover:text-[#F4B41A] ${isScrolled ? 'text-[#011A4D]' : 'text-[#011A4D]'}`
                     }`
                   }
                 >
