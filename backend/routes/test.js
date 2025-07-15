@@ -1,15 +1,16 @@
 const axios = require('axios');
 const crypto = require('crypto');
 require('dotenv').config();
-
+const path = require('path');
 const webhookURL = 'http://localhost:5001/webhook';
 
 // --- IMPORTANT: REPLACE WITH AN ACTUAL BOOKING ID FROM YOUR DATABASE ---
 // This booking ID must exist in your MongoDB for the webhook to find and update it.
-const TEST_BOOKING_ID = 'BKG48020'; // <--- MUST CHANGE THIS TO A REAL BOOKING ID
+const TEST_BOOKING_ID = 'BKG61488'; // <--- MUST CHANGE THIS TO A REAL BOOKING ID
 
+console.log(process.env.RAZORPAY_WEBHOOK_SECRET);
 const tourPricePerHead = 2000;
-const tourGivenOccupancy = 15 ;
+const tourGivenOccupancy = 1 ;
 const tourActualOccupancy = 50;
 const totalAmount = tourPricePerHead * Number(tourGivenOccupancy); // in ₹
 const GST = 10;
@@ -32,7 +33,7 @@ const samplePayload = {
         contact: '9876543210',
         notes: {
           bookingID: TEST_BOOKING_ID, // <--- ADDED THIS CRITICAL FIELD
-          agentID: '000A-032-2025-000L', // Keep empty for direct customer test, or put an existing agentID
+          agentID: '032-2025-000A', // Keep empty for direct customer test, or put an existing agentID
           tourID: '683e211c6ec96af47df5b96f', // <--- REPLACE WITH AN ACTUAL TOUR ID 
           tourName: 'Varanasi', // <--- ADDED THIS CRITICAL FIELD (match tourID's name)
           tourPricePerHead: String(tourPricePerHead),
@@ -95,6 +96,7 @@ const generateSignature = (body, secret) => {
     } else {
       // Something happened in setting up the request that triggered an Error
       console.error('Error message:', error.message);
+      console.log(error);
     }
     console.error('----------------------------');
   }

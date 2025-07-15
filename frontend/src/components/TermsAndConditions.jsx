@@ -278,13 +278,13 @@ export default function TermsAndConditions() {
                                 </li>
                                 <li>
                                 <strong>XI)</strong> I, 
-                                <input type="text" className="border-0 border-b-2 border-black w-72 focus:outline-none placeholder-gray-400" placeholder="Your Full Name" />
-                                , hereby declare that I have read, understood, and voluntarily accept the terms and conditions outlined in the Terms & Conditions provided by M/s L2G Cruise & Cure Travel Management Private Limited and shall be bound by them, including for my guests.
+                                {/* <input type="text" className="border-0 border-b-2 border-black w-72 focus:outline-none placeholder-gray-400" placeholder="Your Full Name" /> */}
+                                &nbsp; hereby declare that I have read, understood, and voluntarily accept the terms and conditions outlined in the Terms & Conditions provided by M/s L2G Cruise & Cure Travel Management Private Limited and shall be bound by them, including for my guests.
                                 </li>
                                 <li>
                                 <strong>XII)</strong> I, 
-                                <input type="text" className="border-0 border-b-2 border-black w-72 focus:outline-none placeholder-gray-400" placeholder="Your Full Name" />
-                                , hereby declare that the information provided in this document is accurate, complete, and true to the best of my knowledge. I acknowledge that all facts and supporting information provided have been thoroughly reviewed and verified for correctness.
+                                {/* <input type="text" className="border-0 border-b-2 border-black w-72 focus:outline-none placeholder-gray-400" placeholder="Your Full Name" /> */}
+                                &nbsp; hereby declare that the information provided in this document is accurate, complete, and true to the best of my knowledge. I acknowledge that all facts and supporting information provided have been thoroughly reviewed and verified for correctness.
                                 </li>
                                 <li>
                                 <strong>XIII)</strong> By submitting this declaration, I affirm that all information in the document is true and accurate. I have not intentionally omitted or misrepresented any information. I understand that any false statements or omissions may result in invalidation of the document or legal penalties, as per applicable laws and regulations.
@@ -292,7 +292,7 @@ export default function TermsAndConditions() {
                                 <li>
                                 <strong>XIV)</strong> I take full responsibility for the accuracy of the details provided and understand that any updates or changes must be promptly reported to the relevant parties.
                                 </li>
-                                <li>
+                                {/* <li>
                                 <strong>XVI)</strong> Date:
                                 <input type="date" className="border border-gray-300 p-2 mt-2" />
                                 </li>
@@ -303,7 +303,7 @@ export default function TermsAndConditions() {
                                 <li>
                                 <strong>XVIII)</strong> Signature:
                                 <input type="file" className="border border-gray-300 p-2 mt-2" accept="image/*" />
-                                </li>
+                                </li> */}
                             </ul>
                             </>
                         }

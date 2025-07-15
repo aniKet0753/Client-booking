@@ -12,6 +12,14 @@ const paymentRoute = require("./routes/PaymentRoute");
 const webhookRoute = require("./routes/WebhookRoute");
 const PORT = process.env.PORT || 5001;
 const app = express();
+
+let apiRequestCount = 0;
+app.use((req, res, next) => {
+  apiRequestCount++;
+  console.log(`API Request #${apiRequestCount} | ${req.method} ${req.originalUrl}`);
+  next();
+});
+
 app.use(
   "/webhook",
   bodyParser.json({
@@ -22,7 +30,11 @@ app.use(
   webhookRoute
 );
 
-app.use(cors());
+app.use(cors({
+  origin: ['https://reboot-l2g.onrender.com', 'http://localhost:5173'], // both production and local frontend
+  credentials: true,
+}));
+
 // app.use(express.json());
 // app.use(express.urlencoded({ extended: true }));
 
@@ -36,6 +48,7 @@ app.use("/api/bookings",bookingRoutes);
 app.use("/api/generate-payment-link", paymentRoute);
 app.use('/api/posts', require('./routes/posts'));
 app.use('/api/complaints', require('./routes/complaints'));
+app.use('/api/agent-chats', require('./routes/agentChats'));
 // app.use("/api/webhook", webhookRoute);
 // app.use('/api/admin', require('./routes/SuperAdminRoutes'));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

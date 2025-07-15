@@ -1,4 +1,3 @@
-// Sidebar.js
 import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -16,31 +15,13 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { Link } from 'react-router-dom';
 import MainLogo from '../../public/main-logo.png';
-import axios from '../api';
+// import axios from '../api'; // No longer needed for fetching here
+import { useDashboard } from '../context/DashboardContext'; // Import the hook
 
 const Sidebar = ({ collapsed, setCollapsed, setView }) => {
   const [activeView, setActiveView] = useState('dashboard');
-  const [pendingCount, setPendingCount] = useState(0);
-  const token = localStorage.getItem('Token');
-  const role = localStorage.getItem('role');
-
-  useEffect(() => {
-    const fetchPendingUsers = async () => {
-      try {
-        const res = await axios.get('/api/admin/pending-count', {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-        setPendingCount(res.data.count);
-      } catch (error) {
-        console.error('Failed to fetch pending user count:', error);
-      }
-    };
-    fetchPendingUsers();
-    const intervalId = setInterval(fetchPendingUsers, 2000);
-    return () => clearInterval(intervalId);
-  }, []);
+  const { pendingCount, profile } = useDashboard(); // Get data from context
+  const role = localStorage.getItem('role'); // Role is still needed for menu logic
 
   const handleLogout = () => {
     localStorage.clear();

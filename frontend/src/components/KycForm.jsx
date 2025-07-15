@@ -219,17 +219,17 @@ const CustomerForm = () => {
 
 
     const getTourDetails = async () => {
-        console.log("getTourDetails function is running");
+        // console.log("getTourDetails function is running");
         const FetchToursRoute = role === 'superadmin' ? 'api/admin/tours' : role === 'customer' ? 'api/customer/tours' : 'api/agents/tours';
         try {
-            console.log(FetchToursRoute);
+            // console.log(FetchToursRoute);
             const res = await axios.get(`${FetchToursRoute}/${tourID}`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                     Role: role,
                 },
             });
-            console.log(res.data.tour);
+            // console.log(res.data.tour);
             setTour(res.data.tour);
             // Pre-fill package and trip if a tour is selected
             if (res.data.tour) {

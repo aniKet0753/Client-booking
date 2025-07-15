@@ -29,7 +29,7 @@ const agentSchema = new mongoose.Schema({
         village: String,
         district: String,
         state: String,
-        thana: String,
+        police_station: String,
         post_office: String
     },
     exclusive_zone: [{

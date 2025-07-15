@@ -33,7 +33,7 @@ import PrivateRoute from './components/PrivateRoute';
 import CommunityList from './pages/CommunityList';
 import CommunityListDetails from './pages/CommunityListDetails';
 import AddBlog from './pages/AddBlog';
-
+import { DashboardProvider } from './context/DashboardContext';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem("Token"));
@@ -46,6 +46,7 @@ function App() {
 
   return (
     <BrowserRouter>
+    <DashboardProvider>
       <Routes>
 
         {/* Main Layout wrapper for all other routes */}
@@ -127,6 +128,8 @@ function App() {
 
         {/* Login Page */}
       </Routes>
+    </DashboardProvider>
+      
     </BrowserRouter>
   );
 }

@@ -240,6 +240,7 @@ router.post('/', express.json({ verify: (req, res, buf) => { req.rawBody = buf; 
                     stats.customerGiven = newCustomerGiven;
                     stats.finalAmount = newTotalAmountForStats;
                     stats.commissionReceived = newTotalEligibleCommissionForStats;
+                    console.log("stats:",stats);
                     await stats.save();
                     console.log(`AgentTourStats updated for agent ${agent.agentID}.`);
 

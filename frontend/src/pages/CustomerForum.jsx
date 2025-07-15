@@ -113,6 +113,7 @@ const ReplyComponent = ({ reply, postId, loggedInUser, onReplySubmit, level = 0 
 
 const ForumPage = () => {
     const navigate = useNavigate();
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [activeCategory, setActiveCategory] = useState('All Topics');
     const [searchQuery, setSearchQuery] = useState('');
     const [showNewPostForm, setShowNewPostForm] = useState(false);
@@ -188,6 +189,8 @@ const ForumPage = () => {
             return;
         }
 
+        setIsSubmitting(true); // disable button immediately
+
         try {
             const complaintData = {
                 subject: complaintSubject,
@@ -228,6 +231,8 @@ const ForumPage = () => {
             // More specific error message if available from backend
             const errorMessage = error.response?.data?.error || 'Failed to submit complaint. Please try again.';
             window.alert(errorMessage);
+        } finally {
+            setIsSubmitting(false); // re-enable button whether success or failure
         }
     };
 
@@ -609,7 +614,7 @@ const ForumPage = () => {
                                                     type="submit"
                                                     className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
                                                 >
-                                                    Submit Complaint
+                                                     {isSubmitting ? 'Submitting...' : 'Submit Complaint'}
                                                 </button>
                                             </div>
                                         </form>

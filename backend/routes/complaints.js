@@ -1,16 +1,31 @@
 const express = require('express');
 const router = express.Router();
 const Complaint = require('../models/Complaint');
+const Agent = require('../models/Agent');
 const authenticateSuperAdmin = require('../middleware/authSuperadminMiddleware');
 const authenticate = require('../middleware/authMiddleware');
 
-// Submit new complaint
+// Submit new complaint (from customer)
 router.post('/', authenticate, async (req, res) => {
+  const {agentInfo} = req.body;
+  console.log(agentInfo)
   try {
+    const agent = await Agent.findOne({'agentID':agentInfo.id});
+    if(!agent){
+      return res.status(404).json({ error: 'Invalid Agent ID entered.' });
+    }
     const complaint = new Complaint({
       customerId: req.user.id,
       ...req.body
     });
+    // Add the initial complaint message as the first entry in adminReplies
+    // This makes sure the customer's initial message also appears in the conversation history
+    complaint.adminReplies.push({
+      message: req.body.description, // Assuming description is the initial message
+      repliedBy: req.user.id,
+      repliedByType: 'Customer', // Initial message always from customer
+    });
+
     await complaint.save();
     res.status(201).send(complaint);
   } catch (error) {
@@ -25,11 +40,28 @@ router.get('/', authenticateSuperAdmin, async (req, res) => {
     if (req.user.role !== 'superadmin') {
       return res.status(403).send({ error: 'Access denied' });
     }
-    
-    const complaints = await Complaint.find()
+
+    const { status } = req.query; 
+    let query = {};
+
+    if (status && status !== 'All') {
+      query.status = status;
+    }
+
+    const complaints = await Complaint.find(query)
       .populate('customerId', 'name email')
+      .populate({
+        path: 'adminReplies.repliedBy',
+        select: 'name username email role', 
+      }).populate({
+        path: 'agentChat', 
+        populate: {       
+          path: 'sender',
+          select: 'name username role' // Select relevant fields for the sender
+        }
+      })
       .sort({ createdAt: -1 });
-      
+
     res.send(complaints);
   } catch (error) {
     console.log(error);
@@ -37,92 +69,94 @@ router.get('/', authenticateSuperAdmin, async (req, res) => {
   }
 });
 
-// Admin reply to complaint
-// router.post('/:id/reply', authenticate, async (req, res) => {
-//   try {
-//     if (req.user.role !== 'superadmin') {
-//       return res.status(403).send({ error: 'Access denied' });
-//     }
-
-//     const complaint = await Complaint.findById(req.params.id);
-//     if (!complaint) {
-//       return res.status(404).send({ error: 'Complaint not found' });
-//     }
-//     console.log(req.params.id)
-
-//     console.log(complaint)
-//     complaint.adminReplies.push({
-//       message: req.body.message,
-//       repliedBy: req.user.id,
-//       isInternal: req.body.isInternal || false
-//     });
-
-//     if (req.body.status) {
-//       complaint.status = req.body.status;
-//     }
-
-//     complaint.updatedAt = Date.now();
-//     await complaint.save();
-
-//     // Here you would add logic to send notifications/emails
-//     // to customer or agent based on isInternal flag
-
-//     res.send(complaint);
-//   } catch (error) {
-//     console.log(error);
-//     res.status(400).send(error);
-//   }
-// });
-
-router.post('/:id/reply', authenticate, async (req, res) => {
-    try {
-        const complaint = await Complaint.findById(req.params.id);
-        if (!complaint) {
-            return res.status(404).json({ message: 'Complaint not found' });
-        }
-
-        if (req.user.role === 'customer' && complaint.status === 'resolved') {
-            return res.status(403).json({ message: 'Cannot reply to a resolved complaint.' });
-        }
-
-        if (complaint.customerId.toString() !== req.user.id.toString() && req.user.role !== 'admin' && req.user.role !== 'superadmin' && req.user.role !== 'agent') {
-             return res.status(403).json({ message: 'Unauthorized to reply to this complaint' });
-        }
-
-        const { message } = req.body;
-        
-        // Determine if the reply is internal (from an admin/agent) or external (from customer)
-        const isInternalReply = (req.user.role === 'admin' || req.user.role === 'superadmin' || req.user.role === 'agent');
-
-        complaint.adminReplies.push({
-            message,
-            repliedBy: req.user.id, // Store the ID of the logged-in user
-            isInternal: isInternalReply // True if admin/agent, false if customer
-        });
-        
-        if (complaint.status === 'resolved' && !isInternalReply) { // If a customer *could* reply and it was resolved, it would reopen
-            complaint.status = 'in_progress';
-        } else if (complaint.status === 'open' && isInternalReply) {
-             // If agent replies to an open complaint, set it to in_progress
-             complaint.status = 'in_progress';
-        }
-        
-        complaint.updatedAt = Date.now(); // Update the timestamp
-        await complaint.save();
-
-        res.status(200).json({ message: 'Reply added successfully', complaint });
-    } catch (error) {
-        console.error('Error adding reply to complaint:', error);
-        res.status(500).json({ message: 'Server error while adding reply.' });
+// Get complaints for a specific customer (for customer dashboard)
+router.get('/my-complaints', authenticate, async (req, res) => {
+  try {
+    // Ensure only customers can access their own complaints
+    if (req.user.role !== 'customer') {
+      return res.status(403).json({ message: 'Access denied. Only customers can view their complaints.' });
     }
+
+    const complaints = await Complaint.find({ customerId: req.user.id })
+      .populate('customerId', 'name email') // Populate the original customer
+      .populate({ // Populate adminReplies.repliedBy using refPath
+        path: 'adminReplies.repliedBy',
+        select: 'name username email role', // Select relevant fields from Admin/Customer/Agent
+      })
+      .sort({ createdAt: -1 });
+
+    res.status(200).json(complaints);
+  } catch (error) {
+    console.error('Error fetching user complaints:', error);
+    res.status(500).json({ message: 'Server error while fetching complaints.' });
+  }
 });
 
-router.put('/:id/status', authenticate, async (req, res) => { // Added auth middleware
+// Reply to a complaint (can be from customer, admin, superadmin, or agent)
+router.post('/:id/reply', authenticate, async (req, res) => {
+  try {
+    console.log("object");
+    const complaint = await Complaint.findById(req.params.id);
+    if (!complaint) {
+      return res.status(404).json({ message: 'Complaint not found' });
+    }
+
+    const isCustomerReplying = (req.user.role === 'customer');
+    const isAdminOrAgentReplying = ['admin', 'superadmin', 'agent'].includes(req.user.role);
+
+    // Authorization check
+    if (isCustomerReplying && complaint.customerId.toString() !== req.user.id.toString()) {
+      return res.status(403).json({ message: 'Unauthorized to reply to this complaint as a customer.' });
+    }
+    if (isAdminOrAgentReplying && !complaint.agentInfo?.id && req.user.role === 'agent') {
+      // If agent info not set, and an agent is replying, assign them
+      complaint.agentInfo = {
+        id: req.user.id,
+        name: req.user.name || req.user.username, // Assuming name or username is available on agent user object
+        location: req.user.location || 'N/A' // Assuming location is available on agent user object
+      };
+    }
+
+    const { message } = req.body;
+
+    // Determine repliedByType based on the sender's role
+    const repliedByType = req.user.role.charAt(0).toUpperCase() + req.user.role.slice(1);
+
+    // Prevent customer from replying to resolved complaints
+    if (isCustomerReplying && complaint.status === 'resolved') {
+        return res.status(403).json({ message: 'You cannot reply to a resolved complaint.' });
+    }
+
+    complaint.adminReplies.push({
+      message,
+      repliedBy: req.user.id,
+      repliedByType: repliedByType,
+      // isInternal field is removed
+    });
+
+    // Update status based on who replied
+    if (complaint.status === 'resolved' && isCustomerReplying) {
+      complaint.status = 'in_progress'; // Re-open if customer replies to a resolved complaint
+    } else if (complaint.status === 'open' && isAdminOrAgentReplying) {
+      complaint.status = 'in_progress'; // Set to in_progress if admin/agent replies to an open complaint
+    }
+
+    complaint.updatedAt = Date.now();
+    await complaint.save();
+
+    res.status(200).json({ message: 'Reply added successfully', complaint });
+  } catch (error) {
+    console.error('Error adding reply to complaint:', error);
+    res.status(500).json({ message: 'Server error while adding reply.' });
+  }
+});
+
+// Update complaint status (admin/superadmin only)
+router.put('/:id/status', authenticateSuperAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
 
-    // Optional: Validate the new status value against the enum
     const validStatuses = ['open', 'in_progress', 'resolved'];
     if (!status || !validStatuses.includes(status)) {
       return res.status(400).json({ message: 'Invalid status provided.' });
@@ -134,9 +168,8 @@ router.put('/:id/status', authenticate, async (req, res) => { // Added auth midd
       return res.status(404).json({ message: 'Complaint not found.' });
     }
 
-    // Update the status
     complaint.status = status;
-    complaint.updatedAt = Date.now(); // Manually update updatedAt
+    complaint.updatedAt = Date.now();
 
     await complaint.save();
 
@@ -146,21 +179,6 @@ router.put('/:id/status', authenticate, async (req, res) => { // Added auth midd
     console.error('Error updating complaint status:', error);
     res.status(500).json({ message: 'Server error.', error: error.message });
   }
-});
-
-router.get('/my-complaints', authenticate, async (req, res) => {
-    try {
-        // Find complaints where customerId matches the logged-in user's ID
-        const complaints = await Complaint.find({ customerId: req.user.id })
-            .populate('customerId', 'name email') // Optional: populate customer info
-            .populate('adminReplies.repliedBy', 'username') // To show who replied if you have this field
-            .sort({ createdAt: -1 }); // Latest complaints first
-
-        res.status(200).json(complaints);
-    } catch (error) {
-        console.error('Error fetching user complaints:', error);
-        res.status(500).json({ message: 'Server error while fetching complaints.' });
-    }
 });
 
 module.exports = router;

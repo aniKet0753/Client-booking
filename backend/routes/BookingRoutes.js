@@ -245,8 +245,11 @@ router.get('/my-bookings/:tourID', authenticate, async (req, res) => {
   try {
     const userId = req.user.id; // MongoDB ObjectId of the logged-in user
     const {tourID} = req.params;
-    const bookings = await Booking.find({ 'customer.id': userId ,'tour.tourID': tourID });
+    const bookings = await Booking.find({ 'customer.id': userId ,'tour.tourID': tourID, 'status': { $ne: 'confirmed' }  });
+    if(bookings)
     res.json(bookings);
+    else
+    res.json([]);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Failed to fetch bookings' });

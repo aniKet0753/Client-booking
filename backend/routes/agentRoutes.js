@@ -10,6 +10,7 @@ const Transaction = require('../models/Transaction');
 const Superadmin = require('../models/Superadmin');
 const Tour = require('../models/Tour');
 const Booking = require('../models/Booking');
+const AgentTourStats = require('../models/AgentTourStats');
 const path = require('path');
 const { log, error } = require('console');
  
@@ -784,6 +785,65 @@ router.get('/commission-history', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Error fetching commission history:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.get('/my-commission-overview', authenticate, async (req, res) => {
+  try {
+    const { id, role } = req.user; // Extracted from JWT token
+    console.log(id,role)
+    let agentTourStats = [];
+    let totalIncomingPayments = 0; // For pending commissions
+    let totalAmountReceived = 0; // For completed commissions
+
+    if (role === 'agent') {
+      const agent = await Agent.findById(id);
+      // Fetch tour stats specific to this agent
+      console.log(agent.name);
+      console.log(agent.agentID);
+      agentTourStats = await AgentTourStats.find({ agentID: agent.agentID });
+      console.log(agentTourStats);
+    } else {
+      // Handle other roles or unauthorized access
+      return res.status(403).json({ message: 'Forbidden: Your role does not have access to this resource.' });
+    }
+
+    // Map AgentTourStats to a more generic transaction format for the frontend
+    const transactions = agentTourStats.map(stat => {
+      const status = stat.CommissionPaid ? 'completed' : 'pending';
+      const amount = stat.commissionReceived;
+
+      if (status === 'completed') {
+        totalAmountReceived += amount;
+      } else {
+        totalIncomingPayments += amount;
+      }
+
+      return {
+        _id: stat._id,
+        description: `Commission for Tour ID: ${stat.tourID}`,
+        amount: amount,
+        type: 'credit', // Commissions are typically credits
+        status: status,
+        createdAt: stat.tourStartDate, // Use tourStartDate for general reference
+        // Add specific fields for frontend display
+        tourStartDate: stat.tourStartDate,
+        finalAmount: stat.finalAmount,
+        commissionReceived: stat.commissionReceived,
+        commissionPaidDate: stat.CommissionPaidDate, // Will be null if not paid
+      };
+    });
+
+    res.status(200).json({
+      message: 'Commission overview fetched successfully',
+      transactions: transactions,
+      totalIncomingPayments: totalIncomingPayments,
+      totalAmountReceived: totalAmountReceived,
+    });
+
+  } catch (error) {
+    console.error('Error fetching commission overview:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 

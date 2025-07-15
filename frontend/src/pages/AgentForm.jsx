@@ -121,7 +121,7 @@ function AgentForm() {
       village: '',
       district: '',
       state: '',
-      thana: '',
+      police_station: '',
       post_office: '',
     },
     exclusive_zone: [
@@ -191,20 +191,6 @@ function AgentForm() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-
-    // Clear the error if the field becomes valid
-    if (errors[name]) {
-      const error = validateField(name, value);
-      if (!error) {
-        setErrors(prev => {
-          const newErrors = { ...prev };
-          delete newErrors[name];
-          return newErrors;
-        });
-      }
-    }
-
-    // Set the new value
     setFormData(prev => {
       if (name.includes("permanent_address")) {
         const field = name.split('.')[1];
@@ -216,6 +202,11 @@ function AgentForm() {
       }
       return { ...prev, [name]: value };
     });
+    const error = validateField(name, value);
+    setErrors(prev => ({
+      ...prev,
+      [name]: error
+    }));
   };
 
   const handlePhoneChange = (value, name) => {
@@ -692,7 +683,7 @@ function AgentForm() {
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {['house_no', 'road_no', 'flat_name', 'pincode', 'village', 'district', 'thana', 'post_office'].map((key) => (
+                {['house_no', 'road_no', 'flat_name', 'pincode', 'village', 'district', 'police_station', 'post_office'].map((key) => (
                   <Input
                     key={key}
                     label={key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}

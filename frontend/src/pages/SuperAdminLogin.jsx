@@ -3,20 +3,23 @@ import { FaLock, FaUserShield, FaEye, FaEyeSlash, FaSignInAlt, FaSpinner } from 
 import axios from '../api';
 import { toast, ToastContainer } from "react-toastify";
 import 'react-toastify/dist/ReactToastify.css';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom'; // Removed useLocation as it's not used
+import { useDashboard } from '../context/DashboardContext'; // Import the useDashboard hook
 
 const LoginPage = () => {
     // State variables for form inputs and UI feedback
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    const [rememberMe, setRememberMe] = useState(false);
+    const [rememberMe, setRememberMe] = useState(false); // Consider if you actually need this for state or just for UX
     const [isLoading, setIsLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
 
     // React Router hooks
     const navigate = useNavigate();
-    const location = useLocation();
+
+    // Get the handleLoginSuccess function from the DashboardContext
+    const { handleLoginSuccess } = useDashboard();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -39,7 +42,11 @@ const LoginPage = () => {
             if (response.data.role === "superadmin") {
                 localStorage.setItem("Token", response.data.token);
                 localStorage.setItem("role", response.data.role);
-                localStorage.setItem("agentID", response.data.agentID);
+                localStorage.setItem("agentID", response.data.agentID); // Consider if agentID is always present or needed
+
+                // Call the handleLoginSuccess function from context
+                // This will update the context's internal token/role states and trigger re-fetching
+                handleLoginSuccess();
 
                 toast.success("Superadmin login successful!");
 
@@ -50,7 +57,7 @@ const LoginPage = () => {
                 // If login was successful but the role is NOT superadmin, deny access.
                 setErrorMessage("Access denied! Only superadmins can log in here.");
                 toast.error("Access denied! Only superadmins can log in here.");
-                // Optionally clear local storage if any token/role was set by mistake
+                // Ensure local storage is clear if an invalid role was somehow set
                 localStorage.removeItem("Token");
                 localStorage.removeItem("role");
                 localStorage.removeItem("agentID");
