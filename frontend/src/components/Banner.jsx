@@ -9,7 +9,7 @@ import "swiper/css/navigation";
 // import required modules
 import { Navigation } from "swiper/modules";
 // import BannerImg1 from '../../public/Images/banner-01.jpg'
-import BannerImg1 from '../../public/Images/banner-new-03.jpeg'
+import BannerImg1 from '../../public/Images/banner-new-04.jpg'
 
 const bgBanner =
   "https://www.jodogoairportassist.com/main/assets/images/blog/bangladesh/top-ten-tourist-places-to-visit-in-bangladesh-8.webp";
@@ -27,7 +27,7 @@ const Banner = () => {
       >
         <SwiperSlide>
           <div
-            className="w-full h-[60vh] sm:h-[70vh] md:h-[80vh] lg:h-[100vh] hero bg-cover bg-no-repeat bg-center flex items-center justify-center relative"
+            className="w-full h-[60vh] sm:h-[70vh] md:h-[80vh] lg:h-[700px] hero bg-cover bg-no-repeat bg-center flex items-center justify-center relative"
             style={{ backgroundImage: `url(${BannerImg1})` }}
           >
             {/* <div className="absolute inset-0 bg-black/40"></div> */}
