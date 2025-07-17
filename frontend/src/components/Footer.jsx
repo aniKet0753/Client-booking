@@ -35,7 +35,7 @@ const Footer = () => {
             <li><Link to="/help-center" className="hover:text-white">Help Center</Link></li>
             <li><Link to="/faqs" className="hover:text-white">FAQs</Link></li>
             <li><Link to="/privacy-policy" className="hover:text-white">Privacy Policy</Link></li>
-            <li><Link to="/terms" className="hover:text-white">Terms of Service</Link></li>
+            <li><Link to="/terms-conditions" className="hover:text-white">Terms of Conditions</Link></li>
             <li><Link to="/refund-policy" className="hover:text-white">Refund Policy</Link></li>
           </ul>
         </div>
@@ -44,7 +44,7 @@ const Footer = () => {
         <div>
           <h2 className="text-white font-semibold text-lg mb-3">Legal</h2>
           <ul className="space-y-2">
-            <li><Link to="/grievance-redressal" className="hover:text-white">Grievance Redressal</Link></li>
+            <li><Link to="/grievance-policy" className="hover:text-white">Grievance Redressal</Link></li>
             <li><Link to="/policy" className="hover:text-white">Company Policies</Link></li>
             <li><Link to="/cancellation-policy" className="hover:text-white">Cancellation Policy</Link></li>
           </ul>

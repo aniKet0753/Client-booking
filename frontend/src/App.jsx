@@ -34,6 +34,9 @@ import CommunityList from './pages/CommunityList';
 import CommunityListDetails from './pages/CommunityListDetails';
 import AddBlog from './pages/AddBlog';
 import { DashboardProvider } from './context/DashboardContext';
+import CancellationPolicy from './pages/CancellationPolicy';
+import TermsConditions from './pages/TermsConditions';
+import GrievancePolicy from './pages/GrievancePolicy';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem("Token"));
@@ -125,6 +128,9 @@ function App() {
         <Route path="/community-list" element={<CommunityList />} />
         <Route path="/community-list/:id" element={<CommunityListDetails />} />
         <Route path="/add-blog" element={<AddBlog />} />
+        <Route path="/cancellation-policy" element={<CancellationPolicy />} />
+        <Route path="/terms-conditions" element={<TermsConditions />} />
+        <Route path="/grievance-policy" element={<GrievancePolicy />} />
 
         {/* Login Page */}
       </Routes>
