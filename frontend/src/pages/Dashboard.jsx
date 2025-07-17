@@ -17,7 +17,7 @@ import AdminContactEditPage from './AdminContactEditPage';
 import AdminAboutEditPage from './AdminAboutEditPage';
 import AddBlog from '../pages/AddBlog';
 import AdminBlogList from './AdminBlogList';
-
+import AgentTreeViewer from '../components/AgentTreeViewer';
 
 function Dashboard() {
   const [view, setView] = useState('dashboard');
@@ -59,6 +59,8 @@ function Dashboard() {
         return <AddBlog/>;
       case 'editBlogs':
         return <AdminBlogList/>;
+      case 'treeView':
+        return <AgentTreeViewer/>;
       default:
         return <MainContent />;
     }

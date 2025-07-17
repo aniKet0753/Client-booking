@@ -32,6 +32,7 @@ const blogSchema = z.object({
     .string()
     .optional()
     .refine((val) => {
+      console.log(val);
       return !val || val.startsWith('data:image/');
     }, {
       message: "Image must be a valid base64 image string (e.g., data:image/png;base64,...)"

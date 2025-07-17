@@ -119,6 +119,99 @@ router.get('/all-agents', authenticateSuperAdmin, async(req,res)=>{
   }
 })
 
+router.get('/all-agents-name-id',authenticateSuperAdmin, async (req, res) => {
+  try {
+    const agents = await Agent.find({status:'active'}, 'name agentID'); // Only fetch name and agentID fields
+    const result = agents.map(agent => ({
+      name: agent.name,
+      agentID: agent.agentID
+    }));
+    res.json(result);
+  } catch (error) {
+    console.error("Error fetching all agents: ", error);
+    res.status(500).json({ message: "Server error while fetching users" });
+  }
+});
+
+// const buildAgentTree = async (agent) => {
+//   const children = await Agent.find({ parentAgent: agent._id, status:'active' });
+
+//   const directChildren = children.map(child => ({
+//     _id: child._id,
+//     name: child.name,
+//     agentID: child.agentID,
+//   }));
+
+//   return {
+//     _id: agent._id,
+//     name: agent.name,
+//     agentID: agent.agentID,
+//     children: directChildren,
+//   };
+// };
+
+const buildAgentTree = async (agent) => {
+  const children = await Agent.find({ parentAgent: agent._id, status: 'active' });
+
+  const childTrees = await Promise.all(
+    children.map(async (child) => {
+      const subTree = await buildAgentTree(child);
+      return {
+        _id: child._id,
+        name: child.name,
+        agentID: child.agentID,
+        children: subTree.children, // Recursive children
+      };
+    })
+  );
+
+  return {
+    _id: agent._id,
+    name: agent.name,
+    agentID: agent.agentID,
+    children: childTrees,
+  };
+};
+
+router.get('/agent/:agentId/tree', authenticateSuperAdmin, async (req, res) => {
+  try {
+    const {agentId} = req.params;
+    const agentID = agentId;
+    // console.log(agentID);
+    const agent = await Agent.findOne({agentID});
+    // console.log(agent)
+    const currentAgentId = agent._id;
+    console.log(currentAgentId.toString())
+    const currentAgent = await Agent.findById(currentAgentId.toString()).populate('parentAgent');
+    if (!currentAgent) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+
+    let parentAgentDetails = null;
+    if (currentAgent.parentAgent) {
+      parentAgentDetails = await Agent.findById(currentAgent.parentAgent, 'name agentID');
+    }
+
+    const treeWithChildren = await buildAgentTree(currentAgent);
+
+    const tree = {
+      ...treeWithChildren,
+      parent: currentAgent.parentAgent
+        ? {
+            _id: currentAgent.parentAgent._id,
+            name: currentAgent.parentAgent.name,
+          }
+        : null,
+    };
+
+    // res.json({ tree });
+    res.json({ agent: currentAgent, tree, parent: parentAgentDetails || null });
+  } catch (error) {
+    console.error('Error fetching agent tree:', error);
+    res.status(500).json({ error: 'Failed to fetch agent tree' });
+  }
+});
+
 router.get('/all-customers', authenticateSuperAdmin, async(req,res)=>{ 
   try{
     const customers = await Customer.find();

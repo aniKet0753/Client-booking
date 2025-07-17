@@ -857,7 +857,7 @@ router.get('/active-agents', async(req,res)=>{
 });
 
 const buildAgentTree = async (agent) => {
-  const children = await Agent.find({ parentAgent: agent._id });
+  const children = await Agent.find({ parentAgent: agent._id, status: 'active' });
 
   const directChildren = children.map(child => ({
     _id: child._id,

@@ -69,6 +69,7 @@ const Sidebar = ({ collapsed, setCollapsed, setView }) => {
 
   const businessMenu = [
     { icon: faPaperPlane, label: 'Requests', view: 'requests', badge: pendingCount },
+    { icon: faPaperPlane, label: 'Tree View', view: 'treeView' },
     { icon: faTasks, label: 'Cancellations', view: 'cancellations' }
   ];
 
