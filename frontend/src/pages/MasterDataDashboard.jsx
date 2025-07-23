@@ -68,7 +68,7 @@ const convertToCSV = (data, type) => {
     } else if (type === 'customers') {
         headers = ['name', 'email', 'phone', 'createdAt', 'totalBookings'];
     } else if (type === 'paymentsReceived') {
-        headers = ['bookingId', 'tourName', 'agentName', 'agentID', 'customerName', 'amount', 'commissionAmount', 'paymentStatus', 'paymentDate'];
+        headers = ['bookingID', 'tourName', 'agentName', 'agentID', 'customerName', 'amount', 'commissionAmount', 'paymentStatus', 'paymentDate'];
     } else if (type === 'paymentsPaid') {
         headers = ['tourID', 'agentName', 'agentID', 'dueDate', 'customerGiven', 'commission', 'CommissionPaid', 'CommissionPaidDate']; // Added for paymentsPaid table
     } else if (type === 'agentCommissionReport') {
@@ -433,7 +433,7 @@ const MasterDataDashboard = () => {
             (payment.agent?.name && payment.agent.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
             (payment.customer?.name && payment.customer.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
             (payment.tourName && payment.tourName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-            (payment.bookingId && payment.bookingId.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (payment.bookingID && payment.bookingID.toLowerCase().includes(searchTerm.toLowerCase())) ||
             (payment.paymentStatus && payment.paymentStatus.toLowerCase().includes(searchTerm.toLowerCase()));
 
         return matchesSearch;
@@ -1144,7 +1144,7 @@ const MasterDataDashboard = () => {
                                                 {currentPaymentsReceived.length > 0 ? (
                                                     currentPaymentsReceived.map(payment => (
                                                         <tr key={payment._id}>
-                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">#{payment.bookingId}</td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">#{payment.bookingID}</td>
                                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.tourName || 'N/A'}</td>
                                                             <td className="px-6 py-4 whitespace-nowrap">
                                                                 <div className="text-sm font-medium text-gray-900">{payment.agent?.name || 'N/A'}</div>

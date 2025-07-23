@@ -54,7 +54,7 @@ app.use('/api/about-content', require('./routes/AboutContent'));
 app.use('/api/blogs', require('./routes/Blog'));
 app.use('/api/grievance-policy', require('./routes/grievancePolicy'));
 app.use('/api/cancellation-policy', require('./routes/cancellationPolicy'));
-app.use('/api/terms-and-conditions', require('./routes/termsAndConditions'));
+app.use('/api/terms', require('./routes/termsAndConditions'));
 // app.use("/api/webhook", webhookRoute);
 // app.use('/api/admin', require('./routes/SuperAdminRoutes'));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

@@ -1,48 +1,40 @@
 const express = require('express');
 const router = express.Router();
-const TermsAndConditions = require('../models/TermsAndConditions'); // Adjust path as needed
+const TermsAndConditions = require('../models/TermsAndConditions');
 
-// GET current terms and conditions
+// GET request to fetch the latest T&C content
 router.get('/', async (req, res) => {
   try {
-    const terms = await TermsAndConditions.findOne().sort({ createdAt: -1 }); // Get the latest one
+    const terms = await TermsAndConditions.findOne().sort({ lastUpdated: -1 });
     if (!terms) {
-      return res.status(404).json({ message: 'No terms and conditions found.' });
+      return res.status(404).json({ message: 'Terms and conditions not found. You can create a new one.' });
     }
     res.json(terms);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error when fetching terms and conditions.' });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Server error: ' + error.message });
   }
 });
 
-// POST new terms and conditions (or initially create if none exists)
+// POST or PATCH request to create or update the T&C content
 router.post('/', async (req, res) => {
-  try {
-    const newTerms = new TermsAndConditions(req.body);
-    await newTerms.save();
-    res.status(201).json(newTerms);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error when creating terms and conditions.' });
-  }
-});
+  const { mainHeader, introText, sections, footerNotes } = req.body;
 
-// PATCH (update) existing terms and conditions
-router.patch('/:id', async (req, res) => {
+  if (!mainHeader || !Array.isArray(sections) || !Array.isArray(footerNotes)) {
+    return res.status(400).json({ message: 'Invalid data format. mainHeader, sections, and footerNotes are required.' });
+  }
+
   try {
-    const updatedTerms = await TermsAndConditions.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true } // Return the updated doc, run schema validators
+    // Upsert a new document or update the existing one
+    const updatedTerms = await TermsAndConditions.findOneAndUpdate(
+      {},
+      { mainHeader, introText, sections, footerNotes, lastUpdated: Date.now() },
+      { new: true, upsert: true, runValidators: true }
     );
-    if (!updatedTerms) {
-      return res.status(404).json({ message: 'Terms and conditions document not found.' });
-    }
-    res.json(updatedTerms);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error when updating terms and conditions.' });
+    res.status(200).json(updatedTerms);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Server error while saving: ' + error.message });
   }
 });
 
