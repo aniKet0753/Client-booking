@@ -22,7 +22,7 @@ const agentTourStatsSchema = new mongoose.Schema({
         required: true
     },
     // Denormalized agentID string for convenience and CSV generation
-    agentStringID: {
+    agentID: {
         type: String,
         required: true // This will store the string agentID from the Agent model
     },

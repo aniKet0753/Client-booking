@@ -1061,7 +1061,7 @@ router.get('/agent-dump-csv', authenticateSuperAdmin, async (req, res) => {
         // Fetch all agents
         const agents = await Agent.find().lean();
 
-        // Fetch all relevant AgentTourStats and populate booking and agent
+        // Fetch all relevant AgentTourStats and populate booking and agenx
         // We need to fetch all AgentTourStats to calculate total commissions per agent
         const allAgentTourStats = await AgentTourStats.find()
             .populate({

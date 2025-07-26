@@ -224,7 +224,7 @@ router.post('/', express.json({ verify: (req, res, buf) => { req.rawBody = buf; 
                             booking: existingBooking._id, // Link to Booking ObjectId
                             bookingStringID: existingBooking.bookingID, // Store string booking ID
                             agent: agent_db_id, // Link to Agent ObjectId
-                            agentStringID: agent.agentID, // Store string agent ID
+                            agentID: agent.agentID, // Store string agent ID
                             tourStartDate: formattedTourStartDate,
                             tourID,
                             tourName: tourName, // Use tourName from notes
