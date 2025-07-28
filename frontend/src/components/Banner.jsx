@@ -9,7 +9,8 @@ import "swiper/css/navigation";
 // import required modules
 import { Navigation } from "swiper/modules";
 // import BannerImg1 from '../../public/Images/banner-01.jpg'
-import BannerImg1 from '../../public/Images/banner-new-04.jpg'
+// import BannerImg1 from '../../public/Images/banner-new-04.jpg'
+import BannerImg1 from '../../public/Images/banner copy.jpg'
 
 const bgBanner =
   "https://www.jodogoairportassist.com/main/assets/images/blog/bangladesh/top-ten-tourist-places-to-visit-in-bangladesh-8.webp";
