@@ -37,6 +37,7 @@ import { DashboardProvider } from './context/DashboardContext';
 import CancellationPolicy from './pages/CancellationPolicy';
 import TermsConditions from './pages/TermsConditions';
 import GrievancePolicy from './pages/GrievancePolicy';
+import EditAgentTermsConditions from './pages/EditAgentTermsConditions';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem("Token"));
@@ -134,6 +135,7 @@ function App() {
 
         {/* NEW: Route for editing an existing blog (uses AddBlog/BlogPostEditor with an ID) */}
         <Route path="/edit-blog/:id" element={<AddBlog />} />
+        <Route path="/edit-agent-terms-conditions" element={<EditAgentTermsConditions />} />
 
         {/* Login Page */}
       </Routes>

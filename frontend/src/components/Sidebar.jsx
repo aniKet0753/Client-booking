@@ -78,6 +78,7 @@ const Sidebar = ({ collapsed, setCollapsed, setView }) => {
     { icon: faUsers, label: 'Forum Moderation', view: 'forumModeration' },
     { icon: faUsers, label: 'Master Data Dashboard', view: 'masterDataDashboard' },
     { icon: faUsers, label: 'Complaint Management', view: 'complaintManagement' },
+    { icon: faUsers, label: 'Edit Agent Terms Conditions', view: 'EditAgentTermsConditions' },
     
     {
       icon: faEdit,
