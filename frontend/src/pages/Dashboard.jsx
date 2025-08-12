@@ -21,6 +21,7 @@ import AgentTreeViewer from '../components/AgentTreeViewer';
 import EditGrievance from './EditGrievance';
 import EditCancellationPolicy from './EditCancellationPolicy';
 import AdminSpecialOffers from './AdminSpecialOffers';
+import AttractionsEditPage from './AttractionsEditPage';
 
 function Dashboard() {
   const [view, setView] = useState('dashboard');
@@ -70,6 +71,8 @@ function Dashboard() {
         return <EditCancellationPolicy/>;
       case 'adminSpecialOffers':
         return <AdminSpecialOffers />;
+      case 'adminAttractionSection':
+        return <AttractionsEditPage />;
       default:
         return <MainContent />;
     }

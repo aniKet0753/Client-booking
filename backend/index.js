@@ -38,8 +38,8 @@ app.use(cors({
 // app.use(express.json());
 // app.use(express.urlencoded({ extended: true }));
 
-app.use(express.json({ limit: '10mb' })); 
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
+app.use(express.json({ limit: '50mb' })); 
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 app.use("/api/agents", agentRoutes);
 app.use("/api/customer", customerRoutes);
@@ -55,6 +55,8 @@ app.use('/api/blogs', require('./routes/Blog'));
 app.use('/api/grievance-policy', require('./routes/grievancePolicy'));
 app.use('/api/cancellation-policy', require('./routes/cancellationPolicy'));
 app.use('/api/terms', require('./routes/termsAndConditions'));
+app.use('/api/special-offers', require('./routes/special-offers'));
+app.use('/api/attractions', require('./routes/attractions'));
 // app.use("/api/webhook", webhookRoute);
 // app.use('/api/admin', require('./routes/SuperAdminRoutes'));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

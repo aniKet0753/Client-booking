@@ -1045,10 +1045,267 @@ router.put('/process-cancellation/:bookingId', authenticateSuperAdmin, async (re
 //Rejected Cancellation code is pending  
 
 
+// // Helper function to format date to YYYY-MM-DD
+// const formatDateToYYYYMMDD = (date) => {
+//     if (!date) return '';
+//     const d = new Date(date);
+//     const year = d.getFullYear();
+//     const month = String(d.getMonth() + 1).padStart(2, '0');
+//     const day = String(d.getDate()).padStart(2, '0');
+//     return `${year}-${month}-${day}`;
+// };
+
+// // Route to get data for Agent Dump CSV
+// router.get('/agent-dump-csv', authenticateSuperAdmin, async (req, res) => {
+//     try {
+//         // Fetch all agents
+//         const agents = await Agent.find().lean();
+
+//         // Fetch all relevant AgentTourStats and populate booking and agenx
+//         // We need to fetch all AgentTourStats to calculate total commissions per agent
+//         const allAgentTourStats = await AgentTourStats.find()
+//             .populate({
+//                 path: 'booking',
+//                 select: 'bookingID tour.name tour.startDate payment.totalAmount travelers.name travelers.age travelers.gender travelers.cancellationRequested travelers.cancellationApproved travelers.cancellationRejected travelers.cancellationReason'
+//             })
+//             .populate({
+//                 path: 'agent',
+//                 select: 'name agentID' // Populate agent details to ensure accurate mapping
+//             })
+//             .lean();
+
+//         // Map to store aggregated commission data per agent
+//         const agentCommissionMap = new Map(); // Key: agent._id, Value: { totalEarned, totalPaid, totalPending, tours: [] }
+
+//         allAgentTourStats.forEach(stat => {
+//             const agentId = stat.agent._id.toString(); // Use agent's ObjectId as key
+//             if (!agentCommissionMap.has(agentId)) {
+//                 agentCommissionMap.set(agentId, {
+//                     totalEarned: 0,
+//                     totalPaid: 0,
+//                     totalPending: 0,
+//                     tours: [] // Store individual tour stats for this agent
+//                 });
+//             }
+//             const agentStats = agentCommissionMap.get(agentId);
+//             const commission = stat.commissionReceived || 0;
+//             agentStats.totalEarned += commission;
+//             if (stat.CommissionPaid) {
+//                 agentStats.totalPaid += commission;
+//             } else {
+//                 agentStats.totalPending += commission;
+//             }
+
+//             // Push relevant tour details for the dump
+//             agentStats.tours.push({
+//                 tourID: stat.tourID,
+//                 tourDueDate: stat.tourStartDate,
+//                 tourCommission: commission,
+//                 tourCommissionStatus: stat.CommissionPaid,
+//                 CommissionPaidDate: stat.CommissionPaidDate,
+//                 bookingID: stat.bookingStringID, // Use the string booking ID
+//                 customerGiven: stat.customerGiven,
+//                 adultsCount: stat.adultsCount,
+//                 childrenCount: stat.childrenCount,
+//                 cancelledTravelersCount: stat.cancelledTravelersCount
+//             });
+//         });
+
+//         const agentDumpData = agents.map(agent => {
+//             const commissionData = agentCommissionMap.get(agent._id.toString()) || {
+//                 totalEarned: 0,
+//                 totalPaid: 0,
+//                 totalPending: 0,
+//                 tours: []
+//             };
+
+//             // Prepare parent agent info
+//             let parentAgentName = 'N/A';
+//             let parentAgentId = 'N/A';
+//             if (agent.parentAgent) {
+//                 // This would require another populate if parentAgent is an ObjectId,
+//                 // or a separate lookup if you only store the string ID.
+//                 // For simplicity, assuming parentAgent is already populated or can be looked up.
+//                 // If parentAgent is just an ID string, you'd need to fetch that agent.
+//                 // For now, let's assume it's just the ID string from agent.parentAgent.
+//                 // If you need the name, you'd need to fetch it.
+//                 // For this dump, we'll use the ID string if available.
+//                 parentAgentId = agent.parentAgent; // This is the ObjectId string
+//             }
+
+//             // To get the parent agent's name, you'd need to fetch it.
+//             // For now, we'll leave it as N/A unless you have a populated parentAgent field.
+//             // If agent.parentAgent is populated, you can access agent.parentAgent.name and agent.parentAgent.agentID
+
+//             return {
+//                 // Agent details
+//                 'S/L': '', // Serial number, can be filled on frontend or during CSV generation
+//                 'Agent name': agent.name || '',
+//                 'Gender': agent.gender || '',
+//                 'DOB': formatDateToYYYYMMDD(agent.dob),
+//                 'Age': agent.age || '',
+//                 'Phone No. Calling': agent.phone_calling || '',
+//                 'Phone No. Whatsaap': agent.phone_whatsapp || '',
+//                 'Flat No.': agent.permanent_address?.flat_name || '',
+//                 'Locality': agent.permanent_address?.road_no || '', // Assuming road_no maps to Locality
+//                 'City': agent.permanent_address?.district || '', // Assuming district maps to City
+//                 'Pin Code': agent.permanent_address?.pincode || '',
+//                 'PS': agent.permanent_address?.police_station || '',
+//                 'State': agent.permanent_address?.state || '',
+//                 'Country': 'India', // Assuming all agents are from India
+//                 'Aadhar Card Number': agent.aadhar_card || '',
+//                 'PAN Card Number': agent.pan_card || '',
+//                 'Date of onboarding': formatDateToYYYYMMDD(agent.createdAt),
+//                 'Agent ID': agent.agentID || '',
+//                 'Referral Code': '', // Placeholder, if you have this field
+//                 'Child agent name': '', // This would require fetching child agents
+//                 'Child agent Id': '', // This would require fetching child agents
+//                 // Tour-specific details (if an agent has multiple tours, this will be duplicated rows for the agent)
+//                 'Booking Id': commissionData.tours.length > 0 ? commissionData.tours[0].bookingID : '', // Take first booking for this row
+//                 'Destination': commissionData.tours.length > 0 ? commissionData.tours[0].tourID : '', // Using tourID as destination placeholder
+//                 'Date of journy': commissionData.tours.length > 0 ? formatDateToYYYYMMDD(commissionData.tours[0].tourDueDate) : '',
+//                 'Packag price for Adult': commissionData.tours.length > 0 ? commissionData.tours[0].tourPricePerHead : 0, // Assuming this is per adult
+//                 'Packag price for Child': 0, // Placeholder, if you have separate child pricing
+//                 'Total Occupancy': commissionData.tours.length > 0 ? commissionData.tours[0].adultsCount + commissionData.tours[0].childrenCount : 0,
+//                 'Date of booking': commissionData.tours.length > 0 ? formatDateToYYYYMMDD(commissionData.tours[0].bookingDate) : '',
+//                 'No. of Adult provided by agent': commissionData.tours.length > 0 ? commissionData.tours[0].adultsCount : 0,
+//                 'No. of Child provided by agent': commissionData.tours.length > 0 ? commissionData.tours[0].childrenCount : 0,
+//                 'No. of Adult provided by Sub agent': '', // Requires logic to determine if sub-agent involved
+//                 'No. of Child provided by Sub agent': '', // Requires logic to determine if sub-agent involved
+//                 'Provided occupancy rate': '', // Placeholder, if you have this
+//                 'Percentage rate of commision for sub agent': '', // Placeholder
+//                 'Percentage rate of commision for agent': commissionData.tours.length > 0 ? commissionData.tours[0].commissionRate : 0,
+//                 'Due date of payment': commissionData.tours.length > 0 ? formatDateToYYYYMMDD(commissionData.tours[0].tourDueDate) : '',
+//                 'Date of payment': commissionData.tours.length > 0 ? formatDateToYYYYMMDD(commissionData.tours[0].CommissionPaidDate) : '',
+//                 'Commission paid': commissionData.totalPaid,
+//                 'Commission to be paid': commissionData.totalPending,
+//                 'No.of cancled booking': commissionData.tours.length > 0 ? commissionData.tours[0].cancelledTravelersCount : 0,
+//                 'Deduction of comission against cancelation': commissionData.tours.length > 0 ? commissionData.tours[0].commissionDeductionAmount : 0,
+//                 'JPG/PDF of aadhar Card of Agent': agent.aadhaarPhotoFront || '',
+//                 'JPG/PDF of PAN Card of Agent': agent.panCardPhoto || '',
+//             };
+//         });
+
+//         console.log(agentDumpData);
+//         res.status(200).json({ success: true, data: agentDumpData });
+
+//     } catch (error) {
+//         console.error('Error fetching agent dump data:', error);
+//         res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+//     }
+// });
+
+// // Route to get data for Customer Dump CSV
+// router.get('/customer-dump-csv', authenticateSuperAdmin, async (req, res) => {
+//     try {
+//         // Fetch all bookings and populate necessary fields
+//         const bookings = await Booking.find()
+//             .populate({
+//                 path: 'customer',
+//                 select: 'name email phone address altPhone dob age gender aadhar pan whatsapp disability medicalCondition medicalInsurance'
+//             })
+//             .populate({
+//                 path: 'agent',
+//                 select: 'name agentID'
+//             })
+//             .populate({
+//                 path: 'travelers', // Populate travelers within the booking
+//                 select: 'name age gender cancellationRequested cancellationApproved cancellationRejected cancellationReason'
+//             })
+//             .lean();
+
+//         const customerDumpData = [];
+
+//         for (const booking of bookings) {
+//             const customer = booking.customer || {};
+//             const agent = booking.agent || {}; // Agent might be null for direct bookings
+
+//             // Handle multiple co-passengers
+//             const coPassengers = booking.travelers
+//                 .filter(t => t.name !== customer.name) // Exclude the main customer if they are also in travelers
+//                 .map(t => t.name)
+//                 .join(', ');
+
+//             // Calculate adults and children from travelers
+//             let adults = 0;
+//             let children = 0;
+//             booking.travelers.forEach(traveler => {
+//                 if (traveler.age >= 12) { // Assuming 12 is the cutoff for adult
+//                     adults++;
+//                 } else {
+//                     children++;
+//                 }
+//             });
+
+//             // Count cancelled members
+//             const cancelledMembers = booking.travelers.filter(t => t.cancellationApproved).length;
+
+//             customerDumpData.push({
+//                 'S/L': '', // Serial number, can be filled on frontend or during CSV generation
+//                 'Date of Dump': formatDateToYYYYMMDD(new Date()), // Current date
+//                 'Date of booking': formatDateToYYYYMMDD(booking.bookingDate),
+//                 'Booking Email ID': customer.email || '',
+//                 'Booking ID': booking.bookingID || '',
+//                 'Date of journey': formatDateToYYYYMMDD(booking.tour?.startDate),
+//                 'Name of customer': customer.name || '',
+//                 'Name of co-passengers': coPassengers || '',
+//                 'Gender': customer.gender || '',
+//                 'DOB': customer.dob || '',
+//                 'Age': customer.age || '',
+//                 'Phone No. Calling': customer.phone || '',
+//                 'Emergency Contact': customer.altPhone || '',
+//                 'Phone No. Whatsaap': customer.whatsapp || '',
+//                 'Flat No.': customer.address?.split(',')[0] || '', // Simple split, adjust if address structure is complex
+//                 'Locality': customer.address?.split(',')[1] || '',
+//                 'City': customer.address?.split(',')[2] || '',
+//                 'Pin Code': customer.address?.split(',')[3] || '',
+//                 'PS': '', // Placeholder, if not in customer address
+//                 'State': customer.address?.split(',')[4] || '',
+//                 'Country': 'India', // Assuming all customers are from India
+//                 'Aadhar Card Number': customer.aadhar || '',
+//                 'PAN Card Number': customer.pan || '',
+//                 'Birth Certificate': '', // Placeholder, if you collect this
+//                 'Disability (if any)': customer.disability || '',
+//                 'Medical condition': customer.medicalCondition || '',
+//                 'Tour Type': booking.tour?.tourType || '',
+//                 'Package selected': booking.tour?.name || '',
+//                 'Agent Name': agent.name || 'Direct Booking',
+//                 'Agent ID': agent.agentID || 'N/A',
+//                 'Selected Trip': booking.tour?.name || '', // Duplicate of Package selected, based on CSV
+//                 'No. of Co-passanger': booking.travelers.length > 0 ? booking.travelers.length - 1 : 0, // Total travelers minus main customer
+//                 'JPG/PDF of aadhar Card of passanger': '', // Placeholder, if you store this
+//                 'JPG/PDF of PAN Card of passanger': '', // Placeholder, if you store this
+//                 'Bank Name': '', // Placeholder, if you collect this
+//                 'Account holder name': '', // Placeholder
+//                 'Bank Account No': '', // Placeholder
+//                 'IFSC Code': '', // Placeholder
+//                 'No. of adults': adults,
+//                 'No. of Child': children,
+//                 'Package rate for adult': booking.tour?.pricePerHead || 0,
+//                 'Package rate for child': 0, // Placeholder
+//                 'Total Amount paid by customer': booking.payment?.totalAmount || 0,
+//                 'UTR Number': booking.payment?.transactionId || '',
+//                 'Canceled booking of members(Only Nos.)': cancelledMembers,
+//                 'Refund against cancellation': '', // Placeholder, requires calculation
+//             });
+//         }
+
+//         res.status(200).json({ success: true, data: customerDumpData });
+
+//     } catch (error) {
+//         console.error('Error fetching customer dump data:', error);
+//         res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+//     }
+// });
+
+
+
 // Helper function to format date to YYYY-MM-DD
 const formatDateToYYYYMMDD = (date) => {
     if (!date) return '';
     const d = new Date(date);
+    // Ensure the date is treated as UTC to prevent timezone issues with new Date()
+    // or specifically format it to a local timezone if that's the intention
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
@@ -1060,86 +1317,51 @@ router.get('/agent-dump-csv', authenticateSuperAdmin, async (req, res) => {
     try {
         // Fetch all agents
         const agents = await Agent.find().lean();
+        const agentDataMap = new Map(agents.map(agent => [agent._id.toString(), {
+            agentDetails: agent,
+            bookings: [] // To store all bookings for this agent
+        }]));
 
-        // Fetch all relevant AgentTourStats and populate booking and agenx
-        // We need to fetch all AgentTourStats to calculate total commissions per agent
+        // Fetch all relevant AgentTourStats and populate deeply
         const allAgentTourStats = await AgentTourStats.find()
             .populate({
                 path: 'booking',
-                select: 'bookingID tour.name tour.startDate payment.totalAmount travelers.name travelers.age travelers.gender travelers.cancellationRequested travelers.cancellationApproved travelers.cancellationRejected travelers.cancellationReason'
+                // Select fields directly on the booking model, and 'tour' as the path to populate.
+                // Removed all 'tour.*' fields from this select as they will be handled by the nested populate.
+                select: 'bookingID bookingDate payment.totalAmount travelers', // Keep only booking-specific fields and the 'tour' reference
+                populate: {
+                    path: 'tour', // Populate tour details within booking
+                    // Select all specific tour fields needed from the tour document
+                    select: 'name image categoryType country tourType pricePerHead GST duration occupancy remainingOccupancy startDate description'
+                }
             })
             .populate({
                 path: 'agent',
-                select: 'name agentID' // Populate agent details to ensure accurate mapping
+                select: 'name agentID gender dob age phone_calling phone_whatsapp email aadhar_card pan_card aadhaarPhotoFront panCardPhoto permanent_address parentAgent createdAt banking_details',
             })
             .lean();
 
-        // Map to store aggregated commission data per agent
-        const agentCommissionMap = new Map(); // Key: agent._id, Value: { totalEarned, totalPaid, totalPending, tours: [] }
-
-        allAgentTourStats.forEach(stat => {
-            const agentId = stat.agent._id.toString(); // Use agent's ObjectId as key
-            if (!agentCommissionMap.has(agentId)) {
-                agentCommissionMap.set(agentId, {
-                    totalEarned: 0,
-                    totalPaid: 0,
-                    totalPending: 0,
-                    tours: [] // Store individual tour stats for this agent
-                });
+        // Group AgentTourStats by agent and find max bookings
+        let maxBookingsPerAgent = 0;
+        for (const stat of allAgentTourStats) {
+            const agentId = stat.agent._id.toString();
+            if (agentDataMap.has(agentId)) {
+                agentDataMap.get(agentId).bookings.push(stat);
+                if (agentDataMap.get(agentId).bookings.length > maxBookingsPerAgent) {
+                    maxBookingsPerAgent = agentDataMap.get(agentId).bookings.length;
+                }
             }
-            const agentStats = agentCommissionMap.get(agentId);
-            const commission = stat.commissionReceived || 0;
-            agentStats.totalEarned += commission;
-            if (stat.CommissionPaid) {
-                agentStats.totalPaid += commission;
-            } else {
-                agentStats.totalPending += commission;
-            }
+        }
 
-            // Push relevant tour details for the dump
-            agentStats.tours.push({
-                tourID: stat.tourID,
-                tourDueDate: stat.tourStartDate,
-                tourCommission: commission,
-                tourCommissionStatus: stat.CommissionPaid,
-                CommissionPaidDate: stat.CommissionPaidDate,
-                bookingID: stat.bookingStringID, // Use the string booking ID
-                customerGiven: stat.customerGiven,
-                adultsCount: stat.adultsCount,
-                childrenCount: stat.childrenCount,
-                cancelledTravelersCount: stat.cancelledTravelersCount
-            });
-        });
+        const agentDumpData = [];
 
-        const agentDumpData = agents.map(agent => {
-            const commissionData = agentCommissionMap.get(agent._id.toString()) || {
-                totalEarned: 0,
-                totalPaid: 0,
-                totalPending: 0,
-                tours: []
-            };
+        // Prepare the final data structure
+        for (const [agentId, data] of agentDataMap.entries()) {
+            const agent = data.agentDetails;
+            const agentBookings = data.bookings;
 
-            // Prepare parent agent info
-            let parentAgentName = 'N/A';
-            let parentAgentId = 'N/A';
-            if (agent.parentAgent) {
-                // This would require another populate if parentAgent is an ObjectId,
-                // or a separate lookup if you only store the string ID.
-                // For simplicity, assuming parentAgent is already populated or can be looked up.
-                // If parentAgent is just an ID string, you'd need to fetch that agent.
-                // For now, let's assume it's just the ID string from agent.parentAgent.
-                // If you need the name, you'd need to fetch it.
-                // For this dump, we'll use the ID string if available.
-                parentAgentId = agent.parentAgent; // This is the ObjectId string
-            }
-
-            // To get the parent agent's name, you'd need to fetch it.
-            // For now, we'll leave it as N/A unless you have a populated parentAgent field.
-            // If agent.parentAgent is populated, you can access agent.parentAgent.name and agent.parentAgent.agentID
-
-            return {
-                // Agent details
-                'S/L': '', // Serial number, can be filled on frontend or during CSV generation
+            let row = {
+                'S/L': '', // Filled on frontend or during CSV generation
                 'Agent name': agent.name || '',
                 'Gender': agent.gender || '',
                 'DOB': formatDateToYYYYMMDD(agent.dob),
@@ -1147,46 +1369,116 @@ router.get('/agent-dump-csv', authenticateSuperAdmin, async (req, res) => {
                 'Phone No. Calling': agent.phone_calling || '',
                 'Phone No. Whatsaap': agent.phone_whatsapp || '',
                 'Flat No.': agent.permanent_address?.flat_name || '',
-                'Locality': agent.permanent_address?.road_no || '', // Assuming road_no maps to Locality
-                'City': agent.permanent_address?.district || '', // Assuming district maps to City
+                'Locality': agent.permanent_address?.road_no || '',
+                'City': agent.permanent_address?.district || '',
                 'Pin Code': agent.permanent_address?.pincode || '',
                 'PS': agent.permanent_address?.police_station || '',
                 'State': agent.permanent_address?.state || '',
-                'Country': 'India', // Assuming all agents are from India
+                'Country': 'India',
                 'Aadhar Card Number': agent.aadhar_card || '',
                 'PAN Card Number': agent.pan_card || '',
                 'Date of onboarding': formatDateToYYYYMMDD(agent.createdAt),
                 'Agent ID': agent.agentID || '',
-                'Referral Code': '', // Placeholder, if you have this field
-                'Child agent name': '', // This would require fetching child agents
-                'Child agent Id': '', // This would require fetching child agents
-                // Tour-specific details (if an agent has multiple tours, this will be duplicated rows for the agent)
-                'Booking Id': commissionData.tours.length > 0 ? commissionData.tours[0].bookingID : '', // Take first booking for this row
-                'Destination': commissionData.tours.length > 0 ? commissionData.tours[0].tourID : '', // Using tourID as destination placeholder
-                'Date of journy': commissionData.tours.length > 0 ? formatDateToYYYYMMDD(commissionData.tours[0].tourDueDate) : '',
-                'Packag price for Adult': commissionData.tours.length > 0 ? commissionData.tours[0].tourPricePerHead : 0, // Assuming this is per adult
-                'Packag price for Child': 0, // Placeholder, if you have separate child pricing
-                'Total Occupancy': commissionData.tours.length > 0 ? commissionData.tours[0].adultsCount + commissionData.tours[0].childrenCount : 0,
-                'Date of booking': commissionData.tours.length > 0 ? formatDateToYYYYMMDD(commissionData.tours[0].bookingDate) : '',
-                'No. of Adult provided by agent': commissionData.tours.length > 0 ? commissionData.tours[0].adultsCount : 0,
-                'No. of Child provided by agent': commissionData.tours.length > 0 ? commissionData.tours[0].childrenCount : 0,
-                'No. of Adult provided by Sub agent': '', // Requires logic to determine if sub-agent involved
-                'No. of Child provided by Sub agent': '', // Requires logic to determine if sub-agent involved
-                'Provided occupancy rate': '', // Placeholder, if you have this
-                'Percentage rate of commision for sub agent': '', // Placeholder
-                'Percentage rate of commision for agent': commissionData.tours.length > 0 ? commissionData.tours[0].commissionRate : 0,
-                'Due date of payment': commissionData.tours.length > 0 ? formatDateToYYYYMMDD(commissionData.tours[0].tourDueDate) : '',
-                'Date of payment': commissionData.tours.length > 0 ? formatDateToYYYYMMDD(commissionData.tours[0].CommissionPaidDate) : '',
-                'Commission paid': commissionData.totalPaid,
-                'Commission to be paid': commissionData.totalPending,
-                'No.of cancled booking': commissionData.tours.length > 0 ? commissionData.tours[0].cancelledTravelersCount : 0,
-                'Deduction of comission against cancelation': commissionData.tours.length > 0 ? commissionData.tours[0].commissionDeductionAmount : 0,
+                'Referral Code': '', // Placeholder, if you have this field in Agent model
+                'Parent Agent Name': 'N/A', // Requires additional population or logic if parentAgent ID needs resolving to name
+                'Parent Agent ID': agent.parentAgent || 'N/A',
+                'Child agent name': '', // Requires fetching child agents if many-to-many or array
+                'Child agent Id': '', // Requires fetching child agents
                 'JPG/PDF of aadhar Card of Agent': agent.aadhaarPhotoFront || '',
                 'JPG/PDF of PAN Card of Agent': agent.panCardPhoto || '',
+                'Bank Name': agent.banking_details?.bank_name || '',
+                'Account holder name': agent.banking_details?.acc_holder_name || '',
+                'Bank Account No': agent.banking_details?.acc_number || '',
+                'IFSC Code': agent.banking_details?.ifsc_code || '',
             };
-        });
 
-        console.log(agentDumpData);
+            // Add booking-specific columns dynamically for each agent's bookings
+            for (let i = 0; i < maxBookingsPerAgent; i++) {
+                const stat = agentBookings[i];
+                if (stat) {
+                    const booking = stat.booking;
+
+                    // Calculate adults and children from travelers array within the booking
+                    let adultsCount = 0;
+                    let childrenCount = 0;
+                    if (booking.travelers && Array.isArray(booking.travelers)) {
+                        booking.travelers.forEach(traveler => {
+                            if (traveler.age >= 12) { // Assuming 12 is adult cutoff
+                                adultsCount++;
+                            } else {
+                                childrenCount++;
+                            }
+                        });
+                    }
+
+                    // Calculate cancelled members from travelers
+                    const cancelledTravelersCount = booking.travelers ? booking.travelers.filter(t => t.cancellationApproved).length : 0;
+
+                    // Determine Commission Percentage Rate
+                    let commissionRate = 0;
+                    if (booking.payment && booking.payment.totalAmount > 0 && stat.commissionReceived > 0) {
+                        commissionRate = (stat.commissionReceived / booking.payment.totalAmount) * 100;
+                    }
+
+                    // Dynamically name columns to match the "Booking N" structure
+                    row[`Booking ${i + 1} Id`] = booking.bookingID || '';
+                    row[`Booking ${i + 1} Destination`] = booking.tour?.name || '';
+                    row[`Booking ${i + 1} Date of journy`] = formatDateToYYYYMMDD(booking.tour?.startDate); // Corrected spelling as per snippet
+                    row[`Booking ${i + 1} Packag price for Adult`] = booking.tour?.pricePerHead || 0; // Corrected spelling
+                    row[`Booking ${i + 1} Packag price for Child`] = 0; // Your schema doesn't show separate child pricing
+                    row[`Booking ${i + 1} Total Occupancy`] = adultsCount + childrenCount;
+                    row[`Booking ${i + 1} Date of booking`] = formatDateToYYYYMMDD(booking.bookingDate);
+                    row[`Booking ${i + 1} No. of Adult provided by agent`] = adultsCount;
+                    row[`Booking ${i + 1} No. of Child provided by agent`] = childrenCount;
+                    row[`Booking ${i + 1} No. of Adult provided by Sub agent`] = 0; // Logic required for sub-agents (placeholder)
+                    row[`Booking ${i + 1} No. of Child provided by Sub agent`] = 0; // Logic required for sub-agents (placeholder)
+                    row[`Booking ${i + 1} Provided occupancy rate`] = ''; // Placeholder
+                    row[`Booking ${i + 1} Percentage rate of commision for sub agent`] = ''; // Placeholder, data not available in schema
+                    row[`Booking ${i + 1} Percentage rate of commision for agent`] = commissionRate.toFixed(2) + '%'; // Corrected spelling
+                    row[`Booking ${i + 1} Due date of payment`] = formatDateToYYYYMMDD(stat.tourStartDate);
+                    row[`Booking ${i + 1} Date of payment`] = formatDateToYYYYMMDD(stat.CommissionPaidDate);
+                    row[`Booking ${i + 1} Commission paid`] = stat.CommissionPaid ? (stat.commissionReceived || 0) : 0;
+                    row[`Booking ${i + 1} Commission to be paid`] = stat.CommissionPaid ? 0 : (stat.commissionReceived || 0);
+                    row[`Booking ${i + 1} No.of cancled booking`] = cancelledTravelersCount; // Corrected spelling
+                    row[`Booking ${i + 1} Deduction of comission against cancelation`] = stat.commissionDeductionAmount || 0; // Corrected spelling
+                } else {
+                    // Fill with empty strings for agents with fewer bookings to maintain consistent columns
+                    row[`Booking ${i + 1} Id`] = '';
+                    row[`Booking ${i + 1} Destination`] = '';
+                    row[`Booking ${i + 1} Date of journy`] = '';
+                    row[`Booking ${i + 1} Packag price for Adult`] = '';
+                    row[`Booking ${i + 1} Packag price for Child`] = '';
+                    row[`Booking ${i + 1} Total Occupancy`] = '';
+                    row[`Booking ${i + 1} Date of booking`] = '';
+                    row[`Booking ${i + 1} No. of Adult provided by agent`] = '';
+                    row[`Booking ${i + 1} No. of Child provided by agent`] = '';
+                    row[`Booking ${i + 1} No. of Adult provided by Sub agent`] = '';
+                    row[`Booking ${i + 1} No. of Child provided by Sub agent`] = '';
+                    row[`Booking ${i + 1} Provided occupancy rate`] = '';
+                    row[`Booking ${i + 1} Percentage rate of commision for sub agent`] = '';
+                    row[`Booking ${i + 1} Percentage rate of commision for agent`] = '';
+                    row[`Booking ${i + 1} Due date of payment`] = '';
+                    row[`Booking ${i + 1} Date of payment`] = '';
+                    row[`Booking ${i + 1} Commission paid`] = '';
+                    row[`Booking ${i + 1} Commission to be paid`] = '';
+                    row[`Booking ${i + 1} No.of cancled booking`] = '';
+                    row[`Booking ${i + 1} Deduction of comission against cancelation`] = '';
+                }
+            }
+            agentDumpData.push(row);
+        }
+
+        // Send the JSON data. You'll need a CSV conversion library on the frontend or backend
+        // For backend CSV generation, you'd use a library like 'json2csv' here.
+        // const { Parser } = require('json2csv');
+        // const fields = Object.keys(agentDumpData[0] || {}); // Dynamically get all keys as headers
+        // const opts = { fields };
+        // const parser = new Parser(opts);
+        // const csv = parser.parse(agentDumpData);
+        // res.header('Content-Type', 'text/csv');
+        // res.attachment('agent_dump_detailed.csv');
+        // res.send(csv);
+
         res.status(200).json({ success: true, data: agentDumpData });
 
     } catch (error) {
