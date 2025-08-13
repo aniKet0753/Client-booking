@@ -98,8 +98,8 @@ const Sidebar = ({ collapsed, setCollapsed, setView }) => {
       view: 'changehome',
       isDropdown: true,
       subItems: [
-        { icon: faUsers, label: 'Edit Special Offer', view: 'adminSpecialOffers' }, // fixed icon
-        { icon: faUsers, label: 'Edit Attraction Section', view: 'adminAttractionSection' } // fixed icon
+        { label: 'Edit Special Offer', view: 'adminSpecialOffers' }, // fixed icon
+        {label: 'Edit Attraction Section', view: 'adminAttractionSection' } // fixed icon
       ]
     },
 

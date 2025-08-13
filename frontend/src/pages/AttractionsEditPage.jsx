@@ -132,7 +132,7 @@ const AttractionsEditPage = () => {
     }
 
     return (
-        <div className="max-w-7xl mx-auto px-4 py-8 bg-gray-100 min-h-screen font-sans">
+        <div className="mx-auto px-4 py-8 bg-gray-100 w-full font-sans">
             <ToastContainer position="top-right" autoClose={3000} />
 
             <h1 className="text-3xl font-bold text-center text-gray-800 mb-8">Manage Attractions</h1>

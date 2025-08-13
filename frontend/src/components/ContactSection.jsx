@@ -24,8 +24,8 @@ const ContactPage = () => {
                             <h2 className="lg:text-6xl text-3xl font-bold text-white mb-16">Be a Part of Something Amazing</h2>
 
                             <div className="">
-                                <Link to="/register">
-                                    <button className="bg-[#F4B41A] max-w-[480px] w-full
+                                <Link to="/register" className="cursor-pointer">
+                                    <button className="bg-[#F4B41A] max-w-[480px] w-full cursor-pointer
                                     font-bold lg:text-3xl text-lg text-white px-6 py-3 rounded-full transition-all hover:shadow-lg">
                                         Go to Register
                                     </button>

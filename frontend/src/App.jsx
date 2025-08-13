@@ -137,9 +137,9 @@ function App() {
 
         {/* NEW: Route for editing an existing blog (uses AddBlog/BlogPostEditor with an ID) */}
         <Route path="/edit-blog/:id" element={<AddBlog />} />
-        <Route path="/edit-agent-terms-conditions" element={<EditAgentTermsConditions />} />
+        {/* <Route path="/edit-agent-terms-conditions" element={<EditAgentTermsConditions />} />
         <Route path="/edit-special-offers" element={<AdminSpecialOffers />} />
-        <Route path="/attractions-edit" element={<AttractionsEditPage />} />
+        <Route path="/attractions-edit" element={<AttractionsEditPage />} /> */}
 
         {/* Login Page */}
       </Routes>

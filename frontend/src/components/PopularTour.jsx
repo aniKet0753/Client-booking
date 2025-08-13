@@ -62,15 +62,16 @@ const PopularTourSection = () => {
     }
 
     return (
-        <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={isInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 1, ease: 'easeOut' }}
-        >
+        // <motion.div
+        //     initial={{ opacity: 0, y: 50 }}
+        //     animate={isInView ? { opacity: 1, y: 0 } : {}}
+        //     transition={{ duration: 1, ease: 'easeOut' }}
+        // >
+        // </motion.div>
             <section ref={ref} className="bg-blue-50 py-12 px-6">
                 <div className="max-w-[1440px] mx-auto">
                     <h2 className="lg:text-6xl text-3xl font-bold text-black mb-10">Other Attractions</h2>
-                    {/* <div className="m-8">
+                    <div className="m-8">
                         <Swiper
                             spaceBetween={20}
                             slidesPerView={1}
@@ -110,10 +111,9 @@ const PopularTourSection = () => {
                                 </SwiperSlide>
                             ))}
                         </Swiper>
-                    </div> */}
+                    </div>
                 </div>
             </section>
-        </motion.div>
     );
 };
 

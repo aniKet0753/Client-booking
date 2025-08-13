@@ -131,7 +131,7 @@ const AdminSpecialOffers = () => {
     }
 
     return (
-        <div className="p-6 max-w-6xl mx-auto bg-gray-100 min-h-screen font-sans">
+        <div className="p-6  mx-auto bg-gray-100 w-full font-sans">
             <ToastContainer position="top-right" autoClose={3000} />
             
             <h1 className="text-3xl font-bold mb-6 text-gray-800 text-center">Manage Special Offers</h1>
