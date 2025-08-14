@@ -6,7 +6,7 @@ const ViewAgreements = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedAgreement, setSelectedAgreement] = useState(null);
-  const [agreementType, setAgreementType] = useState('agents'); // State to switch between 'agents' and 'tour'
+  const [agreementType, setAgreementType] = useState('agents'); // State to switch between 'agents', 'tour', 'all_customers'
   const [tourId, setTourId] = useState(''); // State to hold the tourId for customer T&Cs
   const token = localStorage.getItem('Token');
 
@@ -17,13 +17,12 @@ const ViewAgreements = () => {
         setLoading(false);
         return;
       }
-
-      // --- New Logic: Skip fetch if 'tour' type is selected but tourId is missing ---
+      
+      // Clear agreements when switching to a type that requires input
       if (agreementType === 'tour' && !tourId) {
-        setAgreements([]); // Clear any previous agreements
+        setAgreements([]);
         setLoading(false);
         setError("Please enter a Tour ID to view customer agreements.");
-        console.log("Tour ID is required for this agreement type. Skipping API call.");
         return;
       }
 
@@ -31,26 +30,32 @@ const ViewAgreements = () => {
       setError(null);
 
       try {
-        const latestTermsUrl = `/api/terms/latest?type=${agreementType}${agreementType === 'tour' ? `&tourId=${tourId}` : ''}`;
-        console.log(`Fetching latest terms from: ${latestTermsUrl}`);
-
-        const latestTermsResponse = await axios.get(latestTermsUrl, {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-
-        if (latestTermsResponse.data && latestTermsResponse.data._id) {
-          const latestTermsId = latestTermsResponse.data._id;
-          
-          const usersResponse = await axios.get(`/api/terms/agreed-users/${latestTermsId}`, {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
+        let apiUrl = '';
+        if (agreementType === 'all_customers') {
+          // New API call for the "All Customers" option
+          apiUrl = `/api/terms/all-agreements?userType=Customer`;
+          // console.log(`Fetching all customer agreements from: ${apiUrl}`);
+          const allAgreementsResponse = await axios.get(apiUrl, {
+            headers: { Authorization: `Bearer ${token}` }
           });
-          setAgreements(usersResponse.data);
+          setAgreements(allAgreementsResponse.data);
         } else {
-          setAgreements([]);
+          // Existing logic for 'agents' and specific 'tour' T&Cs
+          const latestTermsUrl = `/api/terms/latest?type=${agreementType}${agreementType === 'tour' ? `&tourId=${tourId}` : ''}`;
+          // console.log(`Fetching latest terms from: ${latestTermsUrl}`);
+          const latestTermsResponse = await axios.get(latestTermsUrl, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+
+          if (latestTermsResponse.data && latestTermsResponse.data._id) {
+            const latestTermsId = latestTermsResponse.data._id;
+            const usersResponse = await axios.get(`/api/terms/agreed-users/${latestTermsId}`, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            setAgreements(usersResponse.data);
+          } else {
+            setAgreements([]);
+          }
         }
       } catch (e) {
         console.error("Error fetching agreements:", e);
@@ -69,12 +74,14 @@ const ViewAgreements = () => {
   const handleViewDetails = async (agreement) => {
     setError(null);
     try {
-      const termsResponse = await axios.get(`/api/terms/${agreement.termsId}`);
-
-      setSelectedAgreement({
-        ...agreement,
-        termsDetails: termsResponse.data,
-      });
+      // If we already have the termsDetails (from the new all_customers route), use it
+      if (agreement.termsDetails) {
+        setSelectedAgreement({ ...agreement, termsDetails: agreement.termsDetails });
+      } else {
+        // Otherwise, fetch it using the old method
+        const termsResponse = await axios.get(`/api/terms/${agreement.termsId}`);
+        setSelectedAgreement({ ...agreement, termsDetails: termsResponse.data });
+      }
     } catch (e) {
       console.error("Error fetching detailed agreement:", e);
       setError("Failed to load agreement details.");
@@ -184,6 +191,8 @@ const ViewAgreements = () => {
             >
               <option value="agents">Agents</option>
               <option value="tour">Customers (Tour T&C)</option>
+              {/* New option to view all customer agreements */}
+              <option value="all_customers">All Customers</option>
             </select>
             {agreementType === 'tour' && (
               <div className="ml-4">
@@ -220,6 +229,11 @@ const ViewAgreements = () => {
                 There are no agent agreements to display at this time.
               </p>
             )}
+             {agreementType === 'all_customers' && (
+              <p className="mt-2 text-gray-500">
+                There are no customer agreements to display at this time.
+              </p>
+            )}
           </div>
         ) : (
           <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200">
@@ -236,14 +250,14 @@ const ViewAgreements = () => {
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       User Type
                     </th>
-                    {agreementType === 'tour' && (
+                    {agreementType !== 'agents' && (
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Tour T&C ID
+                        T&C Document ID
                       </th>
                     )}
-                    {/* <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      User ID
-                    </th> */}
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Email
+                    </th>
                     <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
@@ -261,14 +275,14 @@ const ViewAgreements = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {agreement.userType || 'N/A'}
                       </td>
-                      {agreementType === 'tour' && (
+                      {agreementType !== 'agents' && (
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
                           {agreement.termsId || 'N/A'}
                         </td>
                       )}
-                      {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
-                        {agreement._id || 'N/A'}
-                      </td> */}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {agreement.email || 'N/A'}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-center">
                         <button
                           onClick={() => handleViewDetails(agreement)}

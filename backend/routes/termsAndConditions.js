@@ -77,24 +77,6 @@ router.get('/default', async (req, res) => {
   }
 });
 
-// Get a specific terms and conditions document by its ID
-router.get('/:termsId', async (req, res) => {
-  const { termsId } = req.params;
-
-  try {
-    const terms = await TermsAndConditions.findById(termsId);
-
-    if (!terms) {
-      return res.status(404).json({ message: 'Terms and conditions document not found.' });
-    }
-
-    res.json(terms);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error.' });
-  }
-});
-
 // Record a user's agreement to the latest T&Cs for a specific type (and tourId if applicable)
 router.post('/agree', authenticate, async (req, res) => {
   const { userId, userType, type, tourId } = req.body;
@@ -312,6 +294,75 @@ router.get('/users/:userId', async (req, res) => {
     }
 
     res.json(user);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error.' });
+  }
+});
+
+router.get('/all-agreements', authenticateSuperAdmin, async (req, res) => {
+  const { userType } = req.query;
+
+  if (!userType) {
+    return res.status(400).json({ message: 'Missing userType parameter.' });
+  }
+
+  try {
+    // Find all UserAgreement documents for the given userType
+    const agreements = await UserAgreement.find({ userType });
+
+    if (!agreements || agreements.length === 0) {
+      return res.status(404).json({ message: `No agreements found for user type: ${userType}.` });
+    }
+
+    const agreementsWithDetails = [];
+    for (const agreement of agreements) {
+      let userDetails = null;
+
+      // Fetch user details based on userType and userId
+      switch (agreement.userType) {
+        case 'SuperAdmin':
+          userDetails = await SuperAdmin.findById(agreement.userId);
+          break;
+        case 'Agent':
+          userDetails = await Agent.findById(agreement.userId);
+          break;
+        case 'Customer':
+          userDetails = await Customer.findById(agreement.userId);
+          break;
+      }
+      
+      const termsDetails = await TermsAndConditions.findById(agreement.termsId);
+
+      if (userDetails && termsDetails) {
+        agreementsWithDetails.push({
+          ...agreement._doc,
+          name: userDetails.name,
+          email: userDetails.email,
+          termsDetails: termsDetails,
+        });
+      }
+    }
+
+    res.json(agreementsWithDetails);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error while fetching all agreements.' });
+  }
+});
+
+// Get a specific terms and conditions document by its ID
+router.get('/:termsId', async (req, res) => {
+  const { termsId } = req.params;
+
+  try {
+    const terms = await TermsAndConditions.findById(termsId);
+
+    if (!terms) {
+      return res.status(404).json({ message: 'Terms and conditions document not found.' });
+    }
+
+    res.json(terms);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error.' });
