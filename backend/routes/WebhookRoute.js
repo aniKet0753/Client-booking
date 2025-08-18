@@ -127,51 +127,49 @@ router.post('/', express.json({ verify: (req, res, buf) => { req.rawBody = buf; 
             }
             
             // --- NEW T&C AGREEMENT LOGIC ADDED HERE ---
-            // --- NEW T&C AGREEMENT LOGIC ADDED HERE ---
-try {
-  let query = { type: 'tour' };
-  if (tourID) {
-    query.tourId = tourID;
-  } else {
-    query.tourId = null;
-  }
+            try {
+            let query = { type: 'tour' };
+            if (tourID) {
+                query.tourId = tourID;
+            } else {
+                query.tourId = null;
+            }
 
-  const latestTerms = await TermsAndConditions.findOne(query);
+            const latestTerms = await TermsAndConditions.findOne(query);
 
-  if (!latestTerms) {
-    console.warn(`No terms and conditions found for type: tour and tourId: ${tourID}. Skipping T&C agreement record.`);
-  } else {
-    // Correctly extract the customer ID, ensuring it exists
-    const customerId = existingBooking.customer.id;
+            if (!latestTerms) {
+                console.warn(`No terms and conditions found for type: tour and tourId: ${tourID}. Skipping T&C agreement record.`);
+            } else {
+                // Correctly extract the customer ID, ensuring it exists
+                const customerId = existingBooking.customer.id;
 
-    if (!customerId) {
-        console.warn(`Customer ID not found in booking ${existingBooking.bookingID}. Skipping T&C agreement record.`);
-        // Exit the T&C block gracefully without throwing an error
-    } else {
-        const existingAgreement = await UserAgreement.findOne({
-            userId: customerId,
-            userType: 'Customer',
-            termsId: latestTerms._id,
-        });
+                if (!customerId) {
+                    console.warn(`Customer ID not found in booking ${existingBooking.bookingID}. Skipping T&C agreement record.`);
+                    // Exit the T&C block gracefully without throwing an error
+                } else {
+                    const existingAgreement = await UserAgreement.findOne({
+                        userId: customerId,
+                        userType: 'Customer',
+                        termsId: latestTerms._id,
+                    });
 
-        if (existingAgreement) {
-            console.log('User has already agreed to the latest T&C for this tour.');
-        } else {
-            const newAgreement = new UserAgreement({
-                userId: customerId,
-                userType: 'Customer',
-                termsId: latestTerms._id,
-            });
+                    if (existingAgreement) {
+                        console.log('User has already agreed to the latest T&C for this tour.');
+                    } else {
+                        const newAgreement = new UserAgreement({
+                            userId: customerId,
+                            userType: 'Customer',
+                            termsId: latestTerms._id,
+                        });
 
-            await newAgreement.save();
-            console.log(`New T&C agreement recorded for customer ${customerId} and terms ID ${latestTerms._id}.`);
-        }
-    }
-  }
-} catch (err) {
-  console.error('Error during T&C agreement process:', err);
-}
-// --- END OF NEW T&C AGREEMENT LOGIC ---
+                        await newAgreement.save();
+                        console.log(`New T&C agreement recorded for customer ${customerId} and terms ID ${latestTerms._id}.`);
+                    }
+                }
+            }
+            } catch (err) {
+            console.error('Error during T&C agreement process:', err);
+            }
             // --- END OF NEW T&C AGREEMENT LOGIC ---
 
             existingBooking.status = 'confirmed';

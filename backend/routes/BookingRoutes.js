@@ -10,15 +10,17 @@ const Customer = require('../models/Customer');
 const mongoose = require('mongoose');
 
 const createBooking = async (req, res) => {
+    console.log(req.body); 
+
   try {
-    const { bookingID, status, bookingDate, tour, customer, travelers, agent } = req.body;
+    const { bookingID, status, bookingDate, tour, customer, travelers, agent, packageRates, payment, utrNumber } = req.body;
 
     console.log(req.body); 
     console.log("req.body data is above");
 
     // Basic validation
     if (
-      !bookingID || !tour || !customer || !customer.name || !customer.email ||
+      !bookingID || !tour || !packageRates || !payment || !customer || !customer.name || !customer.email ||
       !req.user || !req.user.id || !travelers || !Array.isArray(travelers) || travelers.length === 0
     ) {
       return res.status(400).json({ error: 'Missing required booking fields.' });
@@ -94,7 +96,7 @@ const createBooking = async (req, res) => {
       existingBooking.customer = customerData; // ✅ Ensure id is set
       existingBooking.travelers = travelers;
       existingBooking.agent = agent;
-
+      existingBooking.utrNumber = utrNumber || existingBooking.utrNumber;
       const updatedBooking = await existingBooking.save();
       console.log("✅ Updated booking:", updatedBooking.bookingID);
       return res.status(200).json(updatedBooking);
@@ -109,11 +111,14 @@ const createBooking = async (req, res) => {
       customer: customerData,
       travelers,
       agent,
-      payment: {
-        totalAmount: 0,
-        paidAmount: 0,
-        paymentStatus: 'Pending',
-      },
+      payment
+      // : {
+      //   totalAmount: 0,
+      //   paidAmount: 0,
+      //   paymentStatus: 'Pending',
+      // }
+      ,
+      packageRates
     });
 
     const savedBooking = await newBooking.save();
