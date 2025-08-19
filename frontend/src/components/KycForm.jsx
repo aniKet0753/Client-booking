@@ -1930,7 +1930,24 @@ const CustomerForm = () => {
                                             <Info label="Disability" value={formData.disability || 'None'} icon={<FaWheelchair className="text-gray-400" />} />
                                             <Info label="Medical Condition" value={formData.medicalCondition || 'None'} icon={<FaHeartbeat className="text-gray-400" />} />
                                             <Info label="Medical Insurance" value={formData.medicalInsurance === 'yes' ? 'Yes' : 'No'} icon={<FaShieldAlt className="text-gray-400" />} />
-                                            <Info label="Home Address" value={formData.homeAddress} icon={<FaHome className="text-gray-400" />} />
+                                            <Info
+                                                label="Home Address"
+                                                value={
+                                                    formData.homeAddress
+                                                        ? [
+                                                            formData.homeAddress.flatNo,
+                                                            formData.homeAddress.locality,
+                                                            formData.homeAddress.city,
+                                                            formData.homeAddress.pincode,
+                                                            formData.homeAddress.ps,
+                                                            formData.homeAddress.state
+                                                        ]
+                                                            .filter(Boolean)
+                                                            .join(', ')
+                                                        : 'Not provided'
+                                                }
+                                                icon={<FaHome className="text-gray-400" />}
+                                            />
                                         </div>
                                     </div>
 
