@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import MainLogo from '../../public/main-logo.png'; // Ensure this path is correct
-import { motion } from 'framer-motion';
+import { motion, number } from 'framer-motion';
 import axios from '../api'; // Ensure this path is correct for your axios instance
 import { z } from 'zod';
 import {
@@ -56,8 +56,21 @@ const sectionASchema = z.object({
     gender: z.string().min(1, 'Gender is required'),
     phone: z.string().min(1, 'Primary Phone is required'),
     aadhar: z.string().min(1, 'Aadhar Card Number is required'),
-    homeAddress: z.string().min(1, 'Complete Address is required'),
-    pin: z.string().min(1, 'PIN Number is required'), // <-- Added line
+    homeAddress: z.object({
+        flatNo: z.string().optional(),
+        locality: z.string().optional(),
+        city: z.string().optional(),
+        pincode: z.string().optional(),
+        ps: z.string().optional(),
+        state: z.string().optional(),
+
+        altPhone: z.string().optional(),
+        emergency: z.string().optional(),
+        disability: z.string().optional(),
+        medicalCondition: z.string().optional(),
+        medicalInsurance: z.string().optional(),
+    }).optional(),
+    // pin: z.string().min(1, 'PIN Number is required'), // <-- Added line
     pan: z.string().min(1, 'PAN Card Number is required'),
     email: z.string().email('Invalid email format').min(1, 'Email is required'),
 });
@@ -156,7 +169,19 @@ const CustomerForm = () => {
         disability: '',
         medicalCondition: '',
         medicalInsurance: 'no',
-        homeAddress: '',
+        homeAddress: {
+            flatNo: '',
+            locality: '',
+            city: '',
+            pincode: '',
+            ps: '',
+            state: '',
+            altPhone: '',
+            emergencyContact: '',
+            disability: 'None',
+            medicalCondition: 'None',
+            medicalInsurance: 'no'
+        },
         pin: '', // <-- Added line
         // aadharFront: null,
         // aadharBack: null,
@@ -385,7 +410,7 @@ const CustomerForm = () => {
             getBooking();
         }
     }, [tourID, token, role]);
-
+console.log(tour);
     const saveBooking = async () => {
         setIsSubmitting(true);
         try {
@@ -400,6 +425,9 @@ const CustomerForm = () => {
                 idType: passenger.idType,
                 idNumber: passenger.idNumber
             }));
+
+            const totalAmountWithoutGST = Number(tour.packageRates.adultRate) * Number(formData.numPersons) +
+                        (Number(formData.numChildren) > 0 ? Number(tour.packageRates.childRate) * Number(formData.numChildren) : 0);
 
             const bookingData = {
 
@@ -429,6 +457,15 @@ const CustomerForm = () => {
                     agentID: formData.agentID,
                     // name: formData.agentName,
                 } : null,
+                packageRates: {
+                    adultRate: tour.packageRates.adultRate,
+                    childRate: tour.packageRates.childRate
+                },
+                payment: {
+                    totalAmount: (totalAmountWithoutGST) * (100 + tour.GST)/100,
+                    paidAmount: 0,
+                    paymentStatus: 'Pending',
+                }
             };
 
             const response = await axios.post('/api/bookings', bookingData, {
@@ -483,6 +520,12 @@ const CustomerForm = () => {
                     tourGivenOccupancy,
                     tourStartDate,
                     GST: tour.GST,
+                    numAdults: formData.numPersons,
+                    numChildren :formData.numChildren,
+                    packageRates: {
+                        adultRate: tour.packageRates.adultRate,
+                        childRate: tour.packageRates.childRate,
+                    },
                     // customer: customerData,
                     // travelers: allTravelersForPayment, // Send all travelers
                 },
@@ -578,8 +621,21 @@ const CustomerForm = () => {
     // --- Handlers ---
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-        setErrors(prev => ({ ...prev, [name]: undefined }));
+
+        if (name.startsWith('homeAddress.')) {
+            const field = name.split('.')[1];
+            setFormData(prev => ({
+                ...prev,
+                homeAddress: {
+                    ...prev.homeAddress,
+                    [field]: value
+                }
+            }));
+            setErrors(prev => ({ ...prev, [name]: undefined }));
+        } else {
+            setFormData(prev => ({ ...prev, [name]: value }));
+            setErrors(prev => ({ ...prev, [name]: undefined }));
+        }
     };
 
     const handleFileChange = (e) => {
@@ -1106,48 +1162,243 @@ const CustomerForm = () => {
 
                                 {/* Residential Address */}
                                 <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-
                                     <div className="flex items-center mb-4">
                                         <FaHome className="text-blue-500 mr-2" />
                                         <h3 className="text-lg font-semibold text-gray-700">Residential Address</h3>
                                     </div>
 
                                     <div className="space-y-4">
-                                        <div className="relative">
-                                            <label htmlFor="pin" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                                                PIN Code <span className="text-red-500 ml-1">*</span>
-                                                {errors.pin && <FaExclamationCircle className="ml-2 text-red-500 text-xs" />}
-                                            </label>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {/* Flat/House No */}
                                             <div className="relative">
+                                                <label htmlFor="homeAddress.flatNo" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                                    Flat/House No <span className="text-red-500 ml-1">*</span>
+                                                    {errors['homeAddress.flatNo'] && <FaExclamationCircle className="ml-2 text-red-500 text-xs" />}
+                                                </label>
                                                 <input
                                                     type="text"
-                                                    id="pin"
-                                                    name="pin"
-                                                    value={formData.pin}
+                                                    id="homeAddress.flatNo"
+                                                    name="homeAddress.flatNo"
+                                                    value={formData.homeAddress.flatNo}
                                                     onChange={handleChange}
-                                                    placeholder="Enter your PIN code"
-                                                    className={`w-full px-4 py-2 pl-10 border ${errors.pin ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
+                                                    placeholder="e.g., A-202"
+                                                    className={`w-full px-4 py-2 border ${errors['homeAddress.flatNo'] ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
                                                 />
-                                                <FaHome className="absolute left-3 top-3 text-gray-400" />
+                                                {errors['homeAddress.flatNo'] && (
+                                                    <p className="text-red-500 text-xs mt-1 flex items-center">
+                                                        <FaInfoCircle className="mr-1" /> {errors['homeAddress.flatNo']}
+                                                    </p>
+                                                )}
                                             </div>
-                                            {errors.pin && <p className="text-red-500 text-xs mt-1 flex items-center"><FaInfoCircle className="mr-1" /> {errors.pin}</p>}
+
+                                            {/* Locality/Area */}
+                                            <div className="relative">
+                                                <label htmlFor="homeAddress.locality" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                                    Locality/Area <span className="text-red-500 ml-1">*</span>
+                                                    {errors['homeAddress.locality'] && <FaExclamationCircle className="ml-2 text-red-500 text-xs" />}
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="homeAddress.locality"
+                                                    name="homeAddress.locality"
+                                                    value={formData.homeAddress.locality}
+                                                    onChange={handleChange}
+                                                    placeholder="e.g., Koramangala"
+                                                    className={`w-full px-4 py-2 border ${errors['homeAddress.locality'] ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
+                                                />
+                                                {errors['homeAddress.locality'] && (
+                                                    <p className="text-red-500 text-xs mt-1 flex items-center">
+                                                        <FaInfoCircle className="mr-1" /> {errors['homeAddress.locality']}
+                                                    </p>
+                                                )}
+                                            </div>
                                         </div>
-                                        
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {/* City */}
+                                            <div className="relative">
+                                                <label htmlFor="homeAddress.city" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                                    City <span className="text-red-500 ml-1">*</span>
+                                                    {errors['homeAddress.city'] && <FaExclamationCircle className="ml-2 text-red-500 text-xs" />}
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="homeAddress.city"
+                                                    name="homeAddress.city"
+                                                    value={formData.homeAddress.city}
+                                                    onChange={handleChange}
+                                                    placeholder="e.g., Bangalore"
+                                                    className={`w-full px-4 py-2 border ${errors['homeAddress.city'] ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
+                                                />
+                                                {errors['homeAddress.city'] && (
+                                                    <p className="text-red-500 text-xs mt-1 flex items-center">
+                                                        <FaInfoCircle className="mr-1" /> {errors['homeAddress.city']}
+                                                    </p>
+                                                )}
+                                            </div>
+
+                                            {/* Pincode */}
+                                            <div className="relative">
+                                                <label htmlFor="homeAddress.pincode" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                                    Pincode <span className="text-red-500 ml-1">*</span>
+                                                    {errors['homeAddress.pincode'] && <FaExclamationCircle className="ml-2 text-red-500 text-xs" />}
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="homeAddress.pincode"
+                                                    name="homeAddress.pincode"
+                                                    value={formData.homeAddress.pincode}
+                                                    onChange={handleChange}
+                                                    placeholder="6-digit pincode"
+                                                    className={`w-full px-4 py-2 border ${errors['homeAddress.pincode'] ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
+                                                />
+                                                {errors['homeAddress.pincode'] && (
+                                                    <p className="text-red-500 text-xs mt-1 flex items-center">
+                                                        <FaInfoCircle className="mr-1" /> {errors['homeAddress.pincode']}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {/* Police Station */}
+                                            <div className="relative">
+                                                <label htmlFor="homeAddress.ps" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                                    Police Station <span className="text-red-500 ml-1">*</span>
+                                                    {errors['homeAddress.ps'] && <FaExclamationCircle className="ml-2 text-red-500 text-xs" />}
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="homeAddress.ps"
+                                                    name="homeAddress.ps"
+                                                    value={formData.homeAddress.ps}
+                                                    onChange={handleChange}
+                                                    placeholder="Nearest police station"
+                                                    className={`w-full px-4 py-2 border ${errors['homeAddress.ps'] ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
+                                                />
+                                                {errors['homeAddress.ps'] && (
+                                                    <p className="text-red-500 text-xs mt-1 flex items-center">
+                                                        <FaInfoCircle className="mr-1" /> {errors['homeAddress.ps']}
+                                                    </p>
+                                                )}
+                                            </div>
+
+                                            {/* State */}
+                                            <div className="relative">
+                                                <label htmlFor="homeAddress.state" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                                    State <span className="text-red-500 ml-1">*</span>
+                                                    {errors['homeAddress.state'] && <FaExclamationCircle className="ml-2 text-red-500 text-xs" />}
+                                                </label>
+                                                <select
+                                                    id="homeAddress.state"
+                                                    name="homeAddress.state"
+                                                    value={formData.homeAddress.state}
+                                                    onChange={handleChange}
+                                                    className={`w-full px-4 py-2 border ${errors['homeAddress.state'] ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
+                                                >
+                                                    <option value="">Select State</option>
+                                                    <option value="West Bengal">West Bengal</option>
+                                                    <option value="Maharashtra">Maharashtra</option>
+                                                    <option value="Karnataka">Karnataka</option>
+                                                    <option value="Tamil Nadu">Tamil Nadu</option>
+                                                    <option value="Uttar Pradesh">Uttar Pradesh</option>
+                                                </select>
+                                                {errors['homeAddress.state'] && (
+                                                    <p className="text-red-500 text-xs mt-1 flex items-center">
+                                                        <FaInfoCircle className="mr-1" /> {errors['homeAddress.state']}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Non-mandatory fields */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {/* Alternate Phone */}
+                                            <div className="relative">
+                                                <label htmlFor="homeAddress.altPhone" className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Alternate Phone
+                                                </label>
+                                                <input
+                                                    type="tel"
+                                                    id="homeAddress.altPhone"
+                                                    name="homeAddress.altPhone"
+                                                    value={formData.homeAddress.altPhone}
+                                                    onChange={handleChange}
+                                                    placeholder="Alternative contact number"
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                                />
+                                            </div>
+
+                                            {/* Emergency Contact */}
+                                            <div className="relative">
+                                                <label htmlFor="homeAddress.emergencyContact" className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Emergency Contact
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="homeAddress.emergencyContact"
+                                                    name="homeAddress.emergencyContact"
+                                                    value={formData.homeAddress.emergencyContact}
+                                                    onChange={handleChange}
+                                                    placeholder="Emergency contact person"
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {/* Disability */}
+                                            <div className="relative">
+                                                <label htmlFor="homeAddress.disability" className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Disability
+                                                </label>
+                                                <select
+                                                    id="homeAddress.disability"
+                                                    name="homeAddress.disability"
+                                                    value={formData.homeAddress.disability}
+                                                    onChange={handleChange}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                                >
+                                                    <option value="None">None</option>
+                                                    <option value="Physical">Physical</option>
+                                                    <option value="Visual">Visual</option>
+                                                    <option value="Hearing">Hearing</option>
+                                                    <option value="Other">Other</option>
+                                                </select>
+                                            </div>
+
+                                            {/* Medical Condition */}
+                                            <div className="relative">
+                                                <label htmlFor="homeAddress.medicalCondition" className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Medical Condition
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="homeAddress.medicalCondition"
+                                                    name="homeAddress.medicalCondition"
+                                                    value={formData.homeAddress.medicalCondition}
+                                                    onChange={handleChange}
+                                                    placeholder="Any medical conditions"
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Medical Insurance */}
                                         <div className="relative">
-                                            <label htmlFor="homeAddress" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                                                Complete Address <span className="text-red-500 ml-1">*</span>
-                                                {errors.homeAddress && <FaExclamationCircle className="ml-2 text-red-500 text-xs" />}
+                                            <label htmlFor="homeAddress.medicalInsurance" className="block text-sm font-medium text-gray-700 mb-1">
+                                                Medical Insurance
                                             </label>
-                                            <textarea
-                                                id="homeAddress"
-                                                name="homeAddress"
-                                                value={formData.homeAddress}
+                                            <select
+                                                id="homeAddress.medicalInsurance"
+                                                name="homeAddress.medicalInsurance"
+                                                value={formData.homeAddress.medicalInsurance}
                                                 onChange={handleChange}
-                                                rows="4"
-                                                placeholder="Your full residential address"
-                                                className={`w-full px-4 py-2 border ${errors.homeAddress ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-                                            ></textarea>
-                                            {errors.homeAddress && <p className="text-red-500 text-xs mt-1 flex items-center"><FaInfoCircle className="mr-1" /> {errors.homeAddress}</p>}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                            >
+                                                <option value="no">No</option>
+                                                <option value="yes">Yes</option>
+                                            </select>
                                         </div>
                                     </div>
                                 </div>
@@ -1697,7 +1948,24 @@ const CustomerForm = () => {
                                             <Info label="Disability" value={formData.disability || 'None'} icon={<FaWheelchair className="text-gray-400" />} />
                                             <Info label="Medical Condition" value={formData.medicalCondition || 'None'} icon={<FaHeartbeat className="text-gray-400" />} />
                                             <Info label="Medical Insurance" value={formData.medicalInsurance === 'yes' ? 'Yes' : 'No'} icon={<FaShieldAlt className="text-gray-400" />} />
-                                            <Info label="Home Address" value={formData.homeAddress} icon={<FaHome className="text-gray-400" />} />
+                                            <Info
+                                                label="Home Address"
+                                                value={
+                                                    formData.homeAddress
+                                                        ? [
+                                                            formData.homeAddress.flatNo,
+                                                            formData.homeAddress.locality,
+                                                            formData.homeAddress.city,
+                                                            formData.homeAddress.pincode,
+                                                            formData.homeAddress.ps,
+                                                            formData.homeAddress.state
+                                                        ]
+                                                            .filter(Boolean)
+                                                            .join(', ')
+                                                        : 'Not provided'
+                                                }
+                                                icon={<FaHome className="text-gray-400" />}
+                                            />
                                         </div>
                                     </div>
 
@@ -1815,7 +2083,7 @@ const CustomerForm = () => {
                                             <FaExclamationTriangle className="text-yellow-500 mt-1 mr-3 flex-shrink-0" />
                                             <div>
                                                 <p className="text-sm text-yellow-700">
-                                                    I understand that after saving this form, I will be redirected to the terms & conditions page. <br /> 
+                                                    I understand that after saving this form, I will be redirected to the terms & conditions page. <br />
                                                     <strong>Important:</strong>  If you are an agent so after saving the form, please go back, copy the URL, and send the KYC link to the customer to verify.
                                                 </p>
                                             </div>

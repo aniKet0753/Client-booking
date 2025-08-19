@@ -53,6 +53,7 @@ function formatTourForResponse(tour) {
         gallery: tour.gallery && Array.isArray(tour.gallery)
                    ? tour.gallery.map(imgBase64 => `data:image/jpeg;base64,${imgBase64}`)
                    : [],
+        packageRates: tour.packageRates, // Include package rates
         createdAt: tour.createdAt,
         updatedAt: tour.updatedAt
     };

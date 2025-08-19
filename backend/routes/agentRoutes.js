@@ -70,6 +70,7 @@ function formatTourForResponse(tour) {
         gallery: tour.gallery && Array.isArray(tour.gallery)
                    ? tour.gallery.map(imgBase64 => `data:image/jpeg;base64,${imgBase64}`)
                    : [],
+        packageRates: tour.packageRates, // Include package rates
         createdAt: tour.createdAt,
         updatedAt: tour.updatedAt
     };
@@ -164,22 +165,38 @@ async function generateWalletID(name) {
   return walletID;
 }
 
+function parsePhoneNumber(phone_number){
+  if (!phone_number) return null;
+  //To get only last 10 digits phone number
+  phone_number = phone_number.substring(phone_number.length - 10);
+  return phone_number;
+}
+
+// router.get('/test', async (req, res) => {
+//   phone_number = parsePhoneNumber(req.body.phone_number);
+//   res.send(`Parsed phone number: ${phone_number}`);
+// });
+
 router.post('/register', multiUpload, async (req, res) => {
     try {
         console.log(req.body);
         const { name, gender, dob, phone_calling, phone_whatsapp, email, aadhar_card, aadhaarPhotoBack, aadhaarPhotoFront, pan_card,
            panCardPhoto, password, profession, income, office_address, permanent_address, exclusive_zone, banking_details, parentAgent } = req.body;
         
+        const trimedPhoneWhatsapp = phone_whatsapp.trim();
+        const parsedPhoneWhatsapp = parsePhoneNumber(trimedPhoneWhatsapp);
+
         const trimmedPhone = phone_calling.trim();
+        const parsedPhoneNumber = parsePhoneNumber(trimmedPhone);
         const trimmedEmail = email.trim().toLowerCase();
         const trimmedAadhar = aadhar_card.trim();
-          console.log(parentAgent)
+        console.log(parentAgent)
         // --- Start of Modified Logic ---
 
         // Check for existing agent by phone, email, or Aadhar card
         let existingAgent = await Agent.findOne({
             $or: [
-                { phone_calling: trimmedPhone },
+                { phone_calling: parsedPhoneNumber },
                 { email: trimmedEmail },
                 { aadhar_card: trimmedAadhar }
             ]
@@ -192,7 +209,7 @@ router.post('/register', multiUpload, async (req, res) => {
                 // The rest of the logic will proceed to update this existingAgent
             } else {
                 // If an agent exists and status is not 'rejected', block registration
-                if (existingAgent.phone_calling === trimmedPhone) {
+                if (existingAgent.phone_calling === parsedPhoneNumber) {
                     if (existingAgent.status === 'pending') {
                         return res.status(400).json({ error: 'Already applied with this phone number.' });
                     }
@@ -283,8 +300,8 @@ router.post('/register', multiUpload, async (req, res) => {
             gender,
             dob,
             age: calculateAge(dob),
-            phone_calling: trimmedPhone, // Ensure trimmed phone is saved
-            phone_whatsapp,
+            phone_calling: parsedPhoneNumber, // Ensure trimmed phone is saved
+            phone_whatsapp: parsedPhoneWhatsapp,
             email: trimmedEmail, // Ensure trimmed email is saved
             aadhar_card: trimmedAadhar, // Ensure trimmed Aadhar is saved
             pan_card,

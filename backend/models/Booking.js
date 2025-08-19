@@ -65,11 +65,7 @@ const bookingSchema = new mongoose.Schema({
         },
         phone: {
             type: String,
-            description: "Phone number of the customer"
-        },
-        address: {
-            type: String,
-            description: "Full address of the customer"
+            description: "Primary Phone number of the customer"
         },
         altPhone: String,
         dob: String,
@@ -81,14 +77,19 @@ const bookingSchema = new mongoose.Schema({
         disability: String,
         medicalCondition: String,
         medicalInsurance: String,
-        // New fields for the customer's address and emergency contact
-        emergencyContact: { type: String, default: 'N/A' },
-        flatNo: { type: String, default: 'N/A' },
-        locality: { type: String, default: 'N/A' },
-        city: { type: String, default: 'N/A' },
-        pincode: { type: String, default: 'N/A' },
-        ps: { type: String, default: 'N/A' },
-        state: { type: String, default: 'N/A' },
+        homeAddress: {
+            flatNo: { type: String, default: 'N/A' },
+            locality: { type: String, default: 'N/A' },
+            city: { type: String, default: 'N/A' },
+            pincode: { type: String, default: 'N/A' },
+            ps: { type: String, default: 'N/A' },
+            state: { type: String, default: 'N/A' },
+            altPhone: String,
+            emergencyContact: String,
+            disability: String,
+            medicalCondition: String,
+            medicalInsurance: String,
+        },
     },
     travelers: [
         {

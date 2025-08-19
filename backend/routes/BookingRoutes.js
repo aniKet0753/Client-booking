@@ -19,13 +19,16 @@ const createBooking = async (req, res) => {
     console.log("req.body data is above");
 
     // Basic validation
+    if(!payment){
+      return res.status(400).json({ error: 'Payment details are required.' });
+    }
     if (
       !bookingID || !tour || !packageRates || !payment || !customer || !customer.name || !customer.email ||
       !req.user || !req.user.id || !travelers || !Array.isArray(travelers) || travelers.length === 0
     ) {
       return res.status(400).json({ error: 'Missing required booking fields.' });
     }
-
+//pay_R7KM5PVD5OJyeP
     // Validate agent if provided
     if (agent) {
       const agentDetails = await Agent.findOne({ agentID: agent.agentID });
