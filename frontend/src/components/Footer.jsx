@@ -1,13 +1,41 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { FaPhone, FaEnvelope, FaMapMarkerAlt } from "react-icons/fa";
-import { Link } from "react-router-dom"; // Make sure you have react-router-dom installed
-import MainLogo from '../../public/Images/main-logo-03.svg'
+import { Link } from "react-router-dom";
+import MainLogo from '../../public/Images/main-logo-03.svg';
+import axios from '../api'; // Import axios instance
 
 const Footer = () => {
+  // State to hold the dynamic contact info
+  const [contactData, setContactData] = useState({
+    phone: '+1 (555) 123-4567',
+    email: 'support@travelease.com',
+    address: '123 Travel Street, City, Country'
+  });
+
+  // useEffect to fetch data on component mount
+  useEffect(() => {
+    const fetchContactInfo = async () => {
+      try {
+        const response = await axios.get('/api/contact-content');
+        if (response.data) {
+          setContactData({
+            phone: response.data.phone,
+            email: response.data.email,
+            address: response.data.address
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching contact info for footer:", error);
+        // On error, the default values will remain, so the section won't be empty.
+      }
+    };
+
+    fetchContactInfo();
+  }, []); // The empty array ensures this effect runs only once
+
   return (
     <footer className="bg-[#111827] text-gray-300 py-10 pb-0">
-      <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-5 gap-8"> {/* Changed to 5 columns */}
-
+      <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-5 gap-8">
         {/* Left Section - Company Info */}
         <div className="flex flex-col space-y-4">
           <img src={MainLogo} alt="Company Logo" className="w-28 filter brightness-0 invert" />
@@ -50,12 +78,12 @@ const Footer = () => {
           </ul>
         </div>
 
-        {/* Contact Info */}
+        {/* Contact Info (Dynamic) */}
         <div>
           <h2 className="text-white font-semibold text-lg mb-3">Contact Info</h2>
-          <p className="flex items-center gap-2 mb-5"><FaPhone /> +1 (555) 123-4567</p>
-          <p className="flex items-center gap-2 mb-5"><FaEnvelope /> support@travelease.com</p>
-          <p className="flex items-center gap-2 mb-5"><FaMapMarkerAlt /> 123 Travel Street, City, Country</p>
+          <p className="flex items-center gap-2 mb-5"><FaPhone /> {contactData.phone}</p>
+          <p className="flex items-center gap-2 mb-5"><FaEnvelope /> {contactData.email}</p>
+          <p className="flex items-center gap-2 mb-5"><FaMapMarkerAlt /> {contactData.address}</p>
         </div>
       </div>
       <div className="h-14 bg-[#0B111C] mt-9"></div>

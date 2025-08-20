@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import ReactSwitch from 'react-switch'; // This might be removed or adapted
 import axios from '../api';
-import { MessageSquare, Printer, Search, Filter, User, Info, Home, Banknote, FileText, X, Save, Eye, CheckCircle, XCircle } from "lucide-react"; // Added CheckCircle, XCircle
+import { useNavigate } from 'react-router-dom';
+import ReactSwitch from 'react-switch';
+import { MessageSquare, Printer, Search, Filter, User, Info, Home, Banknote, FileText, X, Save, Eye, CheckCircle, XCircle } from "lucide-react";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -55,20 +56,16 @@ const AgentRequests = () => {
   const [activeTab, setActiveTab] = useState('profile');
 
   const token = localStorage.getItem('Token');
+  const navigate = useNavigate();
 
   // --- Effect Hook for Fetching Only Pending Agents ---
   useEffect(() => {
     const fetchPendingAgents = async () => {
       setLoading(true);
       try {
-        // Assuming your backend supports filtering by status,
-        // or we filter after fetching all if not.
-        // For this example, we'll fetch all and filter client-side.
-        // Ideally, you'd have an endpoint like '/api/admin/agents?status=pending'
-        const res = await axios.get('/api/admin/all-agents', { // Consider changing this endpoint if your API supports status filtering
+        const res = await axios.get('/api/admin/all-agents', {
           headers: { Authorization: `Bearer ${token}` },
         });
-        // Filter agents to only show those with 'pending' status
         setUsers(res.data.agents.filter(agent => agent.status === 'pending') || []);
       } catch (error) {
         console.error('Failed to fetch pending agents:', error);
@@ -268,18 +265,20 @@ const AgentRequests = () => {
       addRow('Parent Email', parentAgentprofile.email || '');
     }
 
-    // Permanent Address
+    // Updated Permanent Address keys
     addRow('--- Permanent Address ---', '');
-    addRow('House No', profile.permanent_address?.house_no || '');
-    addRow('Road No', profile.permanent_address?.road_no || '');
-    addRow('Flat Name', profile.permanent_address?.flat_name || '');
+    addRow('Flat No', profile.permanent_address?.flatNo || '');
+    addRow('Locality', profile.permanent_address?.locality || '');
+    addRow('City', profile.permanent_address?.city || '');
     addRow('Pincode (Permanent)', profile.permanent_address?.pincode || '');
-    addRow('Village (Permanent)', profile.permanent_address?.village || '');
-    addRow('District (Permanent)', profile.permanent_address?.district || '');
+    addRow('Police Station', profile.permanent_address?.ps || '');
     addRow('State (Permanent)', profile.permanent_address?.state || '');
-    addRow('Thana (Permanent)', profile.permanent_address?.thana || '');
-    addRow('Post Office (Permanent)', profile.permanent_address?.post_office || '');
-
+    addRow('Alternate Phone', profile.permanent_address?.altPhone || '');
+    addRow('Emergency Contact', profile.permanent_address?.emergencyContact || '');
+    addRow('Disability', profile.permanent_address?.disability || '');
+    addRow('Medical Condition', profile.permanent_address?.medicalCondition || '');
+    addRow('Medical Insurance', profile.permanent_address?.medicalInsurance || '');
+    
     // Exclusive Zones
     if (profile.exclusive_zone && profile.exclusive_zone.length > 0) {
       addRow('--- Exclusive Zones ---', '');
@@ -385,15 +384,13 @@ const AgentRequests = () => {
           <Home className="mr-2" size={18} /> Permanent Address
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <p><span className="font-medium">House No:</span> {profile.permanent_address?.house_no || 'N/A'}</p>
-          <p><span className="font-medium">Road No:</span> {profile.permanent_address?.road_no || 'N/A'}</p>
-          <p><span className="font-medium">Flat Name:</span> {profile.permanent_address?.flat_name || 'N/A'}</p>
+          {/* Updated keys to match the schema */}
+          <p><span className="font-medium">Flat/House No:</span> {profile.permanent_address?.flatNo || 'N/A'}</p>
+          <p><span className="font-medium">Locality/Road No:</span> {profile.permanent_address?.locality || 'N/A'}</p>
+          <p><span className="font-medium">City:</span> {profile.permanent_address?.city || 'N/A'}</p>
           <p><span className="font-medium">Pincode:</span> {profile.permanent_address?.pincode || 'N/A'}</p>
-          <p><span className="font-medium">Village:</span> {profile.permanent_address?.village || 'N/A'}</p>
-          <p><span className="font-medium">District:</span> {profile.permanent_address?.district || 'N/A'}</p>
+          <p><span className="font-medium">Police Station:</span> {profile.permanent_address?.ps || 'N/A'}</p>
           <p><span className="font-medium">State:</span> {profile.permanent_address?.state || 'N/A'}</p>
-          <p><span className="font-medium">Thana:</span> {profile.permanent_address?.thana || 'N/A'}</p>
-          <p><span className="font-medium">Post Office:</span> {profile.permanent_address?.post_office || 'N/A'}</p>
         </div>
       </div>
 
@@ -500,9 +497,8 @@ const AgentRequests = () => {
         <h2 className="text-2xl font-bold text-gray-800">Pending Agent Requests</h2>
         <div className="flex items-center text-sm text-gray-600">
           <span className="bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full mr-2">
-            {users.length} pending requests {/* Updated text */}
+            {users.length} pending requests
           </span>
-          {/* Removed approved and rejected counts from here as only pending are displayed */}
         </div>
       </div>
 
@@ -522,7 +518,7 @@ const AgentRequests = () => {
               type="text"
               placeholder={
                 filterBy === 'location'
-                  ? `Search by ${filterBy}: village, district, state`
+                  ? `Search by ${filterBy}: city, locality, state`
                   : `Search by ${filterBy}`
               }
               className="border rounded-md pl-10 pr-4 py-2 w-full focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -568,9 +564,10 @@ const AgentRequests = () => {
                   if (filterBy === 'name') {
                     return user.name?.toLowerCase().includes(searchValue);
                   } else if (filterBy === 'location') {
+                    // Updated filter logic for consistency
                     return (
-                      user.permanent_address?.village?.toLowerCase().includes(searchValue) ||
-                      user.permanent_address?.district?.toLowerCase().includes(searchValue) ||
+                      user.permanent_address?.locality?.toLowerCase().includes(searchValue) ||
+                      user.permanent_address?.city?.toLowerCase().includes(searchValue) ||
                       user.permanent_address?.state?.toLowerCase().includes(searchValue)
                     );
                   } else if (filterBy === 'phone') {
@@ -595,7 +592,6 @@ const AgentRequests = () => {
                           className="w-10 h-10 rounded-full object-cover"
                         />
                         <div className="absolute -bottom-1 -right-1">
-                          {/* Only show badge if status is pending, though all should be pending here */}
                           <StatusBadge status={user.status} />
                         </div>
                       </div>
@@ -609,7 +605,7 @@ const AgentRequests = () => {
                     <div className="flex items-center space-x-4 w-full sm:w-auto justify-between sm:justify-normal">
                       <div className="text-right sm:text-left">
                         <p className="text-sm text-gray-600">
-                          {user.permanent_address?.district || 'Location not set'}
+                          {user.permanent_address?.city || 'Location not set'}
                         </p>
                         <p className="text-xs text-gray-400">
                           Joined: {getReadableDate(user.createdAt)?.customFormat || 'N/A'}

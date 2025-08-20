@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import MainLogo from '../../public/main-logo.png'; // Ensure this path is correct
-import { motion } from 'framer-motion';
+import { motion, number } from 'framer-motion';
 import axios from '../api'; // Ensure this path is correct for your axios instance
 import { z } from 'zod';
 import {
@@ -410,7 +410,7 @@ const CustomerForm = () => {
             getBooking();
         }
     }, [tourID, token, role]);
-
+console.log(tour);
     const saveBooking = async () => {
         setIsSubmitting(true);
         try {
@@ -425,6 +425,9 @@ const CustomerForm = () => {
                 idType: passenger.idType,
                 idNumber: passenger.idNumber
             }));
+
+            const totalAmountWithoutGST = Number(tour.packageRates.adultRate) * Number(formData.numPersons) +
+                        (Number(formData.numChildren) > 0 ? Number(tour.packageRates.childRate) * Number(formData.numChildren) : 0);
 
             const bookingData = {
 
@@ -454,6 +457,15 @@ const CustomerForm = () => {
                     agentID: formData.agentID,
                     // name: formData.agentName,
                 } : null,
+                packageRates: {
+                    adultRate: tour.packageRates.adultRate,
+                    childRate: tour.packageRates.childRate
+                },
+                payment: {
+                    totalAmount: (totalAmountWithoutGST) * (100 + tour.GST)/100,
+                    paidAmount: 0,
+                    paymentStatus: 'Pending',
+                }
             };
 
             const response = await axios.post('/api/bookings', bookingData, {
@@ -508,6 +520,12 @@ const CustomerForm = () => {
                     tourGivenOccupancy,
                     tourStartDate,
                     GST: tour.GST,
+                    numAdults: formData.numPersons,
+                    numChildren :formData.numChildren,
+                    packageRates: {
+                        adultRate: tour.packageRates.adultRate,
+                        childRate: tour.packageRates.childRate,
+                    },
                     // customer: customerData,
                     // travelers: allTravelersForPayment, // Send all travelers
                 },
@@ -521,7 +539,7 @@ const CustomerForm = () => {
 
             const paymentUrl = response.data.url;
             const uniqueId = crypto.randomUUID();
-            const termsUrl = `${window.location.origin}/terms/${uniqueId}?redirect=${encodeURIComponent(paymentUrl)}`;
+            const termsUrl = `${window.location.origin}/terms/tour/${tourID}/${uniqueId}?redirect=${encodeURIComponent(paymentUrl)}`;
             setTermsLink(termsUrl);
 
             window.location.href = termsUrl;

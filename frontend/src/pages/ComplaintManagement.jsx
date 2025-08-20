@@ -45,6 +45,7 @@ const SuperadminComplaints = () => {
       const res = await axios.get(url, {
         headers: { Authorization: `Bearer ${localStorage.getItem('Token')}` }
       });
+      console.log(res)
       setComplaints(Array.isArray(res.data) ? res.data : []);
 
       if (selectedComplaint) {

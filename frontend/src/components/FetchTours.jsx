@@ -241,6 +241,12 @@ function FetchTours() {
                 </p>
                 <p className="text-sm text-gray-600">
                   <FontAwesomeIcon icon={faClock} className="mr-2 text-gray-400" />
+                  Tour ID: {tour.tourID ? `${tour.tourID}` : 'Not specified'}
+                </p>
+                <h6 className="text-sm font-semibold text-gray-800"></h6>
+
+                <p className="text-sm text-gray-600">
+                  <FontAwesomeIcon icon={faClock} className="mr-2 text-gray-400" />
                   Occupancy: {tour.occupancy ? `${tour.occupancy} people` : 'NA'}
                 </p>
                 <p className="text-sm text-gray-600">

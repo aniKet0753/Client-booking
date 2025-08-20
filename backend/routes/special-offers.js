@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const SpecialOffer = require('../models/SpecialOffer');
+const authenticateSuperAdmin = require('../middleware/authSuperadminMiddleware');
 
 // GET all special offers
 router.get('/', async (req, res) => {
@@ -14,7 +15,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST a new special offer with a Base64 encoded image
-router.post('/', async (req, res) => {
+router.post('/', authenticateSuperAdmin, async (req, res) => {
     try {
         const { title, description, image, validity, badge, isActive } = req.body;
 
@@ -36,7 +37,7 @@ router.post('/', async (req, res) => {
 });
 
 // PUT to update a special offer
-router.put('/:id', async (req, res) => {
+router.put('/:id', authenticateSuperAdmin, async (req, res) => {
     try {
         const updatedOffer = await SpecialOffer.findByIdAndUpdate(
             req.params.id,
@@ -55,7 +56,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // DELETE a special offer
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authenticateSuperAdmin, async (req, res) => {
     try {
         const deletedOffer = await SpecialOffer.findByIdAndDelete(req.params.id);
         if (!deletedOffer) {

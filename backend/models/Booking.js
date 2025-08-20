@@ -21,7 +21,7 @@ const bookingSchema = new mongoose.Schema({
         description: "Date and time the booking was made"
     },
     tour: {
-        tourID: { type: mongoose.Schema.Types.ObjectId, required: true }, // Tour ID reference
+        tourID: { type: mongoose.Schema.Types.ObjectId, required: true },
         name: { type: String, required: true },
         image: { type: String, required: true },
         categoryType: { type: String, required: true },
@@ -38,25 +38,21 @@ const bookingSchema = new mongoose.Schema({
         inclusions: [{ type: String }],
         exclusions: [{ type: String }],
         thingsToPack: [{ type: String }],
-        itinerary: [
-        {
+        itinerary: [{
             dayNumber: { type: Number, required: true },
             title: { type: String, required: true },
             description: { type: String },
-            activities: [ // Array of activity objects
-            {
+            activities: [{
                 type: { type: String, required: true },
                 title: { type: String, required: true },
                 description: String,
                 time: String
-            }
-            ]
-        }
-        ],
+            }]
+        }],
         gallery: [{ type: String }]
     },
     customer: {
-        id:{ type: mongoose.Schema.Types.ObjectId , required: true},
+        id: { type: mongoose.Schema.Types.ObjectId, required: true },
         name: {
             type: String,
             required: true,
@@ -69,11 +65,7 @@ const bookingSchema = new mongoose.Schema({
         },
         phone: {
             type: String,
-            description: "Phone number of the customer"
-        },
-        address: {
-            type: String,
-            description: "Full address of the customer"
+            description: "Primary Phone number of the customer"
         },
         altPhone: String,
         dob: String,
@@ -85,37 +77,53 @@ const bookingSchema = new mongoose.Schema({
         disability: String,
         medicalCondition: String,
         medicalInsurance: String,
+        homeAddress: {
+            flatNo: { type: String, default: 'N/A' },
+            locality: { type: String, default: 'N/A' },
+            city: { type: String, default: 'N/A' },
+            pincode: { type: String, default: 'N/A' },
+            ps: { type: String, default: 'N/A' },
+            state: { type: String, default: 'N/A' },
+            altPhone: String,
+            emergencyContact: String,
+            disability: String,
+            medicalCondition: String,
+            medicalInsurance: String,
+        },
     },
     travelers: [
-        {   
-            // _id: mongoose.Schema.Types.ObjectId, // Add _id for each traveler to identify them uniquely
+        {
             name: { type: String, required: true },
             age: { type: Number, required: true },
             gender: { type: String, enum: ['male', 'female', 'other'], required: true },
             idType: { type: String },
             idNumber: { type: String },
-            // --- New fields for traveler-specific cancellation ---
             cancellationRequested: { type: Boolean, default: false },
             cancellationApproved: { type: Boolean, default: false },
             cancellationRejected: { type: Boolean, default: false },
-            cancellationReason: { type: String }, // Optional: Reason for cancellation
-            // ----------------------------------------------------
+            cancellationReason: { type: String },
+            // New fields for traveler's ID documents and type
+            isChild: { type: Boolean, default: false }, // To distinguish adults from children
+            idProof: { type: String }, // Path to the Aadhar/PAN document
         }
     ],
     payment: {
         totalAmount: {
             type: Number,
             required: false,
+            default: 0,
             description: "Total amount of the booking"
         },
         paidAmount: {
             type: Number,
             required: false,
+            default: 0,
             description: "Amount already paid by the customer"
         },
         paymentStatus: {
             type: String,
             required: false,
+            default: 'Pending',
             enum: ['Paid', 'Pending', 'Refunded', 'Failed'],
             description: "Status of the payment"
         },
@@ -139,7 +147,15 @@ const bookingSchema = new mongoose.Schema({
                 item: { type: String, required: false },
                 amount: { type: Number, required: false }
             }
-        ]
+        ],
+        // New fields for bank details and refund amount
+        refundAmount: { type: Number, default: 0 },
+        bankDetails: {
+            bankName: String,
+            accountHolderName: String,
+            bankAccountNo: String,
+            ifscCode: String,
+        }
     },
     agent: {
         agentID: {
@@ -155,18 +171,22 @@ const bookingSchema = new mongoose.Schema({
             description: "Commission amount for the agent"
         }
     },
-    // Main booking cancellation flags (kept for overall booking status)
     cancellationRequested: { type: Boolean, default: false },
     cancellationApproved: { type: Boolean, default: false },
     cancellationRejected: { type: Boolean, default: false },
-    cancellationReason: { type: String }
-
+    cancellationReason: { type: String },
+    // New fields
+    packageRates: {
+    adultRate: { type: Number, default: 0 },
+    childRate: { type: Number, default: 0 }
+    },
+    utrNumber: { type: String, default: 'N/A' }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Booking', bookingSchema);
 
-
 // const mongoose = require('mongoose');
+
 
 // const bookingSchema = new mongoose.Schema({
 //     bookingID: {
@@ -255,7 +275,8 @@ module.exports = mongoose.model('Booking', bookingSchema);
 //         medicalInsurance: String,
 //     },
 //     travelers: [
-//         {   _id: mongoose.Schema.Types.ObjectId, // Add _id for each traveler to identify them uniquely
+//         {   
+//             // _id: mongoose.Schema.Types.ObjectId, // Add _id for each traveler to identify them uniquely
 //             name: { type: String, required: true },
 //             age: { type: Number, required: true },
 //             gender: { type: String, enum: ['male', 'female', 'other'], required: true },
@@ -309,7 +330,7 @@ module.exports = mongoose.model('Booking', bookingSchema);
 //         ]
 //     },
 //     agent: {
-//         agentId: {
+//         agentID: {
 //             type: String,
 //             description: "ID of the booking agent"
 //         },
@@ -331,3 +352,4 @@ module.exports = mongoose.model('Booking', bookingSchema);
 // }, { timestamps: true });
 
 // module.exports = mongoose.model('Booking', bookingSchema);
+

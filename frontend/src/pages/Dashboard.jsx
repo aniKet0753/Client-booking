@@ -8,7 +8,6 @@ import EditAnyTour from '../components/EditAnyTour';
 import AgentRequests from '../components/AgentRequest';
 import Account from '../components/Account';
 import CancellationRequests from '../components/CancellationRequests';
-import TermsAndConditionsNew from '../pages/EditTermsAndConditions';
 import CheckBooking from '../components/CheckBooking';
 import ForumModeration from '../pages/ForumModeration';
 import MasterDataDashboard from '../pages/MasterDataDashboard';
@@ -22,6 +21,9 @@ import EditGrievance from './EditGrievance';
 import EditCancellationPolicy from './EditCancellationPolicy';
 import AdminSpecialOffers from './AdminSpecialOffers';
 import AttractionsEditPage from './AttractionsEditPage';
+import ViewAgreements from '../components/viewAgreements';
+import EditTermsConditions from './EditTermsConditions';
+
 
 function Dashboard() {
   const [view, setView] = useState('dashboard');
@@ -43,8 +45,8 @@ function Dashboard() {
         return <Account/>
       case 'cancellations':
         return <CancellationRequests />;
-      case 'terms':
-        return <TermsAndConditionsNew />;
+      case 'EditTermsConditions':
+        return <EditTermsConditions />;
       case 'checkBooking':
         return <CheckBooking />;
       case 'forumModeration':
@@ -65,6 +67,8 @@ function Dashboard() {
         return <AdminBlogList/>;
       case 'treeView':
         return <AgentTreeViewer/>;
+      case 'viewAgreements':
+        return <ViewAgreements/>;
       case 'editGrievance':
         return <EditGrievance/>;
       case 'editCancellation':

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Attraction = require('../models/Attraction');
-
+const authenticateSuperAdmin = require('../middleware/authSuperadminMiddleware');
 // GET all attractions
 router.get('/', async (req, res) => {
     try {
@@ -15,7 +15,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST a new attraction with a Base64 encoded image
-router.post('/', async (req, res) => {
+router.post('/', authenticateSuperAdmin, async (req, res) => {
     try {
         console.log("object")
         const { title, description, icon, image } = req.body;
@@ -36,7 +36,7 @@ router.post('/', async (req, res) => {
 });
 
 // PUT to update an attraction
-router.put('/:id', async (req, res) => {
+router.put('/:id', authenticateSuperAdmin, async (req, res) => {
     try {
         const updatedAttraction = await Attraction.findByIdAndUpdate(
             req.params.id,
@@ -55,7 +55,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // DELETE an attraction
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authenticateSuperAdmin, async (req, res) => {
     try {
         const deletedAttraction = await Attraction.findByIdAndDelete(req.params.id);
         if (!deletedAttraction) {

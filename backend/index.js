@@ -57,6 +57,7 @@ app.use('/api/cancellation-policy', require('./routes/cancellationPolicy'));
 app.use('/api/terms', require('./routes/termsAndConditions'));
 app.use('/api/special-offers', require('./routes/special-offers'));
 app.use('/api/attractions', require('./routes/attractions'));
+app.use('/api/customer-dump', require('./dumps/customer-dump'));
 // app.use("/api/webhook", webhookRoute);
 // app.use('/api/admin', require('./routes/SuperAdminRoutes'));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

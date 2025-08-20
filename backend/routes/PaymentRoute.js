@@ -9,13 +9,15 @@ const razorpay = new Razorpay({
 
 router.post('/', async (req, res) => {
   try {
-    const { bookingID, agentID, tourID, tourName, tourPricePerHead, tourActualOccupancy, tourGivenOccupancy, tourStartDate, GST } = req.body;
+    const { bookingID, agentID, tourID, tourName, tourPricePerHead, tourActualOccupancy, tourGivenOccupancy, tourStartDate, GST, numChildren, numAdults, packageRates } = req.body;
     console.log("Req body:", req.body);
     // console.log(req.body.tourSchema.itinerary);
     console.log(tourStartDate);
     console.log( (tourPricePerHead * tourGivenOccupancy) * ((100+GST)/100) * 100);
 
-    const totalAmount = tourPricePerHead * Number(tourGivenOccupancy); // in ₹
+    // const totalAmount = tourPricePerHead * Number(tourGivenOccupancy); // in ₹
+    const totalAmount = (packageRates.adultRate * numAdults) + (numChildren > 0 ? (packageRates.childRate * numChildren) : 0); // in ₹
+    console.log("Total Amount:", totalAmount);
     const gstAmount = (totalAmount * GST) / 100;
     const finalAmount = totalAmount + gstAmount;
 
@@ -49,6 +51,9 @@ router.post('/', async (req, res) => {
   } catch (error) {
     console.error('Error generating Razorpay link:', error);
     const description = error?.error?.description || 'Failed to generate Razorpay link';
+    if(description.includes('amount exceeds maximum amount allowed.')){
+      return res.status(400).json({ error: 'Your booking amount exceeds the maximum transaction limit allowed by Razorpay. Kindly reduce the number of passengers or split your booking into multiple transactions.' });
+    }
     res.status(500).json({ error: description });
   }
 });

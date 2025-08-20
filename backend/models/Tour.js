@@ -21,6 +21,10 @@ const tourSchema = new mongoose.Schema({
     country: { type: String, required: true },
     tourType: { type: String, required: true },
     pricePerHead: { type: Number, required: true },
+    packageRates: {
+        adultRate: { type: Number, required: true },
+        childRate: { type: Number, required: true },
+    },
     GST: { type: Number, required: true },
     duration: { type: Number, required: true },
     occupancy: { type: Number, required: true },

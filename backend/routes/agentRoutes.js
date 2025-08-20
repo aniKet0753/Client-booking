@@ -8,6 +8,8 @@ const Agent = require('../models/Agent');
 const Customer = require('../models/Customer');
 const Transaction = require('../models/Transaction');
 const Superadmin = require('../models/Superadmin');
+const TermsAndConditions = require('../models/TermsAndConditions');
+const UserAgreement = require('../models/UserAgreement');
 const Tour = require('../models/Tour');
 const Booking = require('../models/Booking');
 const AgentTourStats = require('../models/AgentTourStats');
@@ -68,30 +70,62 @@ function formatTourForResponse(tour) {
         gallery: tour.gallery && Array.isArray(tour.gallery)
                    ? tour.gallery.map(imgBase64 => `data:image/jpeg;base64,${imgBase64}`)
                    : [],
+        packageRates: tour.packageRates, // Include package rates
         createdAt: tour.createdAt,
         updatedAt: tour.updatedAt
     };
 }
 
-function incrementCode(code) {
-  const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  let arr = code.split('');
-  let i = arr.length - 1;
+// function incrementCode(code) {
+//   const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+//   let arr = code.split('');
+//   let i = arr.length - 1;
 
-  while (i >= 0) {
-    const index = chars.indexOf(arr[i]);
-    if (index < chars.length - 1) {
-      arr[i] = chars[index + 1];
-      break;
-    } else {
-      arr[i] = chars[0];
-      i--;
-    }
+//   while (i >= 0) {
+//     const index = chars.indexOf(arr[i]);
+//     if (index < chars.length - 1) {
+//       arr[i] = chars[index + 1];
+//       break;
+//     } else {
+//       arr[i] = chars[0];
+//       i--;
+//     }
+//   }
+
+//   if (i < 0) throw new Error('Maximum code limit reached');
+
+//   return arr.join('');
+// }
+
+function incrementCode(code) {
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+  // split into number part and letter part
+  const numPart = code.slice(0, -1); // first N-1 chars
+  const letterPart = code.slice(-1); // last char
+
+  const letterIndex = letters.indexOf(letterPart);
+
+  if (letterIndex === -1) {
+    throw new Error('Invalid letter in code');
   }
 
-  if (i < 0) throw new Error('Maximum code limit reached');
+  let newNumPart = parseInt(numPart, 10);
+  let newLetterPart;
 
-  return arr.join('');
+  if (letterIndex < letters.length - 1) {
+    // just increment the letter
+    newLetterPart = letters[letterIndex + 1];
+  } else {
+    // reset letter to 'A' and increment number
+    newLetterPart = 'A';
+    newNumPart += 1;
+  }
+
+  // pad numeric part with leading zeros to keep length same
+  const numPartStr = String(newNumPart).padStart(numPart.length, '0');
+
+  return numPartStr + newLetterPart;
 }
 
 function calculateAge(dob) {
@@ -131,22 +165,38 @@ async function generateWalletID(name) {
   return walletID;
 }
 
+function parsePhoneNumber(phone_number){
+  if (!phone_number) return null;
+  //To get only last 10 digits phone number
+  phone_number = phone_number.substring(phone_number.length - 10);
+  return phone_number;
+}
+
+// router.get('/test', async (req, res) => {
+//   phone_number = parsePhoneNumber(req.body.phone_number);
+//   res.send(`Parsed phone number: ${phone_number}`);
+// });
+
 router.post('/register', multiUpload, async (req, res) => {
     try {
         console.log(req.body);
         const { name, gender, dob, phone_calling, phone_whatsapp, email, aadhar_card, aadhaarPhotoBack, aadhaarPhotoFront, pan_card,
            panCardPhoto, password, profession, income, office_address, permanent_address, exclusive_zone, banking_details, parentAgent } = req.body;
         
+        const trimedPhoneWhatsapp = phone_whatsapp.trim();
+        const parsedPhoneWhatsapp = parsePhoneNumber(trimedPhoneWhatsapp);
+
         const trimmedPhone = phone_calling.trim();
+        const parsedPhoneNumber = parsePhoneNumber(trimmedPhone);
         const trimmedEmail = email.trim().toLowerCase();
         const trimmedAadhar = aadhar_card.trim();
-
+        console.log(parentAgent)
         // --- Start of Modified Logic ---
 
         // Check for existing agent by phone, email, or Aadhar card
         let existingAgent = await Agent.findOne({
             $or: [
-                { phone_calling: trimmedPhone },
+                { phone_calling: parsedPhoneNumber },
                 { email: trimmedEmail },
                 { aadhar_card: trimmedAadhar }
             ]
@@ -159,15 +209,28 @@ router.post('/register', multiUpload, async (req, res) => {
                 // The rest of the logic will proceed to update this existingAgent
             } else {
                 // If an agent exists and status is not 'rejected', block registration
-                if (existingAgent.phone_calling === trimmedPhone) {
+                if (existingAgent.phone_calling === parsedPhoneNumber) {
+                    if (existingAgent.status === 'pending') {
+                        return res.status(400).json({ error: 'Already applied with this phone number.' });
+                    }
                     return res.status(400).json({ error: 'An agent account with this phone number already exists.' });
                 }
+
                 if (existingAgent.email === trimmedEmail) {
+                    if (existingAgent.status === 'pending') {
+                        return res.status(400).json({ error: 'Already applied with this phone number.' });
+                    }
                     return res.status(400).json({ error: 'An agent account with this email already exists.' });
                 }
+                
+                
                 if (existingAgent.aadhar_card === trimmedAadhar) {
+                    if (existingAgent.status === 'pending') {
+                        return res.status(400).json({ error: 'Already applied with this Aadhar Card.' });
+                    }
                     return res.status(400).json({ error: 'An agent account with this Aadhar Card already exists.' });
                 }
+                
             }
         }
 
@@ -204,6 +267,7 @@ router.post('/register', multiUpload, async (req, res) => {
         let newCodeToUse;
         let walletIDToUse;
         let hashedPasswordToUse;
+        let savedAgent;
 
         if (existingAgent && existingAgent.status === 'rejected') {
             // If re-registering a rejected agent, keep existing IDs, but update password if provided
@@ -236,8 +300,8 @@ router.post('/register', multiUpload, async (req, res) => {
             gender,
             dob,
             age: calculateAge(dob),
-            phone_calling: trimmedPhone, // Ensure trimmed phone is saved
-            phone_whatsapp,
+            phone_calling: parsedPhoneNumber, // Ensure trimmed phone is saved
+            phone_whatsapp: parsedPhoneWhatsapp,
             email: trimmedEmail, // Ensure trimmed email is saved
             aadhar_card: trimmedAadhar, // Ensure trimmed Aadhar is saved
             pan_card,
@@ -260,17 +324,37 @@ router.post('/register', multiUpload, async (req, res) => {
             remarks: '' // Clear remarks on re-registration
         };
 
+        // --- New Logic: Save Terms & Conditions Agreement ---
+       
         if (existingAgent && existingAgent.status === 'rejected') {
             // Update the existing agent document
-            await Agent.findByIdAndUpdate(existingAgent._id, agentData, { new: true });
-            res.status(200).json({ message: 'Agent data updated successfully!' });
+            savedAgent = await Agent.findByIdAndUpdate(existingAgent._id, agentData, { new: true });
         } else {
             // Create a new agent document
             const newAgent = new Agent(agentData);
-            await newAgent.save();
+            savedAgent = await newAgent.save();
             lastCodeDoc.lastCode = newCodeToUse; // Update lastCode only for truly new registrations
             await lastCodeDoc.save();
-            res.status(201).json({ message: 'Agent registered successfully!' });
+        }
+
+        const latestTerms = await TermsAndConditions.findOne({ type: 'agents' }).sort({ version: -1 });
+
+        if (latestTerms) {
+          const newAgreement = new UserAgreement({
+            userId: savedAgent._id,
+            userType: 'Agent',
+            termsId: latestTerms._id,
+          });
+          await newAgreement.save();
+          console.log('Terms & conditions agreement saved successfully!');
+        } else {
+          console.warn('Could not find latest agent terms to save agreement.');
+        }
+
+        if (existingAgent && existingAgent.status === 'rejected') {
+          res.status(200).json({ message: 'Agent data updated successfully!' });
+        } else {
+          res.status(201).json({ message: 'Agent registered successfully!' });
         }
 
     } catch (error) {

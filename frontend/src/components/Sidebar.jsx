@@ -69,16 +69,16 @@ const Sidebar = ({ collapsed, setCollapsed, setView }) => {
   const businessMenu = [
     { icon: faPaperPlane, label: 'Requests', view: 'requests', badge: pendingCount },
     { icon: faPaperPlane, label: 'Tree View', view: 'treeView' },
+    { icon: faPaperPlane, label: 'View Agreements', view: 'viewAgreements' },
     { icon: faTasks, label: 'Cancellations', view: 'cancellations' }
   ];
 
   const superAdminMenu = [
-    { icon: faFileContract, label: 'Terms & Conditions', view: 'terms' },
     { icon: faChartBar, label: 'Check Booking', view: 'checkBooking' },
     { icon: faUsers, label: 'Forum Moderation', view: 'forumModeration' },
     { icon: faUsers, label: 'Master Data Dashboard', view: 'masterDataDashboard' },
     { icon: faUsers, label: 'Complaint Management', view: 'complaintManagement' },
-    { icon: faUsers, label: 'Edit Agent Terms Conditions', view: 'EditAgentTermsConditions' },
+    { icon: faFileContract, label: 'Edit Terms and Conditions', view: 'EditTermsConditions' },
     // {icons: faUsers, label: 'Edit Special Offer', view: 'AdminSpecialOffers' },
 
     {

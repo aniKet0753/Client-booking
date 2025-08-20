@@ -1,6 +1,7 @@
+//Tours Terms and Conditions Component
 import React, { useState, useEffect } from 'react';
 import axios from '../api';
-import { useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 
 function renderContent(content) {
   if (!content) return null;
@@ -89,12 +90,13 @@ export default function TermsAndConditions() {
   const [error, setError] = useState(null);
   const [accepted, setAccepted] = useState(false);
   const [searchParams] = useSearchParams();
+  const {tourID} = useParams();
   const paymentUrl = searchParams.get('redirect');
 
   useEffect(() => {
     const fetchTerms = async () => {
       try {
-        const response = await axios.get('/api/terms');
+        const response = await axios.get(`/api/terms/latest?type=tour&tourId=${tourID}`);
         setTerms(response.data);
       } catch (err) {
         setError('Failed to load terms and conditions. Please try again later.');

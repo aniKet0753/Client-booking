@@ -1,12 +1,9 @@
-//Homepage terms and conditions page
 import { useState, useEffect } from 'react';
 import axios from '../api'; // Import axios
-import Navbar from '../components/Navbar';
-import Footer from '../components/Footer';
 
-const API_URL = '/api/terms/latest?type=homepage';
+const API_URL = '/api/terms/latest?type=agents';
 
-export default function TermsConditions() {
+export default function AgentTermsConditions() {
   const [termsData, setTermsData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -35,11 +32,9 @@ export default function TermsConditions() {
   if (loading) {
     return (
       <>
-        <Navbar />
         <div className="max-w-4xl mx-auto p-6 my-5 text-center text-gray-500">
           Loading terms and conditions...
         </div>
-        <Footer />
       </>
     );
   }
@@ -47,11 +42,9 @@ export default function TermsConditions() {
   if (error) {
     return (
       <>
-        <Navbar />
         <div className="max-w-4xl mx-auto p-6 my-5 text-center text-red-500">
           Error: {error}. Could not load terms and conditions.
         </div>
-        <Footer />
       </>
     );
   }
@@ -59,18 +52,15 @@ export default function TermsConditions() {
   if (!termsData) {
     return (
       <>
-        <Navbar />
         <div className="max-w-4xl mx-auto p-6 my-5 text-center text-gray-500">
           No terms and conditions found.
         </div>
-        <Footer />
       </>
     );
   }
 
   return (
     <>
-      <Navbar />
       <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-md overflow-hidden p-6 my-5">
         <h1 className="text-2xl font-bold text-blue-600 mb-6">{termsData.mainHeader}</h1>
         
@@ -122,7 +112,6 @@ export default function TermsConditions() {
           )}
         </div>
       </div>
-      <Footer />
     </>
   );
 }

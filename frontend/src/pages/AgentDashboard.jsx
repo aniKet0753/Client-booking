@@ -8,7 +8,7 @@ import AgentTreeView from '../components/AgentTreeView';
 import CommissionHistory from '../components/CommissionHistory'; 
 import BookingHistory from '../components/BookingHistory';
 import AgentComplaints from './AgentComplaints';
-import EditAgentTermsConditions from './EditAgentTermsConditions';
+import EditAgentTermsConditions from './EditTermsConditions';
 
 function AgentDashboard() {
   const [view, setView] = useState('dashboard');

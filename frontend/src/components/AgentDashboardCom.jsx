@@ -22,14 +22,18 @@ function AgentDashboard() {
         income: '',
         office_address: '',
         permanent_address: {
-            house_no: '',
-            road_no: '',
-            flat_name: '',
+            // Updated keys to match the new schema
+            flatNo: '',
+            locality: '',
+            city: '',
             pincode: '',
-            village: '',
-            district: '',
-            police_station: '',
-            post_office: '',
+            ps: '',
+            state: '',
+            altPhone: '',
+            emergencyContact: '',
+            disability: '',
+            medicalCondition: '',
+            medicalInsurance: '',
         },
         exclusive_zone: [],
         banking_details: {
@@ -48,7 +52,7 @@ function AgentDashboard() {
 
     useEffect(() => {
         fetchMoneyHistory();
-        // fetchProfile();
+        fetchProfile();
     }, []);
 
     const fetchMoneyHistory = async () => {
@@ -281,14 +285,18 @@ function AgentDashboard() {
                 <div className="bg-white shadow-xl rounded-lg p-8 mb-8 text-black">
                     <h3 className="text-2xl font-bold text-gray-800 mb-4">Permanent Address</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className='bg-gray-200 p-2 text-black rounded'><strong>House No:</strong> {profile.permanent_address?.house_no}</div>
-                        <div className='bg-gray-200 p-2 text-black rounded'><strong>Road No:</strong> {profile.permanent_address?.road_no}</div>
-                        <div className='bg-gray-200 p-2 text-black rounded'><strong>Flat Name:</strong> {profile.permanent_address?.flat_name}</div>
+                        {/* Updated to use new keys from the corrected schema */}
+                        <div className='bg-gray-200 p-2 text-black rounded'><strong>Flat/House No:</strong> {profile.permanent_address?.flatNo}</div>
+                        <div className='bg-gray-200 p-2 text-black rounded'><strong>Locality/Area:</strong> {profile.permanent_address?.locality}</div>
+                        <div className='bg-gray-200 p-2 text-black rounded'><strong>City:</strong> {profile.permanent_address?.city}</div>
                         <div className='bg-gray-200 p-2 text-black rounded'><strong>Pincode:</strong> {profile.permanent_address?.pincode}</div>
-                        <div className='bg-gray-200 p-2 text-black rounded'><strong>Village:</strong> {profile.permanent_address?.village}</div>
-                        <div className='bg-gray-200 p-2 text-black rounded'><strong>District:</strong> {profile.permanent_address?.district}</div>
-                        <div className='bg-gray-200 p-2 text-black rounded'><strong>Police Station:</strong> {profile.permanent_address?.police_station}</div>
-                        <div className='bg-gray-200 p-2 text-black rounded'><strong>Post Office:</strong> {profile.permanent_address?.post_office}</div>
+                        <div className='bg-gray-200 p-2 text-black rounded'><strong>Police Station:</strong> {profile.permanent_address?.ps}</div>
+                        <div className='bg-gray-200 p-2 text-black rounded'><strong>State:</strong> {profile.permanent_address?.state}</div>
+                        <div className='bg-gray-200 p-2 text-black rounded'><strong>Alternate Phone:</strong> {profile.permanent_address?.altPhone}</div>
+                        <div className='bg-gray-200 p-2 text-black rounded'><strong>Emergency Contact:</strong> {profile.permanent_address?.emergencyContact}</div>
+                        <div className='bg-gray-200 p-2 text-black rounded'><strong>Disability:</strong> {profile.permanent_address?.disability}</div>
+                        <div className='bg-gray-200 p-2 text-black rounded'><strong>Medical Condition:</strong> {profile.permanent_address?.medicalCondition}</div>
+                        <div className='bg-gray-200 p-2 text-black rounded'><strong>Medical Insurance:</strong> {profile.permanent_address?.medicalInsurance}</div>
                     </div>
                 </div>
 
