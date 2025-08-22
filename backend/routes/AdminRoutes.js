@@ -493,6 +493,7 @@ router.post('/tours', authenticateSuperAdmin,
         country,
         tourType,
         pricePerHead,
+        childRate,
         GST,
         duration,
         occupancy,
@@ -507,7 +508,7 @@ router.post('/tours', authenticateSuperAdmin,
       } = req.body;
 
       // Basic validation for essential fields
-      if (!name || !categoryType || !country || !tourType || !pricePerHead || !GST ||!duration || !occupancy || !startDate || !description) {
+      if (!name || !categoryType || !country || !tourType || !pricePerHead || !childRate || !GST ||!duration || !occupancy || !startDate || !description) {
         return res.status(400).json({ message: 'Missing required tour data.' });
       }
 
@@ -549,6 +550,10 @@ router.post('/tours', authenticateSuperAdmin,
         country: country,
         tourType: tourType,
         pricePerHead: Number(pricePerHead),
+        packageRates: {
+          adultRate: Number(pricePerHead), // Assuming adult rate = price per head
+          childRate: Number(childRate),    // Child rate
+        },
         GST: Number(GST),
         duration: Number(duration),
         occupancy: Number(occupancy),
@@ -602,7 +607,7 @@ router.get('/tours', authenticateSuperAdmin, async (req, res) => {
         inclusions: tourDoc.inclusions || [],
         exclusions: tourDoc.exclusions || [],
         thingsToPack: tourDoc.thingsToPack || [],
-
+        packageRates:tourDoc.packageRates || {}, // Ensure packageRates is always an object
         // Itinerary is an array of objects
         itinerary: tourDoc.itinerary || [],
 
