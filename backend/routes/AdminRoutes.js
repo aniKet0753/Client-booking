@@ -580,6 +580,62 @@ router.post('/tours', authenticateSuperAdmin,
   }
 );
 
+router.post('/tours/create-new-expired-tour', authenticateSuperAdmin, async (req, res) => {
+  // console.log("req.body",req.body);
+  try {
+    const { originalTourID, newStartDate } = req.body;
+    if(new Date(newStartDate) < new Date()){
+      return res.status(400).json({ message: 'New start date must be in the future.' });
+    }
+    if (!originalTourID || !newStartDate) {
+      return res.status(400).json({ message: 'originalTourID and newStartDate are required.' });
+    }
+    const originalTour = await Tour.findById(originalTourID);
+    if (!originalTour) {
+      return res.status(404).json({ message: 'Original tour not found.' });
+    }
+
+    const newTour = new Tour({
+      name: originalTour.name,
+      image: originalTour.image,
+      categoryType: originalTour.categoryType,
+      country: originalTour.country,
+      tourType: originalTour.tourType,
+      pricePerHead: originalTour.pricePerHead,
+      packageRates: originalTour.packageRates,
+      GST: originalTour.GST,
+      duration: originalTour.duration,
+      occupancy: originalTour.occupancy,
+      remainingOccupancy: originalTour.occupancy, // Reset to full occupancy
+      startDate: new Date(newStartDate),
+      description: originalTour.description,
+      highlights: originalTour.highlights,
+      inclusions: originalTour.inclusions,
+      exclusions: originalTour.exclusions,
+      thingsToPack: originalTour.thingsToPack,
+      itinerary: originalTour.itinerary,
+      gallery: originalTour.gallery,
+    });
+
+    if(originalTour.canCreateNewTour === true){
+      originalTour.canCreateNewTour = false;
+    } else{
+      return res.status(400).json({ message: 'A new tour has already been created from this expired tour.' });
+    }
+    await originalTour.save();
+
+    await newTour.save();
+    console.log("New tour created successfully!")
+    res.status(201).json({ message: 'New tour created successfully!', tour: newTour });
+  } catch (error) {
+    console.error('Error creating new tour from expired:', error);
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ message: error.message, errors: error.errors });
+    }
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 router.get('/tours', authenticateSuperAdmin, async (req, res) => {
   try {
     const tourDocs = await Tour.find({});
@@ -587,6 +643,10 @@ router.get('/tours', authenticateSuperAdmin, async (req, res) => {
      const formattedTours = await Promise.all(tourDocs.map(async (tourDoc) => {
       // Check if there are any active bookings for this tour
       const hasBookings = await Booking.exists({ 'tour.tourID': tourDoc._id, status: { $in: ['pending', 'confirmed'] } });
+      const isExpired = new Date(tourDoc.startDate) < new Date();
+      const canCreateNewTour = await tourDoc.canCreateNewTour;
+      
+      console.log(canCreateNewTour);
       return {
         tourID: tourDoc._id, 
         name: tourDoc.name,
@@ -615,7 +675,9 @@ router.get('/tours', authenticateSuperAdmin, async (req, res) => {
         gallery: tourDoc.gallery && Array.isArray(tourDoc.gallery) 
                    ? tourDoc.gallery.map(imgBase64 => `data:image/jpeg;base64,${imgBase64}`) 
                    : [],
-        hasBookings: !!hasBookings // true if any booking exists
+        hasBookings: !!hasBookings, // true if any booking exists
+        isExpired: isExpired, // true if the tour start date is in the past
+        canCreateNewTour: canCreateNewTour // whether a new tour can be created from this expired one
       };
     }));
 

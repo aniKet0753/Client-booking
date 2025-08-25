@@ -38,7 +38,7 @@ function FetchTours() {
           Role: role,
         },
       });
-      console.log(token, role);
+      // console.log(token, role);
       console.log(res.data.tours);
 
       setTours(res.data.tours || []);

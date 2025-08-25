@@ -173,6 +173,7 @@ router.post('/', express.json({ verify: (req, res, buf) => { req.rawBody = buf; 
             // --- END OF NEW T&C AGREEMENT LOGIC ---
 
             existingBooking.status = 'confirmed';
+            existingBooking.utrNumber = transactionId;
             existingBooking.payment = {
                 totalAmount: parsedFinalAmount,
                 paidAmount: currentPaymentAmount,
@@ -338,7 +339,7 @@ router.post('/', express.json({ verify: (req, res, buf) => { req.rawBody = buf; 
                 finalAmount: currentPaymentAmount,
                 travelers: travelersFromBooking,
             });
-
+            
             await newTransaction.save();
             console.log('Transaction saved successfully:', newTransaction.transactionId);
             
