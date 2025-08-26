@@ -78,66 +78,72 @@ router.get('/daily-dump', async (req, res) => {
     let slCounter = 1;
 
     bookings.forEach((booking) => {
-      // Loop through each traveler (customer + co-passengers) and create a new row
       const allTravelers = [booking.customer, ...booking.travelers];
+      const adultsCount = booking.numAdults;
+      const childrenCount = booking.numChildren;
+
+      // Flag to track first row of this booking
+      let isFirstRow = true;
 
       allTravelers.forEach((traveler) => {
-        const adultsCount = booking.numAdults;
-        const childrenCount = booking.numChildren;
         const isCustomer = isMainCustomer(traveler, booking.customer.email);
 
         const rowData = {
           sl: slCounter++,
-          dateOfDump: today.toLocaleDateString(),
-          dateOfBooking: booking.createdAt.toLocaleDateString(),
-          bookingEmailId: booking.customer.email,
-          bookingId: booking.bookingID,
-          dateOfJourney: booking.tour.startDate?.toLocaleDateString() || 'N/A',
-          nameOfCustomer: isCustomer ? traveler.name : '', // Main customer name only on their row
-          coPassengers: isCustomer ? '' : traveler.name, // Co-passenger name only on their row
-          gender: traveler.gender,
-          dob: traveler.dob,
-          age: traveler.age,
-          phoneCalling: traveler.phone,
-          emergencyContact: isCustomer ? (booking.customer.emergencyContact || 'N/A') : '',
-          phoneWhatsapp: traveler.whatsapp,
-          flatNo: booking.customer.homeAddress.flatNo || 'N/A',
-          locality: booking.customer.homeAddress.locality || 'N/A',
-          city: booking.customer.homeAddress.city || 'N/A',
-          pincode: booking.customer.homeAddress.pincode || 'N/A',
-          ps: booking.customer.homeAddress.ps || 'N/A',
-          state: booking.customer.homeAddress.state || 'N/A',
-          country: booking.tour.country,
-          aadharNumber: traveler.aadhar,
-          panNumber: traveler.pan,
-          birthCertificate: traveler.birthCertificate || '', // Data not in provided schema
+          // booking-level fields only on first row
+          dateOfDump: isFirstRow ? today.toLocaleDateString() : '',
+          dateOfBooking: isFirstRow ? booking.createdAt.toLocaleDateString() : '',
+          bookingEmailId: isFirstRow ? booking.customer.email : '',
+          bookingId: isFirstRow ? booking.bookingID : '',
+          dateOfJourney: isFirstRow ? (booking.tour.startDate?.toLocaleDateString() || 'N/A') : '',
+          nameOfCustomer: isCustomer ? traveler.name : '', 
+          coPassengers: isCustomer ? '' : traveler.name, 
+          gender: traveler.gender || '',
+          dob: traveler.dob || '',
+          age: traveler.age || '',
+          phoneCalling: traveler.phone || '',
+          emergencyContact: isFirstRow ? (booking.customer.emergencyContact || 'N/A') : '',
+          phoneWhatsapp: traveler.whatsapp || '',
+          flatNo: isFirstRow ? (booking.customer.homeAddress.flatNo || 'N/A') : '',
+          locality: isFirstRow ? (booking.customer.homeAddress.locality || 'N/A') : '',
+          city: isFirstRow ? (booking.customer.homeAddress.city || 'N/A') : '',
+          pincode: isFirstRow ? (booking.customer.homeAddress.pincode || 'N/A') : '',
+          ps: isFirstRow ? (booking.customer.homeAddress.ps || 'N/A') : '',
+          state: isFirstRow ? (booking.customer.homeAddress.state || 'N/A') : '',
+          country: isFirstRow ? booking.tour.country : '',
+          aadharNumber: traveler.aadhar || '',
+          panNumber: traveler.pan || '',
+          birthCertificate: traveler.birthCertificate || '',
           disability: traveler.disability || '',
           medicalCondition: traveler.medicalCondition || '',
-          tourType: booking.tour.tourType,
-          packageSelected: booking.tour.name,
-          agentName: booking.agent?.name || '',
-          agentId: booking.agent?.agentID || '',
-          selectedTrip: booking.tour.name,
-          coPassengerCount: booking.travelers.length,
-          aadharJpg: traveler.aadharJpg || '', // Data not in provided schema
-          panJpg: traveler.panJpg || '', // Data not in provided schema
-          bankName: booking.payment?.bankName || '', // Data not in provided schema
-          accountHolderName: booking.payment?.accountHolderName || '', // Data not in provided schema
-          bankAccountNo: booking.payment?.bankAccountNo || '', // Data not in provided schema
-          ifscCode: booking.payment?.ifscCode || '', // Data not in provided schema
-          adults: adultsCount,
-          children: childrenCount,
-          adultRate: booking.packageRates?.adultRate || booking.tour.pricePerHead,
-          childRate: booking.packageRates?.childRate || 0,
-          totalPaid: booking.payment?.totalAmount || 0,
-          utrNumber: booking.utrNumber || '',
-          cancelledMembers: booking.cancelledMembers,
-          refundAmount: booking.payment?.refundAmount || 0
+          tourType: isFirstRow ? booking.tour.tourType : '',
+          packageSelected: isFirstRow ? booking.tour.name : '',
+          agentName: isFirstRow ? (booking.agent?.name || '') : '',
+          agentId: isFirstRow ? (booking.agent?.agentID || '') : '',
+          selectedTrip: isFirstRow ? booking.tour.name : '',
+          coPassengerCount: isFirstRow ? booking.travelers.length : '',
+          aadharJpg: traveler.aadharJpg || '',
+          panJpg: traveler.panJpg || '',
+          bankName: isFirstRow ? (booking.payment?.bankName || '') : '',
+          accountHolderName: isFirstRow ? (booking.payment?.accountHolderName || '') : '',
+          bankAccountNo: isFirstRow ? (booking.payment?.bankAccountNo || '') : '',
+          ifscCode: isFirstRow ? (booking.payment?.ifscCode || '') : '',
+          adults: isFirstRow ? adultsCount : '',
+          children: isFirstRow ? childrenCount : '',
+          adultRate: isFirstRow ? (booking.packageRates?.adultRate || booking.tour.pricePerHead) : '',
+          childRate: isFirstRow ? (booking.packageRates?.childRate || 0) : '',
+          totalPaid: isFirstRow ? (booking.payment?.totalAmount || 0) : '',
+          utrNumber: isFirstRow ? (booking.utrNumber || '') : '',
+          cancelledMembers: isFirstRow ? booking.cancelledMembers : '',
+          refundAmount: isFirstRow ? (booking.payment?.refundAmount || 0) : ''
         };
 
-        worksheet.addRow(rowData);
-      });
-    });
+      worksheet.addRow(rowData);
+
+    // after first traveler, switch flag off
+    isFirstRow = false;
+  });
+});
 
     // Set response headers for Excel download
     res.setHeader(
