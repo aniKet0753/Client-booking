@@ -53,6 +53,10 @@ const TourPrograms = () => {
   const [bookingError, setBookingError] = useState("");
   const [bookingSuccessMessage, setBookingSuccessMessage] = useState("");
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+
+
   const token = localStorage.getItem('Token');
   const role = localStorage.getItem('role');
 
@@ -62,6 +66,27 @@ const TourPrograms = () => {
 
   const pageTitleTourType = tourTypeFromUrl ? tourTypeFromUrl.replace(/%20/g, ' ') : 'All Tours';
   const pageTitleCategoryType = categoryTypeFromUrl ? categoryTypeFromUrl.replace(/%20/g, ' ') : '';
+
+  const handleSearch = (e) => {
+    const query = e.target.value.toLowerCase();
+    setSearchQuery(query);
+
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    const allTours = [...activeTours, ...expiredTours];
+    const filtered = allTours.filter((tour) =>
+      tour.name?.toLowerCase().includes(query) ||
+      tour.categoryType?.toLowerCase().includes(query) ||
+      tour.tourType?.toLowerCase().includes(query) ||
+      tour.country?.toLowerCase().includes(query)
+    );
+
+    setSearchResults(filtered);
+  };
+
 
 
   useEffect(() => {
@@ -137,52 +162,52 @@ const TourPrograms = () => {
         setExpiredTours(toursExpired);
 
         if (toursActive.length === 0 && toursExpired.length === 0 && (tourTypeFromUrl || categoryTypeFromUrl)) {
-            let messageToDisplay = '';
+          let messageToDisplay = '';
 
-            if (tourTypeFromUrl && categoryTypeFromUrl) {
-                // User searched for a specific tourType in a specific category
-                if (tourTypeExistsGlobally) {
-                    // Scenario A: TourType exists elsewhere, just not in this category
-                    messageToDisplay = `Currently no ${pageTitleTourType} found in the "${pageTitleCategoryType}" category. However, ${pageTitleTourType}s are available in other categories. You can explore our other tours or ${pageTitleTourType}s in other categories.`;
-                } else {
-                    // Scenario B: TourType doesn't exist anywhere in the database
-                    messageToDisplay = `Currently no ${pageTitleTourType}s are available . We are working diligently on it, and it will come soon. Meanwhile, you can explore our other tour types.`;
-                }
-            } else if (tourTypeFromUrl && !categoryTypeFromUrl) {
-                // User searched for a specific tourType without a category
-                if (tourTypeExistsGlobally) {
-                    // This case is unlikely if tourTypeExistsGlobally is true AND filteredToursByUrl is 0.
-                    // It would imply the tourType exists, but all of them are expired.
-                    // We'll handle this by showing expired tours if any, or general "no tours".
-                    messageToDisplay = `No active ${pageTitleTourType}s found. We are working diligently on it, and it will come soon. Meanwhile, you can explore other tours.`;
-                } else {
-                    // Scenario C: TourType doesn't exist anywhere (no category specified)
-                    messageToDisplay = `Currently no ${pageTitleTourType}s are available . We are working diligently on it, and it will come soon. Meanwhile, you can explore our other tour types.`;
-                }
-            } else if (categoryTypeFromUrl && !tourTypeFromUrl) {
-                // User searched for a specific category without a tourType
-                messageToDisplay = `Currently, there are no tours available in the "${pageTitleCategoryType}" category. We are working diligently on it, and it will come soon. Meanwhile, you can explore our other tours.`;
+          if (tourTypeFromUrl && categoryTypeFromUrl) {
+            // User searched for a specific tourType in a specific category
+            if (tourTypeExistsGlobally) {
+              // Scenario A: TourType exists elsewhere, just not in this category
+              messageToDisplay = `Currently no ${pageTitleTourType} found in the "${pageTitleCategoryType}" category. However, ${pageTitleTourType}s are available in other categories. You can explore our other tours or ${pageTitleTourType}s in other categories.`;
             } else {
-                // Fallback for any other filtered scenario resulting in no tours
-                messageToDisplay = `Currently, there are no tours available matching your selection. You can explore our other tours.`;
+              // Scenario B: TourType doesn't exist anywhere in the database
+              messageToDisplay = `Currently no ${pageTitleTourType}s are available . We are working diligently on it, and it will come soon. Meanwhile, you can explore our other tour types.`;
             }
+          } else if (tourTypeFromUrl && !categoryTypeFromUrl) {
+            // User searched for a specific tourType without a category
+            if (tourTypeExistsGlobally) {
+              // This case is unlikely if tourTypeExistsGlobally is true AND filteredToursByUrl is 0.
+              // It would imply the tourType exists, but all of them are expired.
+              // We'll handle this by showing expired tours if any, or general "no tours".
+              messageToDisplay = `No active ${pageTitleTourType}s found. We are working diligently on it, and it will come soon. Meanwhile, you can explore other tours.`;
+            } else {
+              // Scenario C: TourType doesn't exist anywhere (no category specified)
+              messageToDisplay = `Currently no ${pageTitleTourType}s are available . We are working diligently on it, and it will come soon. Meanwhile, you can explore our other tour types.`;
+            }
+          } else if (categoryTypeFromUrl && !tourTypeFromUrl) {
+            // User searched for a specific category without a tourType
+            messageToDisplay = `Currently, there are no tours available in the "${pageTitleCategoryType}" category. We are working diligently on it, and it will come soon. Meanwhile, you can explore our other tours.`;
+          } else {
+            // Fallback for any other filtered scenario resulting in no tours
+            messageToDisplay = `Currently, there are no tours available matching your selection. You can explore our other tours.`;
+          }
 
-            setError(
-                <NoToursFound
-                    tourType={tourTypeFromUrl}
-                    categoryType={categoryTypeFromUrl}
-                    message={messageToDisplay}
-                />
-            );
-            setLoading(false);
-            return; // Exit here if a specific "no tours found" message is set
+          setError(
+            <NoToursFound
+              tourType={tourTypeFromUrl}
+              categoryType={categoryTypeFromUrl}
+              message={messageToDisplay}
+            />
+          );
+          setLoading(false);
+          return; // Exit here if a specific "no tours found" message is set
         }
 
         // General "No tours at all" if no specific URL filters were applied OR if the above conditions didn't catch it
         if (toursActive.length === 0 && toursExpired.length === 0 && !tourTypeFromUrl && !categoryTypeFromUrl) {
-             setError(<NoToursFound tourType={tourTypeFromUrl} categoryType={categoryTypeFromUrl} message="No tours are currently available in our database. Please check back later!" />);
-             setLoading(false);
-             return;
+          setError(<NoToursFound tourType={tourTypeFromUrl} categoryType={categoryTypeFromUrl} message="No tours are currently available in our database. Please check back later!" />);
+          setLoading(false);
+          return;
         }
 
         // Calculate available months based *only* on active tours
@@ -310,7 +335,7 @@ const TourPrograms = () => {
         : selectedTourDate?.tourID === tour.tourID
           ? "border-blue-500 ring-4 ring-blue-100 cursor-pointer"
           : "border-gray-100 hover:border-blue-300 cursor-pointer"
-      }`}
+        }`}
       onClick={() => !isExpiredCard && handleTourDateClick(tour)} // Only allow click if not expired
     >
       {/* Selected badge */}
@@ -319,7 +344,7 @@ const TourPrograms = () => {
           <FaCheck className="mr-1" /> SELECTED
         </div>
       )}
-       {isExpiredCard && (
+      {isExpiredCard && (
         <div className="absolute top-3 right-3 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full z-10 flex items-center">
           <FaEye className="mr-1" /> EXPIRED
         </div>
@@ -418,15 +443,67 @@ const TourPrograms = () => {
         title={`Tour Programs - ${pageTitleCategoryType}${pageTitleCategoryType && pageTitleTourType !== 'All Tours' ? ' / ' : ''}${pageTitleTourType}`}
         backgroundImage={"https://images.unsplash.com/photo-1665048899763-7f632a78b87e?q=80&w=1935&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"}
       />
+
       <div className="flex flex-col min-h-screen relative">
         <main className="flex-grow container mx-auto px-4 py-12">
-          <div className="text-center">
-            <h1 className="xl:text-4xl text-lg font-bold text-gray-800 mb-1.5">
-            Select Your Travel Dates
-          </h1>
-          <p className="text-gray-600 mb-10">
-            Select your preferred month and available dates
-          </p>
+          <div className="flex flex-col md:flex-row justify-between items-start mb-10">
+            <div className="text-left">
+              <h1 className="xl:text-4xl text-lg font-bold text-gray-800 mb-1.5">
+                Select Your Travel Dates
+              </h1>
+              <p className="text-gray-600 mb-10">
+                Select your preferred month and available dates
+              </p>
+            </div>
+            <div className="mb-8 lg:w-2xl w-full flex-shrink-0 md:mb-0">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={handleSearch}
+                placeholder="Search tours by name, type, or location..."
+                className="w-full md:w-1/2 px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 float-right"
+              />
+            </div>
+
+          </div>
+
+          <div>
+            {searchResults.length > 0 && (
+              <>
+                <div className="bg-white p-8 rounded-lg shadow-md border border-gray-200 mb-8">
+                  <h2 className="text-2xl font-bold text-gray-800 mb-6">
+                    Search Results ({searchResults.length})
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {searchResults.map((tour) => renderTourCard(tour))}
+                  </div>
+                  <div className="flex justify-end mt-6">
+                    {selectedTourDate ? (
+                      <Link
+                        to={`/tour-itinerary/${selectedTourDate.tourID}`}
+                        className="bg-blue-700 text-white px-8 py-3 rounded-lg font-medium hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+                      >
+                        Continue
+                      </Link>
+                    ) : (
+                      <button
+                        className="bg-blue-700 text-white px-8 py-3 rounded-lg font-medium opacity-50 cursor-not-allowed"
+                        disabled
+                      >
+                        Continue
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {searchQuery && searchResults.length === 0 && (
+              <div className="bg-yellow-50 text-yellow-700 p-4 rounded-md mb-8">
+                No tours match your search.
+              </div>
+            )}
+
           </div>
 
           {loading && (
@@ -443,9 +520,9 @@ const TourPrograms = () => {
           )}
 
           {!loading && !error && activeTours.length === 0 && expiredTours.length > 0 && (
-             <div className="mt-12 text-center text-gray-600 bg-yellow-50 p-4 rounded-md">
-                No active tours found for the selected criteria. Showing expired tours below.
-             </div>
+            <div className="mt-12 text-center text-gray-600 bg-yellow-50 p-4 rounded-md">
+              No active tours found for the selected criteria. Showing expired tours below.
+            </div>
           )}
 
 
@@ -507,8 +584,8 @@ const TourPrograms = () => {
                 </div>
               )}
 
-              <div className="flex justify-between items-center mt-6 pt-6 border-t border-gray-200">
-                <div className="flex items-center space-x-4 text-sm text-gray-600">
+              <div className="flex justify-between items-center mt-6 pt-6 border-t border-gray-200 flex-wrap max-md:gap-4">
+                <div className="flex items-center space-x-4 text-sm text-gray-600 flex-wrap max-md:gap-2">
                   <div className="flex items-center">
                     <span className="w-3 h-3 bg-gray-300 rounded-full mr-2"></span>
                     <span>Unavailable</span>
