@@ -400,6 +400,12 @@ function AgentForm() {
         }
       });
 
+      // Validate account holder name should not accept any digits 
+      if (formData.banking_details.acc_holder_name && /\d/.test(formData.banking_details.acc_holder_name)) { 
+        newErrors['banking_details.acc_holder_name'] = 'Account holder name should not contain digits';
+        isValid = false;
+      }
+
       // Validate account number format
       if (formData.banking_details.acc_number && !/^\d{9,18}$/.test(formData.banking_details.acc_number.replace(/\s/g, ''))) {
         newErrors['banking_details.acc_number'] = 'Enter a valid account number (9-18 digits)';

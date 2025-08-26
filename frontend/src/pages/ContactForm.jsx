@@ -6,9 +6,8 @@ import Footer from '../components/Footer'; // Assuming this component exists
 import { FaHome, FaEnvelope, FaPhone, FaFacebookF, FaTwitter, FaLinkedinIn } from 'react-icons/fa'; // Font Awesome icons
 
 const ContactForm = () => {
-    // Loading state for UI feedback
+    // Loading state for UI feedback when fetching contact content
     const [loading, setLoading] = useState(true);
-
     // State to hold the contact page data, initialized with default values
     const [contactData, setContactData] = useState({
         heading: 'Get In Touch',
@@ -21,6 +20,19 @@ const ContactForm = () => {
         linkedinUrl: 'https://linkedin.com'
     });
 
+    // New state to manage form input values
+    const [formData, setFormData] = useState({
+        name: '',
+        email: '',
+        phone: '',
+        address: '',
+        message: ''
+    });
+
+    // New state for form submission status
+    const [submitting, setSubmitting] = useState(false);
+    const [submitStatus, setSubmitStatus] = useState(null); // 'success', 'error', or null
+
     // Effect for initial scroll to top and fetching content from backend
     useEffect(() => {
         window.scrollTo(0, 0); // Scroll to top on component mount
@@ -29,16 +41,13 @@ const ContactForm = () => {
             setLoading(true); // Start loading
             try {
                 // Make a GET request to your backend API using axios
-                const response = await axios.get('/api/contact-content'); // Adjust URL if your backend is on a different port/domain
+                const response = await axios.get('/api/contact-content');
                 console.log(response.data)
                 setContactData(response.data); // Axios automatically parses JSON
             } catch (error) {
                 console.error("Error fetching contact content:", error);
-                // Axios errors often have a 'response' object with more details
                 const errorMessage = error.response?.data?.message || error.message || "Unknown error";
                 console.error(`Detailed error: ${errorMessage}`);
-                // If fetching fails, keep the default values or show an error message
-                // For now, we'll just log the error and keep defaults.
                 setContactData({ // Revert to defaults on error
                     heading: 'Get In Touch',
                     paragraph: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut tempor ipsum dolor sit amet. labore',
@@ -57,6 +66,50 @@ const ContactForm = () => {
         fetchContactContent();
     }, []); // Empty dependency array means this runs once on mount
 
+    // Function to handle changes to form inputs
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prevFormData => ({
+            ...prevFormData,
+            [name]: value
+        }));
+    };
+
+    // New function to handle form submission
+    const handleSubmit = async (e) => {
+        e.preventDefault(); // Prevent default form behavior (page reload)
+        setSubmitting(true);
+        setSubmitStatus(null);
+
+        try {
+            // Make a POST request to send the form data
+            // You'll need to set up a corresponding endpoint in your backend
+            const response = await axios.post('/api/contact-form', formData,{
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            console.log('Form submitted successfully:', response.data);
+            setSubmitStatus('success');
+            // Optionally clear the form after successful submission
+            setFormData({
+                name: '',
+                email: '',
+                phone: '',
+                address: '',
+                message: ''
+            });
+        } catch (error) {
+            console.error('Error submitting form:', error);
+            setSubmitStatus('error');
+            const errorMessage = error.response?.data?.message || error.message || "Unknown error during submission";
+            console.error(`Detailed submission error: ${errorMessage}`);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+
     // Display a loading message while content is being fetched
     if (loading) {
         return (
@@ -67,7 +120,7 @@ const ContactForm = () => {
     }
 
     return (
-        <div className="bg-[#E8F3FF] font-sans"> {/* Added font-sans for Inter font */}
+        <div className="bg-[#E8F3FF] font-sans">
             <Navbar />
             <InnerBanner
                 title="Contact Us"
@@ -87,35 +140,91 @@ const ContactForm = () => {
                     </p>
 
                     <div className="bg-white text-black rounded-md shadow-md flex flex-col md:flex-row overflow-hidden py-8">
-                        {/* FORM SECTION (remains static as per request) */}
+                        {/* FORM SECTION */}
                         <div className="w-full md:w-2/3 p-4 sm:p-6 space-y-4">
-                            <div className="flex flex-col sm:flex-row gap-4">
-                                <div className="w-full">
-                                    <label className="block mb-1 font-semibold text-sm sm:text-base">Name</label>
-                                    <input type="text" className="w-full border border-blue-400 rounded-md px-3 py-2" />
+                            {/* Submission status message */}
+                            {submitStatus === 'success' && (
+                                <div className="p-3 bg-green-100 text-green-700 border border-green-300 rounded-md">
+                                    Thank you! Your message has been sent successfully.
                                 </div>
-                                <div className="w-full">
-                                    <label className="block mb-1 font-semibold text-sm sm:text-base">Email Address</label>
-                                    <input type="email" className="w-full border border-blue-400 rounded-md px-3 py-2" />
+                            )}
+                            {submitStatus === 'error' && (
+                                <div className="p-3 bg-red-100 text-red-700 border border-red-300 rounded-md">
+                                    Something went wrong. Please try again later.
                                 </div>
-                            </div>
-                            <div className="flex flex-col sm:flex-row gap-4">
-                                <div className="w-full">
-                                    <label className="block mb-1 font-semibold text-sm sm:text-base">Phone Number</label>
-                                    <input type="text" className="w-full border border-blue-400 rounded-md px-3 py-2" />
+                            )}
+                            <form onSubmit={handleSubmit}>
+                                <div className="flex flex-col sm:flex-row gap-4">
+                                    <div className="w-full">
+                                        <label htmlFor="name" className="block mb-1 font-semibold text-sm sm:text-base">Name</label>
+                                        <input
+                                            type="text"
+                                            id="name"
+                                            name="name"
+                                            value={formData.name}
+                                            onChange={handleChange}
+                                            className="w-full border border-blue-400 rounded-md px-3 py-2"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="w-full">
+                                        <label htmlFor="email" className="block mb-1 font-semibold text-sm sm:text-base">Email Address</label>
+                                        <input
+                                            type="email"
+                                            id="email"
+                                            name="email"
+                                            value={formData.email}
+                                            onChange={handleChange}
+                                            className="w-full border border-blue-400 rounded-md px-3 py-2"
+                                            required
+                                        />
+                                    </div>
                                 </div>
-                                <div className="w-full">
-                                    <label className="block mb-1 font-semibold text-sm sm:text-base">Address</label>
-                                    <input type="text" className="w-full border border-blue-400 rounded-md px-3 py-2" />
+                                <div className="flex flex-col sm:flex-row gap-4 mt-4">
+                                    <div className="w-full">
+                                        <label htmlFor="phone" className="block mb-1 font-semibold text-sm sm:text-base">Phone Number</label>
+                                        <input
+                                            type="text"
+                                            id="phone"
+                                            name="phone"
+                                            value={formData.phone}
+                                            onChange={handleChange}
+                                            className="w-full border border-blue-400 rounded-md px-3 py-2"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="w-full">
+                                        <label htmlFor="address" className="block mb-1 font-semibold text-sm sm:text-base">Address</label>
+                                        <input
+                                            type="text"
+                                            id="address"
+                                            name="address"
+                                            value={formData.address}
+                                            onChange={handleChange}
+                                            className="w-full border border-blue-400 rounded-md px-3 py-2"
+                                            required
+                                        />
+                                    </div>
                                 </div>
-                            </div>
-                            <div>
-                                <label className="block mb-1 font-semibold text-sm sm:text-base">Message</label>
-                                <textarea className="w-full border border-blue-400 rounded-md px-3 py-2 h-28"></textarea>
-                            </div>
-                            <button className="w-full bg-[#0D2044] text-white py-2 rounded-full text-lg font-semibold hover:bg-[#0a1835] transition duration-300">
-                                Submit
-                            </button>
+                                <div className="mt-4">
+                                    <label htmlFor="message" className="block mb-1 font-semibold text-sm sm:text-base">Message</label>
+                                    <textarea
+                                        id="message"
+                                        name="message"
+                                        value={formData.message}
+                                        onChange={handleChange}
+                                        className="w-full border border-blue-400 rounded-md px-3 py-2 h-28"
+                                        required
+                                    ></textarea>
+                                </div>
+                                <button
+                                    type="submit"
+                                    disabled={submitting}
+                                    className={`w-full text-white py-2 rounded-full text-lg font-semibold transition duration-300 ${submitting ? 'bg-gray-500 cursor-not-allowed' : 'bg-[#0D2044] hover:bg-[#0a1835]'}`}
+                                >
+                                    {submitting ? 'Submitting...' : 'Submit'}
+                                </button>
+                            </form>
                         </div>
 
                         {/* CONTACT INFO SECTION (now dynamic) */}

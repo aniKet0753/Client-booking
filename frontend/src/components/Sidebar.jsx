@@ -122,7 +122,8 @@ const Sidebar = ({ collapsed, setCollapsed, setView }) => {
       isDropdown: true,
       subItems: [
         { label: 'Contact Page', view: 'adminContactEditPage' }, // Corresponds to AdminContactEditPage.jsx
-        { label: 'About Page', view: 'adminAboutEditPage' } // Corresponds to AdminAboutEditPage.jsx
+        { label: 'About Page', view: 'adminAboutEditPage' }, // Corresponds to AdminAboutEditPage.jsx
+        { label: 'Know Us', view: 'adminKnowUsEditPage' } // Corresponds to AdminKnowUsEditPage.jsx
       ]
     }
   ];

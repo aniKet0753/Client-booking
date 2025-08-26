@@ -9,7 +9,7 @@ router.get('/daily-dump', async (req, res) => {
 
     // Example: Hardcoded range for demo
     const startOfDay = new Date('2025-04-10T00:00:00.000Z');
-    const endOfDay = new Date('2025-08-17T23:59:59.999Z');
+    const endOfDay = new Date('2025-08-30T23:59:59.999Z');
     
     // const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     // const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
@@ -131,7 +131,7 @@ router.get('/daily-dump', async (req, res) => {
           childRate: booking.packageRates?.childRate || 0,
           totalPaid: booking.payment?.totalAmount || 0,
           utrNumber: booking.utrNumber || '',
-          canceledMembers: booking.travelers.filter(t => t.cancellationApproved).map(t => t.name).join(', ') || '',
+          cancelledMembers: booking.cancelledMembers,
           refundAmount: booking.payment?.refundAmount || 0
         };
 

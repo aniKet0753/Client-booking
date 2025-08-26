@@ -12,6 +12,7 @@ function AddTour() {
         country: '',
         tourType: '',
         pricePerHead: '',
+        childRate: '',
         GST: '',
         duration: '',
         occupancy: '',
@@ -124,6 +125,7 @@ function AddTour() {
         if (!formData.categoryType) newErrors.categoryType = 'Category is required.';
         if (!formData.country) newErrors.country = 'Country is required.';
         if (!formData.pricePerHead) newErrors.pricePerHead = 'Price per head is required.';
+        if (!formData.childRate) newErrors.childRate = 'Child rate is required.';
         if (!formData.GST) newErrors.GST = 'GST% is required.';
         if (!formData.duration) newErrors.duration = 'Duration is required.';
         if (!formData.startDate) newErrors.startDate = 'Start date is required.';
@@ -180,6 +182,7 @@ function AddTour() {
         form.append('country', formData.country);
         form.append('tourType', formData.tourType);
         form.append('pricePerHead', formData.pricePerHead);
+        form.append('childRate', formData.childRate);
         form.append('GST', formData.GST);
         form.append('duration', formData.duration);
         form.append('occupancy', formData.occupancy);
@@ -233,6 +236,7 @@ function AddTour() {
                 country: '',
                 tourType: '',
                 pricePerHead: '',
+                childRate: '',
                 GST: '',
                 duration: '',
                 occupancy: '',
@@ -340,7 +344,7 @@ function AddTour() {
 
                             {/* PricePerHead */}
                             <div className="space-y-1">
-                                <label className="block font-medium text-gray-700">Price Per Head (₹)</label>
+                                <label className="block font-medium text-gray-700">Price Per Head(Adult Rate) (₹)</label>
                                 <div className="relative">
                                     <input
                                         type="number"
@@ -351,10 +355,29 @@ function AddTour() {
                                         className="w-full border border-gray-300 rounded-lg p-3 pl-10 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                     />
                                     <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-500">
-                                        <FiDollarSign />
+                                        {/* <FiDollarSign /> */}
                                     </div>
                                 </div>
                                 {errors.pricePerHead && <p className="text-red-500 text-sm mt-1">{errors.pricePerHead}</p>}
+                            </div>
+
+                            {/* Child Rate */}
+                            <div className="space-y-1">
+                                <label className="block font-medium text-gray-700">Child Rate (₹)</label>
+                                <div className="relative">
+                                    <input
+                                        type="number"
+                                        name="childRate"
+                                        value={formData.childRate}
+                                        onChange={handleChange}
+                                        placeholder="e.g., 14999"
+                                        className="w-full border border-gray-300 rounded-lg p-3 pl-10 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                    />
+                                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-500">
+                                        {/* <FiDollarSign /> */}
+                                    </div>
+                                </div>
+                                {errors.childRate && <p className="text-red-500 text-sm mt-1">{errors.childRate}</p>}
                             </div>
 
                             {/* GST */}
@@ -370,7 +393,7 @@ function AddTour() {
                                         className="w-full border border-gray-300 rounded-lg p-3 pl-10 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                     />
                                     <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-500">
-                                        <FiDollarSign />
+                                        {/* <FiDollarSign /> */}
                                     </div>
                                 </div>
                                 {errors.GST && <p className="text-red-500 text-sm mt-1">{errors.GST}</p>}

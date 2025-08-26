@@ -9,6 +9,11 @@ import {
   faClock,
   faTag,
   faInfoCircle,
+  faRupeeSign,
+  faChild,
+  faUsers,
+  faUserCheck,
+  faIdBadge
 } from '@fortawesome/free-solid-svg-icons';
 // import { Link } from 'react-router-dom';
 
@@ -33,6 +38,7 @@ function FetchTours() {
           Role: role,
         },
       });
+      // console.log(token, role);
       console.log(res.data.tours);
 
       setTours(res.data.tours || []);
@@ -216,47 +222,68 @@ function FetchTours() {
 
               <div className="p-4 space-y-3">
                 <h3 className="text-2xl font-semibold text-gray-800">{tour.name}</h3>
+
+                {/* Location */}
                 <p className="text-sm text-gray-500">
                   <FontAwesomeIcon icon={faMapMarkerAlt} className="mr-1 text-indigo-500" />
                   {tour.categoryType} | {tour.country}
                 </p>
 
+                {/* Tour Type & Price */}
                 <div className="flex flex-wrap gap-2">
                   <span className="bg-indigo-100 text-indigo-700 text-xs font-semibold px-3 py-1 rounded-full">
                     <FontAwesomeIcon icon={faTag} className="mr-2" />
                     {tour.tourType}
                   </span>
                   <span className="bg-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full">
+                    {/* <FontAwesomeIcon icon={faTag} className="mr-1" /> */}
                     ₹ {tour.pricePerHead?.toLocaleString()}
                   </span>
                 </div>
 
+                {/* Main Price */}
                 <p className="text-indigo-600 font-bold text-lg">
                   <FontAwesomeIcon icon={faTag} className="mr-2 text-indigo-500" />
                   ₹ {tour.pricePerHead}
                 </p>
+
+                {/* Child Rate */}
+                <p className="text-sm text-gray-600">
+                  <FontAwesomeIcon icon={faChild} className="mr-2 text-gray-400" />
+                  Child Rate: ₹{tour.packageRates.childRate ? `${tour.packageRates.childRate}` : 'Not specified'}
+                </p>
+
+                {/* Duration */}
                 <p className="text-sm text-gray-600">
                   <FontAwesomeIcon icon={faClock} className="mr-2 text-gray-400" />
                   Duration: {tour.duration ? `${tour.duration} days` : 'Not specified'}
                 </p>
+
+                {/* Tour ID */}
                 <p className="text-sm text-gray-600">
-                  <FontAwesomeIcon icon={faClock} className="mr-2 text-gray-400" />
+                  <FontAwesomeIcon icon={faIdBadge} className="mr-2 text-gray-400" />
                   Tour ID: {tour.tourID ? `${tour.tourID}` : 'Not specified'}
                 </p>
-                <h6 className="text-sm font-semibold text-gray-800"></h6>
 
+                {/* Occupancy */}
                 <p className="text-sm text-gray-600">
-                  <FontAwesomeIcon icon={faClock} className="mr-2 text-gray-400" />
+                  <FontAwesomeIcon icon={faUsers} className="mr-2 text-gray-400" />
                   Occupancy: {tour.occupancy ? `${tour.occupancy} people` : 'NA'}
                 </p>
+
+                {/* Remaining Occupancy */}
                 <p className="text-sm text-gray-600">
-                  <FontAwesomeIcon icon={faClock} className="mr-2 text-gray-400" />
+                  <FontAwesomeIcon icon={faUserCheck} className="mr-2 text-gray-400" />
                   Remaining Occupancy: {tour.remainingOccupancy ? `${tour.remainingOccupancy} people` : 0}
                 </p>
+
+                {/* Start Date */}
                 <p className="text-sm text-gray-600">
                   <FontAwesomeIcon icon={faCalendarAlt} className="mr-2 text-gray-400" />
                   Start: {new Date(tour.startDate).toLocaleDateString()}
                 </p>
+
+                {/* Description */}
                 <p className="text-sm text-gray-700">
                   <FontAwesomeIcon icon={faInfoCircle} className="mr-1 text-gray-400" />
                   {tour.description?.slice(0, 100)}...

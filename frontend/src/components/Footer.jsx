@@ -40,7 +40,7 @@ const Footer = () => {
         <div className="flex flex-col space-y-4">
           <img src={MainLogo} alt="Company Logo" className="w-28 filter brightness-0 invert" />
           <p className="text-sm">
-            Book 60 days in advance and save up to 40% on international flights.
+            {/* Book 60 days in advance and save up to 40% on international flights. */}
           </p>
         </div>
 

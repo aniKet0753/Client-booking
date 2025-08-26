@@ -14,6 +14,7 @@ import MasterDataDashboard from '../pages/MasterDataDashboard';
 import ComplaintManagement from '../pages/ComplaintManagement';
 import AdminContactEditPage from './AdminContactEditPage';
 import AdminAboutEditPage from './AdminAboutEditPage';
+import AdminKnowUsEditPage from './AdminKnowUsEditPage';
 import AddBlog from '../pages/AddBlog';
 import AdminBlogList from './AdminBlogList';
 import AgentTreeViewer from '../components/AgentTreeViewer';
@@ -23,7 +24,6 @@ import AdminSpecialOffers from './AdminSpecialOffers';
 import AttractionsEditPage from './AttractionsEditPage';
 import ViewAgreements from '../components/viewAgreements';
 import EditTermsConditions from './EditTermsConditions';
-
 
 function Dashboard() {
   const [view, setView] = useState('dashboard');
@@ -61,6 +61,8 @@ function Dashboard() {
         return <AdminContactEditPage/>;
       case 'adminAboutEditPage':
         return <AdminAboutEditPage/>;
+      case 'adminKnowUsEditPage':
+        return <AdminKnowUsEditPage />;
       case 'addBlogs':
         return <AddBlog/>;
       case 'editBlogs':

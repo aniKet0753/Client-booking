@@ -51,7 +51,11 @@ const Home = () => {
           </section>
           <MedicalTourism />
           <PopularTourSection />
-          <SpecialOffers />
+
+          {/* Told to keep it hidden */}
+          {/* <SpecialOffers /> */}
+
+
           {/* <FeaturedProducts /> */}
           <ContactPage />
           {/* <HomeTouristsSpots allTouristsSpot={allTouristsSpot} />

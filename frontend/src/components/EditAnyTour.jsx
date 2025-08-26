@@ -14,19 +14,23 @@ import {
   FaExclamationCircle,
   FaSync,
   FaLock,
-  FaKey
+  FaKey,
+  FaPlus,
 } from 'react-icons/fa';
 
 function EditAnyTour() {
     const [tours, setTours] = useState([]);
-    const [loading, setLoading] = useState(true); // Corrected: useState(true)
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [filterCategory, setFilterCategory] = useState('all');
     const navigate = useNavigate();
-
     const token = localStorage.getItem('Token');
     const role = localStorage.getItem('role');
+
+    // New state for the "Create New Tour" feature
+    const [showModal, setShowModal] = useState(false);
+    const [tourToRenew, setTourToRenew] = useState(null);
 
     useEffect(() => {
         const fetchTours = async () => {
@@ -39,6 +43,7 @@ function EditAnyTour() {
                         Role: role,
                     },
                 });
+                console.log(res);
                 setTours(res.data.tours);
             } catch (err) {
                 const errorMessage = err?.response?.data?.message || 'Error fetching tours.';
@@ -109,6 +114,68 @@ function EditAnyTour() {
                 }
             }
         });
+    };
+
+    // New function to handle the "Create new tour" action
+    const handleCreateNewTour = async (tourId, canCreateNewTour) => {
+        if (!canCreateNewTour) {
+            Swal.fire({
+                title: 'Tour Already Renewed!',
+                text: 'A new tour has already been created based on this expired tour.',
+                icon: 'info',
+            });
+            return;
+        }
+        const { value: newStartDate } = await Swal.fire({
+          title: 'Create new tour',
+          html: `
+            <p class="text-sm text-gray-600 mb-4">Create a new tour with the same features. Just enter the new start date.</p>
+            <input id="swal-input1" type="date" class="swal2-input">
+          `,
+          focusConfirm: false,
+          preConfirm: () => {
+            return document.getElementById('swal-input1').value;
+          }
+        });
+      
+        if (newStartDate) {
+          try {
+            const res = await axios.post(
+              '/api/admin/tours/create-new-expired-tour',
+              { originalTourID: tourId, newStartDate: newStartDate },
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  Role: role,
+                  'Content-Type': 'application/json',
+                },
+              }
+            );
+      
+            Swal.fire({
+              title: 'Success!',
+              text: res.data.message,
+              icon: 'success',
+              timer: 1500,
+              showConfirmButton: false,
+            });
+            
+            // This logic needs to be a bit more robust
+            // We should ideally update the specific tour in the state instead of refetching everything
+            const newTour = res.data.tour;
+            const updatedTours = tours.map(t =>
+                t.tourID === tourId ? { ...t, canCreateNewTour: false } : t
+            );
+            setTours([...updatedTours, newTour]);
+          } catch (err) {
+            console.error('Error creating new tour:', err);
+            Swal.fire(
+              'Error!',
+              err?.response?.data?.message || 'Failed to create new tour.',
+              'error'
+            );
+          }
+        }
     };
 
     const categories = ['all', ...new Set(tours.map(tour => tour.categoryType))];
@@ -212,7 +279,6 @@ function EditAnyTour() {
                         {filteredTours.map((tour) => (
                             <div
                                 key={tour.tourID}
-                                // Use 'group' class to allow styling of child elements on parent hover
                                 className={`group bg-white rounded-lg shadow-md overflow-hidden transition-all duration-300 border border-gray-100 relative
                                     ${tour.hasBookings ? 'opacity-60 cursor-not-allowed' : 'hover:shadow-lg'}`}
                             >
@@ -225,7 +291,6 @@ function EditAnyTour() {
                                             e.target.src = 'https://via.placeholder.com/300x200?text=Tour+Image';
                                         }}
                                     />
-                                    {/* Overlay for booked tours */}
                                     {tour.hasBookings && (
                                         <div
                                             className="absolute inset-0 bg-black bg-opacity-50 flex flex-col items-center justify-center text-white text-lg font-bold p-4"
@@ -237,66 +302,83 @@ function EditAnyTour() {
                                     <div className="absolute top-2 right-2 bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded">
                                         {tour.categoryType}
                                     </div>
+                                    {tour.isExpired && (
+                                        <div className="absolute top-2 left-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
+                                            Expired
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="p-4">
                                     <h2 className="text-xl font-semibold text-gray-800 mb-2">{tour.name}</h2>
-
-                                    {/* <div className="flex items-center text-gray-600 mb-2">
-                                        <FaKey className="mr-2 text-gray-400" />
-                                        <span>TourID: {tour.tourID}</span>
-                                    </div> */}
-
                                     <div className="flex items-center text-gray-600 mb-2">
                                         <FaMapMarkerAlt className="mr-2 text-gray-400" />
                                         <span>Country: {tour.country}</span>
                                     </div>
-
+                                    <div className="flex items-center text-gray-600 mb-2">
+                                        <FaMapMarkerAlt className="mr-2 text-gray-400" />
+                                        <span>Start Date: {new Date(tour.startDate).toLocaleDateString()}</span>
+                                    </div>
                                     <div className="flex items-center text-gray-600 mb-2">
                                         <FaMoneyBillWave className="mr-2 text-gray-400" />
                                         <span>Price: ₹{tour.pricePerHead} per person</span>
                                     </div>
-
                                     <div className="flex items-center text-gray-600 mb-4">
                                         <FaClock className="mr-2 text-gray-400" />
                                         <span>Duration: {tour.duration} days</span>
                                     </div>
-
                                     <div className="flex justify-end space-x-3">
-                                        <button
-                                            onClick={() => handleEdit(tour.tourID, tour.hasBookings)}
-                                            className={`flex items-center px-4 py-2 rounded transition ${
-                                                tour.hasBookings
-                                                ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
-                                                : 'bg-blue-500 hover:bg-blue-600 text-white'
-                                            }`}
-                                            disabled={tour.hasBookings}
-                                            // Remove title attribute from buttons if using custom tooltip on parent
-                                        >
-                                            <FaEdit className="mr-2" />
-                                            Edit Tour
-                                        </button>
-                                        <button
-                                            onClick={() => handleDelete(tour.tourID, tour.hasBookings)}
-                                            className={`flex items-center px-4 py-2 rounded transition ${
-                                                tour.hasBookings
-                                                ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
-                                                : 'bg-red-500 hover:bg-red-600 text-white'
-                                            }`}
-                                            disabled={tour.hasBookings}
-                                            // Remove title attribute from buttons if using custom tooltip on parent
-                                        >
-                                            <FaTrash className="mr-2" />
-                                            Delete
-                                        </button>
+                                        {tour.isExpired && tour.canCreateNewTour ? (
+                                            <button
+                                                onClick={() => handleCreateNewTour(tour.tourID, tour.canCreateNewTour)}
+                                                className="flex items-center px-4 py-2 rounded transition bg-green-500 hover:bg-green-600 text-white"
+                                            >
+                                                <FaPlus className="mr-2" />
+                                                Create New Tour
+                                            </button>
+                                        ) : tour.isExpired && !tour.canCreateNewTour ? (
+                                            <button
+                                                onClick={() => handleCreateNewTour(tour.tourID, tour.canCreateNewTour)}
+                                                className="flex items-center px-4 py-2 rounded transition bg-gray-400 text-gray-700 cursor-not-allowed"
+                                                disabled
+                                            >
+                                                <FaPlus className="mr-2" />
+                                                Already Renewed
+                                            </button>
+                                        ) : (
+                                            <>
+                                                <button
+                                                    onClick={() => handleEdit(tour.tourID, tour.hasBookings)}
+                                                    className={`flex items-center px-4 py-2 rounded transition ${
+                                                        tour.hasBookings
+                                                        ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
+                                                        : 'bg-blue-500 hover:bg-blue-600 text-white'
+                                                    }`}
+                                                    disabled={tour.hasBookings}
+                                                >
+                                                    <FaEdit className="mr-2" />
+                                                    Edit Tour
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(tour.tourID, tour.hasBookings)}
+                                                    className={`flex items-center px-4 py-2 rounded transition ${
+                                                        tour.hasBookings
+                                                        ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
+                                                        : 'bg-red-500 hover:bg-red-600 text-white'
+                                                    }`}
+                                                    disabled={tour.hasBookings}
+                                                >
+                                                    <FaTrash className="mr-2" />
+                                                    Delete
+                                                </button>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
-
-                                {/* Custom Tooltip for the entire card */}
-                                {tour.hasBookings && (
+                                {tour.hasBookings && !tour.isExpired && (
                                     <div className="absolute inset-0 flex items-center justify-center
                                                     bg-black bg-opacity-70 text-white p-4 text-center rounded-lg
                                                     opacity-0 group-hover:opacity-100 pointer-events-none
-                                                    transition-opacity duration-300 delay-500"> {/* Added delay here */}
+                                                    transition-opacity duration-300 delay-500">
                                         <p>Cannot edit or delete the tour. There are active bookings associated with this tour.</p>
                                     </div>
                                 )}

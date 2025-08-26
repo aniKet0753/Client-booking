@@ -75,7 +75,7 @@ const Register = () => {
         {/* Right Side Form */}
         <div className="w-full md:w-1/2 p-8">
           <h2 className="lg:text-6xl text-3xl font-bold text-[#113A5F] mb-2">Join Us Now!</h2>
-          <p className="text-black text-xl mb-6">Sign up to start your booking journey</p>
+          <p className="text-black text-xl mb-6">Customers are requested to sign up for exploring unrestricted access of tours</p>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             {/* Full Name */}

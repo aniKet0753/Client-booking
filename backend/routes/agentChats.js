@@ -148,7 +148,7 @@ router.get('/my-agent-chats', authenticate, async (req, res) => {
     .populate({
       path: 'complaintId', // Populate complaint details for context
       // *** MODIFIED: Expand select to include all necessary fields and deep populate ***
-      select: 'subject customerId agentInfo status description preferredResolution adminReplies',
+      select: 'subject customerId agentInfo status description preferredResolution adminReplies createdAt',
       populate: [
         { // Populate customerId within the complaint
           path: 'customerId',

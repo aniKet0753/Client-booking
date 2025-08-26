@@ -13,12 +13,15 @@ const createBooking = async (req, res) => {
     console.log(req.body); 
 
   try {
-    const { bookingID, status, bookingDate, tour, customer, travelers, agent, packageRates, payment, utrNumber } = req.body;
+    const { bookingID, status, bookingDate, tour, customer, travelers, agent, packageRates, payment, address, utrNumber } = req.body;
 
     console.log(req.body); 
     console.log("req.body data is above");
 
     // Basic validation
+    if(!address){
+      return res.status(400).json({ error: 'All Address details are required.' });
+    }
     if(!payment){
       return res.status(400).json({ error: 'Payment details are required.' });
     }
@@ -99,6 +102,7 @@ const createBooking = async (req, res) => {
       existingBooking.customer = customerData; // ✅ Ensure id is set
       existingBooking.travelers = travelers;
       existingBooking.agent = agent;
+      existingBooking.homeAddress = address;
       existingBooking.utrNumber = utrNumber || existingBooking.utrNumber;
       const updatedBooking = await existingBooking.save();
       console.log("✅ Updated booking:", updatedBooking.bookingID);
@@ -112,15 +116,16 @@ const createBooking = async (req, res) => {
       bookingDate: bookingDate || new Date(),
       tour,
       customer: customerData,
+      homeAddress: address,
       travelers,
       agent,
-      payment
+      payment,
       // : {
       //   totalAmount: 0,
       //   paidAmount: 0,
       //   paymentStatus: 'Pending',
       // }
-      ,
+      // ,
       packageRates
     });
 

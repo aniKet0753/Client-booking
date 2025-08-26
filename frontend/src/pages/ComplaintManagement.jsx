@@ -378,7 +378,7 @@ const SuperadminComplaints = () => {
                     onClick={() => setIsCustomerChatOpen(!isCustomerChatOpen)}
                   >
                     <h3 className="font-bold text-gray-800 flex items-center">
-                      <FiMessageSquare className="mr-2 text-blue-600" /> Customer Conversation History
+                      <FiMessageSquare className="mr-2 text-blue-600" /> Customer/Agent Conversation History
                     </h3>
                     {isCustomerChatOpen ? <FiChevronUp className="text-gray-600" /> : <FiChevronDown className="text-gray-600" />}
                   </button>
@@ -466,7 +466,7 @@ const SuperadminComplaints = () => {
                 {/* Send Response to Customer */}
                 <div>
                   <h3 className="font-bold text-gray-800 mb-3 flex items-center">
-                    <FiMessageSquare className="mr-2 text-blue-600" /> Send Response to Customer
+                    <FiMessageSquare className="mr-2 text-blue-600" /> Customer/Agent
                   </h3>
                   <textarea
                     value={replyMessage}
@@ -480,7 +480,7 @@ const SuperadminComplaints = () => {
                       onClick={() => handleReplySubmit(selectedComplaint._id)}
                       className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center shadow-md"
                     >
-                      <FiSend className="mr-2" /> Send to Customer
+                      <FiSend className="mr-2" /> Send to Customer/Agent
                     </button>
                   </div>
                 </div>
@@ -488,7 +488,7 @@ const SuperadminComplaints = () => {
                 {/* Send Message to Agent */}
                 <div>
                   <h3 className="font-bold text-gray-800 mb-3 flex items-center">
-                    <FiUsers className="mr-2 text-purple-600" /> Send Message to Agent
+                    <FiUsers className="mr-2 text-purple-600" /> Agent
                     {selectedComplaint.agentInfo?.id ? (
                         <span className="ml-2 text-sm text-gray-600 font-normal">(Assigned: {selectedComplaint.agentInfo.name || selectedComplaint.agentInfo.id})</span>
                     ) : (
