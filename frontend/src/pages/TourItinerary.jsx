@@ -25,6 +25,7 @@ const TourItinerary = () => {
     const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
     const [selectedTourDate, setSelectedTourDate] = useState(null); // Will hold the full tour object for booking
     const [numberOfPeople, setNumberOfPeople] = useState(1);
+    const [numberOfChildren, setNumberOfChildren] = useState(0);
     const [agentReferralId, setAgentReferralId] = useState('');
     const [bookingError, setBookingError] = useState('');
     const [bookingSuccessMessage, setBookingSuccessMessage] = useState('');
@@ -73,7 +74,7 @@ const TourItinerary = () => {
     };
 
     const handleModalContinue = async () => {
-        const numPeople = parseInt(numberOfPeople, 10);
+        const numPeople = parseInt(numberOfPeople, 10) + parseInt(numberOfChildren, 10);
 
         setBookingError("");
         setBookingSuccessMessage("");
@@ -709,6 +710,29 @@ const TourItinerary = () => {
                                             </div>
                                         </div>
                                     </div>
+                                    {/* Number of Children */}
+                                    <div className="relative">
+                                        <label htmlFor="numPeople" className="block text-sm font-medium text-gray-700 mb-1">
+                                            Number of Children
+                                        </label>
+                                        <div className="relative rounded-md shadow-sm">
+                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                                                <FiUsers className="h-5 w-5" />
+                                            </div>
+                                            <input
+                                                type="number"
+                                                id="numChildren"
+                                                value={numberOfChildren}
+                                                onChange={(e) => setNumberOfChildren(e.target.value)}
+                                                className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-12 py-3 border-gray-300 rounded-md"
+                                                min="1"
+                                                placeholder="e.g., 2"
+                                            />
+                                            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-500">
+                                                <span className="text-sm">people</span>
+                                            </div>
+                                        </div>
+                                    </div>
 
                                     {/* Agent Referral */}
                                     <div>
@@ -769,16 +793,20 @@ const TourItinerary = () => {
                                                 <span>Base Price ({numberOfPeople} × ₹{tour.pricePerHead.toLocaleString()})</span>
                                                 <span>₹{(tour.pricePerHead * numberOfPeople).toLocaleString()}</span>
                                             </div>
+                                            <div className="flex justify-between">
+                                                <span>Child Price ({numberOfChildren || 0}  × ₹{tour.packageRates.childRate.toLocaleString()})</span>
+                                                <span>₹{(tour.packageRates.childRate * numberOfChildren).toLocaleString()}</span>
+                                            </div>
                                             {tour.GST !== undefined && tour.GST !== null && (
                                                 <div className="flex justify-between">
                                                     <span>GST ({tour.GST}%)</span>
-                                                    <span>₹{((tour.pricePerHead * numberOfPeople * tour.GST) / 100).toLocaleString()}</span>
+                                                    <span>₹{(((tour.pricePerHead * numberOfPeople + tour.packageRates.childRate * numberOfChildren) * tour.GST) / 100).toLocaleString()}</span>
                                                 </div>
                                             )}
                                             <div className="border-t border-gray-200 my-1"></div>
                                             <div className="flex justify-between font-semibold text-blue-900">
                                                 <span>Total Amount</span>
-                                                <span>₹{(tour.pricePerHead * numberOfPeople * (1 + (tour.GST / 100))).toLocaleString()}</span>
+                                                <span>₹{(((tour.pricePerHead * numberOfPeople) + (tour.packageRates.childRate * numberOfChildren)) * (1 + (tour.GST / 100))).toLocaleString()}</span>
                                             </div>
                                         </div>
                                     </div>

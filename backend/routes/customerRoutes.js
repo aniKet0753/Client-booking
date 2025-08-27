@@ -212,6 +212,7 @@ router.get('/tours', authenticate, async (req, res) => {
         gallery: tourDoc.gallery && Array.isArray(tourDoc.gallery) 
                    ? tourDoc.gallery.map(imgBase64 => `data:image/jpeg;base64,${imgBase64}`) 
                    : [],
+        packageRates: tourDoc.packageRates || {}, // Include package rates
       };
     });
 

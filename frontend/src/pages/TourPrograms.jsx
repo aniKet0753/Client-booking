@@ -373,12 +373,22 @@ const TourPrograms = () => {
       <div className="p-5">
         {/* Price and Tour Type */}
         <div className="flex justify-between items-start mb-4">
-          <div className="flex items-end">
-            <span className="text-2xl font-bold text-green-600">
-              ₹{tour.pricePerHead?.toLocaleString()}
-            </span>
-            <span className="text-md text-gray-500 ml-1">/person</span>
+          <div className="flex justify-between items-start mb-4">
+          <div className="flex items-center gap-3">
+            {/* Adult Price Tag */}
+            <div className="flex items-center text-sm font-bold bg-blue-100 text-blue-700 px-3 py-1 rounded-full">
+              <span className="ml-1">₹{tour.pricePerHead?.toLocaleString()}/Guest</span>
+            </div>
+
+            {/* Child Price Tag */}
+            {tour.packageRates?.childRate && (
+              <div className="flex items-center text-sm font-bold bg-green-100 text-green-700 px-3 py-1 rounded-full">
+                <span className="ml-1">₹{tour.packageRates.childRate?.toLocaleString()}/Child</span>
+              </div>
+            )}
           </div>
+
+        </div>
           <span className="flex items-center text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
             <MdOutlineTour className="mr-1" />
             {tour.tourType}
