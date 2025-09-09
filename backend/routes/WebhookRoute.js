@@ -264,11 +264,11 @@ router.post('/', express.json({ verify: (req, res, buf) => { req.rawBody = buf; 
                         });
                     }
 
-                    stats.finalAmount = stats.finalAmount || 0;
-                    stats.commissionReceived = stats.commissionReceived || 0;
+                    // stats.finalAmount = stats.finalAmount || 0;
+                    // stats.commissionReceived = stats.commissionReceived || 0;
 
-                    const givenCustomerCount = parsedTourGivenOccupancy;
-                    const addedAmountToStats = givenCustomerCount * parsedTourPricePerHead;
+                    // const givenCustomerCount = parsedTourGivenOccupancy;
+                    // const addedAmountToStats = givenCustomerCount * parsedTourPricePerHead;
                     
                     const newCustomerGiven = stats.customerGiven + givenCustomerCount;
                     
@@ -280,33 +280,37 @@ router.post('/', express.json({ verify: (req, res, buf) => { req.rawBody = buf; 
                         updatedPercentage = 0;
                     }
 
-                    const newTotalAmountForStats = stats.finalAmount + addedAmountToStats;
+                    // const newTotalAmountForStats = stats.finalAmount + addedAmountToStats;
                     const newCommissionRateForStats = getCommissionRate(updatedPercentage, 1);
-                    const newTotalEligibleCommissionForStats = (newTotalAmountForStats * newCommissionRateForStats) / 100;
-
+                    // const newTotalEligibleCommissionForStats = (newTotalAmountForStats * newCommissionRateForStats) / 100;
+                    const newTotalEligibleCommissionForStats = (currentPaymentAmount * newCommissionRateForStats) / 100;
                     console.log(`--- Commission Calculation Debug for Agent ${agent.agentID} ---`);
-                    console.log(`  stats.customerGiven (before): ${stats.customerGiven}`);
-                    console.log(`  givenCustomerCount: ${givenCustomerCount}`);
-                    console.log(`  newCustomerGiven: ${newCustomerGiven}`);
-                    console.log(`  parsedTourActualOccupancy: ${parsedTourActualOccupancy}`);
-                    console.log(`  updatedPercentage: ${updatedPercentage}`);
-                    console.log(`  stats.finalAmount (before): ${stats.finalAmount}`);
-                    console.log(`  addedAmountToStats: ${addedAmountToStats}`);
-                    console.log(`  newTotalAmountForStats: ${newTotalAmountForStats}`);
+
+                    // console.log(`  stats.customerGiven (before): ${stats.customerGiven}`);
+                    // console.log(`  givenCustomerCount: ${givenCustomerCount}`);
+                    // console.log(`  newCustomerGiven: ${newCustomerGiven}`);
+                    // console.log(`  parsedTourActualOccupancy: ${parsedTourActualOccupancy}`);
+                    // console.log(`  updatedPercentage: ${updatedPercentage}`);
+                    // console.log(`  stats.finalAmount (before): ${stats.finalAmount}`);
+                    // console.log(`  addedAmountToStats: ${addedAmountToStats}`);
+                    // console.log(`  newTotalAmountForStats: ${newTotalAmountForStats}`);
                     console.log(`  newCommissionRateForStats: ${newCommissionRateForStats}`);
                     console.log(`  newTotalEligibleCommissionForStats: ${newTotalEligibleCommissionForStats}`);
-                    console.log(`  stats.commissionReceived (before): ${stats.commissionReceived}`);
+                    // console.log(`  stats.commissionReceived (before): ${stats.commissionReceived}`);
                     console.log(`-------------------------------------------------`);
 
-                    const commissionDelta = newTotalEligibleCommissionForStats - stats.commissionReceived;
+                    // const commissionDelta = newTotalEligibleCommissionForStats - stats.commissionReceived;
 
-                    if (commissionDelta > 0) {
-                        await transferCommission(agent_db_id, currentPaymentAmount, updatedPercentage, commissionDelta, tourID, commissionRecords);
-                    }
-                    directAgentCommissionAmount = commissionDelta;
+                    // if (commissionDelta > 0) {
+                        await transferCommission(agent_db_id, currentPaymentAmount, updatedPercentage,
+                            //  commissionDelta,
+                             newTotalEligibleCommissionForStats,
+                             tourID, commissionRecords);
+                    // }
+                    directAgentCommissionAmount = newTotalEligibleCommissionForStats;
 
                     stats.customerGiven = newCustomerGiven;
-                    stats.finalAmount = newTotalAmountForStats;
+                    stats.finalAmount = currentPaymentAmount;
                     stats.commissionReceived = newTotalEligibleCommissionForStats;
                     stats.commissionRate = newCommissionRateForStats;
                     stats.adultsCount = adultsCount;
