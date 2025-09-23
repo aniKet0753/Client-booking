@@ -1681,6 +1681,65 @@ router.get('/customer-dump-csv', authenticateSuperAdmin, async (req, res) => {
     }
 });
 
+router.get('/booking/:bookingId/invoice', authenticateSuperAdmin, async(req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.bookingId)
+      .populate('tour')
+      .populate('customer')
+      .populate('agent'); 
+
+    if(!booking) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+
+    const gstRate = booking.tour.GST ? booking.tour.GST / 100 : 0.18; 
+    const subTotal = (booking.packageRates.adultRate * booking.numAdults) + (booking.packageRates.childRate * booking.numChildren);
+    const gstAmount = subTotal * gstRate;
+    const totalAmount = subTotal + gstAmount;
+
+    const invoiceData = {
+      invoiceNo: `L2G/TOUR/FY2025-2026/${booking.bookingID}`,
+      date: booking.bookingDate ? new Date(booking.bookingDate).toLocaleDateString('en-GB') : '',
+      customerName: booking.customer?.name || '',
+      totalPassengers: booking.numAdults + booking.numChildren,
+      bookingID: booking.bookingID,
+      journeyDate: booking.tour?.startDate ? new Date(booking.tour.startDate).toLocaleDateString('en-GB') : '',
+      customerEmail: booking.customer?.email || '',
+      tourPackageName: booking.tour?.name || '',
+      tourDuration: booking.tour?.duration ? `${booking.tour.duration} Days / ${booking.tour.duration - 1} Nights` : '',
+      basePrice: booking.packageRates.adultRate,
+      numPassengersForCalc: booking.numAdults,
+      childBasePrice: booking.packageRates.childRate,
+      childPassengers: booking.numChildren,
+      gstRate,
+      subTotal,
+      gstAmount,
+      totalAmount,
+      paidAmount: booking.payment?.paidAmount || 0,
+      amountDue: totalAmount - (booking.payment?.paidAmount || 0),
+      paymentStatus: booking.payment?.paymentStatus || '',
+      airFare: booking.extraCharges?.airFare || 0,
+      airFarePassengers: booking.extraCharges?.airFarePassengers || 0,
+      trainFare: booking.extraCharges?.trainFare || 0,
+      trainFarePassengers: booking.extraCharges?.trainFarePassengers || 0,
+      foodings: booking.extraCharges?.foodings || 0,
+      foodingsPassengers: booking.extraCharges?.foodingsPassengers || 0,
+      hotelUpgrade: booking.extraCharges?.hotelUpgrade || 0,
+      hotelUpgradePassengers: booking.extraCharges?.hotelUpgradePassengers || 0,
+      conveyance: booking.extraCharges?.conveyance || 0,
+      conveyancePassengers: booking.extraCharges?.conveyancePassengers || 0,
+      inclusions: booking.tour?.inclusions || [],
+      exclusions: booking.tour?.exclusions || [],
+    };
+
+    res.status(200).json(invoiceData);
+
+  } catch (error) {
+    console.error('Error fetching Invoice data:', error);
+    res.status(500).json({ error: 'Failed to fetch Invoice data', details: error.message });
+  }
+})
+
 router.get('/:id', authenticateSuperAdmin, async (req, res) => {
   const { id } = req.params;
 

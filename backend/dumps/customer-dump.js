@@ -9,7 +9,7 @@ router.get('/daily-dump', async (req, res) => {
     const today = new Date();
 
     const startOfDay = new Date('2025-04-10T00:00:00.000Z');
-    const endOfDay = new Date('2025-09-10T23:59:59.999Z');
+    const endOfDay = new Date('2025-09-23T23:59:59.999Z');
 
     const bookings = await Booking.find({
       createdAt: { $gte: startOfDay, $lt: endOfDay }

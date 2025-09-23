@@ -245,6 +245,95 @@ const getBookings = async (req, res) => {
     }
 };
 
+const getBookingInvoice = async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+
+    if (!booking) {
+      return res.status(404).json({ error: "Booking not found" });
+    }
+
+    if (
+      booking.customer.email !== req.user.email &&
+      req.user.role !== "admin"
+    ) {
+      return res
+        .status(403)
+        .json({
+          error:
+            "Access denied, You do not have the permission to view the invoice",
+        });
+    }
+
+    const gstRate = booking.tour.GST ? booking.tour.GST / 100 : 0.18;
+
+    const subTotal =
+      booking.packageRates.adultRate * booking.numAdults +
+      booking.packageRates.childRate * booking.numChildren;
+    const gstAmount = subTotal * gstRate;
+    const totalAmount = subTotal + gstAmount;
+
+    const inclusions = booking.tour.inclusions || [];
+    const exclusions = booking.tour.exclusions || [];
+    // Extra charges
+    // const extraCharges = booking.extraCharges || {};
+
+    const journeyDate =
+      booking.tour.startDate && !isNaN(new Date(booking.tour.startDate))
+        ? new Date(booking.tour.startDate).toLocaleDateString("en-IN")
+        : "N/A";
+
+    const invoiceData = {
+      invoiceNo: `L2G/TOUR/FY2025-2026/${booking.bookingID}`,
+      date: new Date(booking.bookingDate).toLocaleDateString("en-GB"),
+      customerName: booking.customer.name,
+      totalPassengers: booking.numAdults + booking.numChildren,
+      bookingID: booking.bookingID,
+      journeyDate,
+      customerEmail: booking.customer.email,
+      tourPackageName: booking.tour.name,
+      tourDuration: `${booking.tour.duration} Days / ${
+        booking.tour.duration - 1
+      } Nights`,
+      basePrice: booking.packageRates.adultRate,
+      numPassengersForCalc: booking.numAdults,
+      childBasePrice: booking.packageRates.childRate,
+      childPassengers: booking.numChildren,
+
+      inclusions,
+      exclusions,
+
+      gstRate,
+      subTotal,
+      gstAmount,
+      totalAmount,
+      paidAmount: booking.payment.paidAmount || 0,
+      amountDue: totalAmount - (booking.payment.paidAmount || 0),
+      paymentStatus: booking.payment.paymentStatus,
+
+      // extra charges
+      // airFare: extraCharges.airFare || 0,
+      // airFarePassengers: extraCharges.airFarePassengers || 0,
+      // trainFare: extraCharges.trainFare || 0,
+      // trainFarePassengers: extraCharges.trainFarePassengers || 0,
+      // foodings: extraCharges.foodings || 0,
+      // foodingsPassengers: extraCharges.foodingsPassengers || 0,
+      // hotelUpgrade: extraCharges.hotelUpgrade || 0,
+      // hotelUpgradePassengers: extraCharges.hotelUpgradePassengers || 0,
+      // conveyance: extraCharges.conveyance || 0,
+      // conveyancePassengers: extraCharges.conveyancePassengers || 0,
+    };
+    console.log(invoiceData);
+
+    res.status(200).json(invoiceData);
+  } catch (error) {
+    console.error("Error fetching Invoice data:", error);
+    res
+      .status(500)
+      .json({ error: "Failed to fetch Invoice data", details: error.message });
+  }
+};
+
 router.get('/my-bookings', authenticate, async (req, res) => {
   try {
     const userId = req.user.id; 
@@ -279,5 +368,8 @@ router.get('/my-bookings/:tourID', authenticate, async (req, res) => {
 
 router.post('/', authenticate, createBooking);
 router.get('/', authenticate, getBookings);
+
+// invoice route
+router.get("/:id/invoice", authenticate, getBookingInvoice);
 
 module.exports = router;
