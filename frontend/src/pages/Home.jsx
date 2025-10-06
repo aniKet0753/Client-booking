@@ -32,6 +32,12 @@ const Home = () => {
     }
   }, [location]); // Re-run this effect whenever the location object changes
 
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+    });
+  }, []);
+
   return (
     <>
 

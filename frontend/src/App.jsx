@@ -40,6 +40,7 @@ import GrievancePolicy from './pages/GrievancePolicy';
 import EditAgentTermsConditions from './pages/EditTermsConditions';
 import AdminSpecialOffers from './pages/AdminSpecialOffers';
 import AttractionsEditPage from './pages/AttractionsEditPage';
+import RedefiningMedicalTourismDetail from './pages/RedefiningMedicalTourismDetail';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem("Token"));
@@ -141,6 +142,8 @@ function App() {
         {/* <Route path="/edit-agent-terms-conditions" element={<EditAgentTermsConditions />} />
         <Route path="/edit-special-offers" element={<AdminSpecialOffers />} />
         <Route path="/attractions-edit" element={<AttractionsEditPage />} /> */}
+
+        <Route path="/redefining-medical-tourism/:id" element={<RedefiningMedicalTourismDetail />} />
 
         {/* Login Page */}
       </Routes>
