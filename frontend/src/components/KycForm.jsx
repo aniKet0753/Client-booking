@@ -508,19 +508,20 @@ const CustomerForm = () => {
             const saveBookingResponse = await saveBooking();
             console.log(saveBookingResponse.bookingID);
             const bookingID = saveBookingResponse.bookingID;
-            const givenOccupancy = searchParams.get('p');
+            // const givenOccupancy = searchParams.get('p');
             // const agentID = searchParams.get('a') || '';
             // const agentID = formData.throughAgent === 'yes' ? formData.agentID : '';
             const tourName = tour.name;
             const tourPricePerHead = tour.pricePerHead;
             const tourActualOccupancy = tour.occupancy;
-            const tourGivenOccupancy = givenOccupancy;
+            const tourGivenOccupancy = parseInt(formData.numPersons) + parseInt(formData.numChildren);
             const tourStartDate = tour.startDate;
 
             setGenerating(true);
             setButtonDisabled(true);
             setError(false);
 
+            console.log(tourGivenOccupancy);
             const response = await axios.post(
                 '/api/generate-payment-link',
                 {

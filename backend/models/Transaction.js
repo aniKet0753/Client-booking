@@ -16,6 +16,8 @@ const transactionSchema = new mongoose.Schema({
             level: Number,
             commissionAmount: Number,
             commissionRate: Number,
+            commissionPaid: {type: Boolean, default: false},
+            commissionPaidDate: { type: String }, // Or Date type if you prefer,
             commissionDeductionAmount: {type:Number, default: 0}
         }
     ],

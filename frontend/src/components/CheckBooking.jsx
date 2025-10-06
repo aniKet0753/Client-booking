@@ -7,6 +7,177 @@ import { MdPayment } from 'react-icons/md';
 import { IoLocationOutline } from 'react-icons/io5';
 import { SlCalender } from 'react-icons/sl';
 
+
+function getInvoiceHtml(invoice) {
+    if (!invoice) return '';
+
+    return `
+  <div style="font-family: Arial, sans-serif; margin: 0; padding: 15px; background-color: #f0f0f0;">
+    <div style="max-width:900px; width:100%; margin: 0 auto; background-color: white; padding: 25px; box-shadow: 0 0 15px rgba(0,0,0,0.1);">
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+        <tr>
+          <td style="text-align: center; padding-bottom: 10px;">
+            <span style="display: block; text-align: center; margin-bottom: 12px;">
+              <img src="https://reboot-l2g.onrender.com/assets/main-logo-03-BS_a2pPl.svg" alt="Company Logo" />
+            </span>
+            <h1 style="margin: 0; font-size: 24px; letter-spacing: 2px;">L2G CRUISE & CURE</h1>
+            <p style="margin: 5px 0; font-size: 14px; letter-spacing: 1px;"><strong>T R A V E L  M A N A G E M E N T</strong></p>
+            <p style="margin: 5px 0; font-size: 14px; letter-spacing: 1px;"><strong>P R I V A T E   L I M I T E D</strong></p>
+          </td>
+        </tr>
+      </table>
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
+        <tr>
+          <td style="width: 50%; vertical-align: top;">
+            <p style="margin: 3px 0; font-size: 13px;"><strong>Invoice No:</strong> ${invoice.invoiceNo || 'L2G/TOUR/FY2025-2026/………'}</p>
+            <p style="margin: 3px 0; font-size: 13px;"><strong>Date:</strong> ${invoice.date ? new Date(invoice.date).toLocaleDateString() : '………/………../………'}</p>
+          </td>
+          <td style="width: 50%; vertical-align: top; text-align: right;">
+            <p style="margin: 3px 0; font-size: 11px;"><strong>Office Address:</strong> H. No. 6, Netaji Path, Gobindnagar,</p>
+            <p style="margin: 3px 0; font-size: 11px;">Uliyan, Kadma, Jamshedpur 831005, Jharkhand, India</p>
+            <p style="margin: 3px 0; font-size: 11px;">+91 8209976417    ankana.l2gcruise@gmail.com</p>
+            <p style="margin: 3px 0; font-size: 11px;"><strong>CIN -US2291JH2025PTC023980    GSTIN:20AAGCL135911ZO</strong></p>
+          </td>
+        </tr>
+      </table>
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; border: 1px solid #ddd;">
+        <tr>
+          <td style="width: 50%; padding: 8px; border: 1px solid #ddd;">
+            <strong>Customer Name:</strong> ${invoice.customerName || ''}
+          </td>
+          <td style="width: 50%; padding: 8px; border: 1px solid #ddd;">
+            <strong>No. Of passengers:</strong> ${invoice.totalPassengers || ''}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 8px; border: 1px solid #ddd;">
+            <strong>Customer Booking ID:</strong> ${invoice.bookingID || ''}
+          </td>
+          <td style="padding: 8px; border: 1px solid #ddd;">
+            <strong>Date of Journey:</strong> ${invoice.journeyDate || ''}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 8px; border: 1px solid #ddd;">
+            <strong>Customer Email ID:</strong> ${invoice.customerEmail || ''}
+          </td>
+          <td style="padding: 8px; border: 1px solid #ddd;">
+            <strong>Tour Package:</strong> ${invoice.tourPackageName || ''}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 8px; border: 1px solid #ddd;" colspan="2">
+            <strong>Days / Night of Tour:</strong> ${invoice.tourDuration || ''}
+          </td>
+        </tr>
+      </table>
+
+      <table style="width: 100%; margin-bottom: 20px;">
+        <tr>
+          <td style="vertical-align: top; width: 50%;">
+            ${invoice.inclusions && invoice.inclusions.length > 0 ? `
+              <div>
+                <strong style="font-size: 15px; color: #2563eb;">What's Included:</strong>
+                <ul style="margin: 8px 0 0 18px; color: #222; font-size: 13px;">
+                  ${invoice.inclusions.map(item => `<li>${item}</li>`).join('')}
+                </ul>
+              </div>
+            ` : ''}
+          </td>
+          <td style="vertical-align: top; width: 50%;">
+            ${invoice.exclusions && invoice.exclusions.length > 0 ? `
+              <div>
+                <strong style="font-size: 15px; color: #dc2626;">What's Not Included:</strong>
+                <ul style="margin: 8px 0 0 18px; color: #444; font-size: 13px;">
+                  ${invoice.exclusions.map(item => `<li>${item}</li>`).join('')}
+                </ul>
+              </div>
+            ` : ''}
+          </td>
+        </tr>
+      </table>
+
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; border: 1px solid #ddd;">
+        <tr style="background-color: #f9f9f9;">
+          <th style="padding: 12px; border: 1px solid #ddd; text-align: left; width: 50%;">Particulars</th>
+          <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 16%;">Basic Price</th>
+          <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 17%;">No. Of passengers</th>
+          <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 17%;">Sub-Total</th>
+        </tr>
+        <tr>
+          <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;" colspan="4">LEISURE TOUR SERVICES</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px; border: 1px solid #ddd;">Tour package</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">₹${(invoice.basePrice || 0).toFixed(2)}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${invoice.numPassengersForCalc || invoice.totalPassengers || 0}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">₹${((invoice.basePrice || 0) * (invoice.numPassengersForCalc || invoice.totalPassengers || 0)).toFixed(2)}</td>
+        </tr>
+
+        <tr>
+          <td style="padding: 10px; border: 1px solid #ddd;">Tour package (Child)</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">₹${(invoice.childBasePrice || 0).toFixed(2)}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${invoice.childPassengers || 0}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">₹${((invoice.childBasePrice || 0) * (invoice.childPassengers || 0)).toFixed(2)}</td>
+        </tr>
+
+        <tr>
+          <td style="padding: 10px; border: 1px solid #ddd;">Air Fare (Extra)</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.airFare ? `₹${invoice.airFare.toFixed(2)}` : ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${invoice.airFarePassengers || ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.airFare ? `₹${invoice.airFare.toFixed(2)}` : ''}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px; border: 1px solid #ddd;">Train Tickets from Home station and back</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.trainFare ? `₹${invoice.trainFare.toFixed(2)}` : ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${invoice.trainFarePassengers || ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.trainFare ? `₹${invoice.trainFare.toFixed(2)}` : ''}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px; border: 1px solid #ddd;">Foodings</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.foodings ? `₹${invoice.foodings.toFixed(2)}` : ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${invoice.foodingsPassengers || ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.foodings ? `₹${invoice.foodings.toFixed(2)}` : ''}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px; border: 1px solid #ddd;">Hotel / Home-stay upgradation charges</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.hotelUpgrade ? `₹${invoice.hotelUpgrade.toFixed(2)}` : ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${invoice.hotelUpgradePassengers || ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.hotelUpgrade ? `₹${invoice.hotelUpgrade.toFixed(2)}` : ''}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px; border: 1px solid #ddd;">Conveyance charges not included in basic package (Extra)</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.conveyance ? `₹${invoice.conveyance.toFixed(2)}` : ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${invoice.conveyancePassengers || ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.conveyance ? `₹${invoice.conveyance.toFixed(2)}` : ''}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right; font-weight: bold;" colspan="3">SUB-TOTAL</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right; font-weight: bold;">₹${(invoice.subTotal || 0).toFixed(2)}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right; font-weight: bold;" colspan="3">GST @${((invoice.gstRate || 0) * 100).toFixed(0)}%</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right; font-weight: bold;">₹${(invoice.gstAmount || 0).toFixed(2)}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right; font-weight: bold;" colspan="3">TOTAL</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right; font-weight: bold;">₹${(invoice.totalAmount || 0).toFixed(2)}</td>
+        </tr>
+      </table>
+      <table style="width: 100%; margin-top: 40px;">
+        <tr>
+          <td style="text-align: right; padding-right: 50px;">
+            <p style="margin-bottom: 50px; font-weight: bold;">Authorized signatory</p>
+            <p style="border-top: 1px solid #000; width: 200px; padding-top: 5px; text-align: center;">Stamp/Signature</p>
+          </td>
+        </tr>
+      </table>
+    </div>
+  </div>
+  `;
+}
+
+
 const BookingSearchPage = () => {
     const navigate = useNavigate();
     const [bookingId, setBookingId] = useState('');
@@ -15,11 +186,11 @@ const BookingSearchPage = () => {
     const [tourStartDate, setTourStartDate] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    
+
     // State to hold all search results (array of bookings)
-    const [searchResults, setSearchResults] = useState([]); 
+    const [searchResults, setSearchResults] = useState([]);
     // State to hold the currently selected booking for detailed view
-    const [selectedBooking, setSelectedBooking] = useState(null); 
+    const [selectedBooking, setSelectedBooking] = useState(null);
 
     const [activeTab, setActiveTab] = useState('details');
     const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
@@ -48,15 +219,15 @@ const BookingSearchPage = () => {
                     Authorization: `Bearer ${localStorage.getItem('Token')}`,
                 },
             });
-console.log(response)
-            const data = response.data; 
-console.log(data)
+            console.log(response)
+            const data = response.data;
+            console.log(data)
             if (Array.isArray(data) && data.length > 0) {
                 setSearchResults(data);
                 // Optionally, automatically select the first booking if only one is returned, or if desired.
                 // setSelectedBooking(data[0]); 
             } else if (data && typeof data === 'object' && !Array.isArray(data)) {
-                 // If the backend returns a single booking object directly
+                // If the backend returns a single booking object directly
                 setSearchResults([data]); // Wrap single object in an array for consistency
                 // setSelectedBooking(data);
             }
@@ -110,7 +281,7 @@ console.log(data)
     };
 
     const handleViewDetails = (booking) => {
-         console.log("Selected Booking Agent:", booking);
+        console.log("Selected Booking Agent:", booking);
         setSelectedBooking(booking);
         // Optionally scroll to the detailed view
         const detailsSection = document.getElementById('booking-details-section');
@@ -144,20 +315,20 @@ console.log(data)
         );
     };
 
-    const handleOpenInvoiceModal = () => {
+    const handleOpenInvoiceModal = async () => {
         console.log(selectedBooking)
         if (!selectedBooking) return; // Use selectedBooking
-        setInvoiceData({
-            customerName: selectedBooking.customer.name,
-            customerEmail: selectedBooking.customer.email,
-            customerPhone: selectedBooking.customer.phone,
-            tourName: selectedBooking.tour.name,
-            totalAmount: selectedBooking.payment.totalAmount,
-            paidAmount: selectedBooking.payment.paidAmount,
-            invoiceDate: new Date().toISOString().slice(0, 10),
-            bookingId: selectedBooking.bookingID,
+        try {
+        const res = await axios.get(`/api/admin/booking/${selectedBooking._id}/invoice`, {
+            headers: {
+                Authorization: `Bearer ${localStorage.getItem('Token')}`,
+            },
         });
+        setInvoiceData(res.data);
         setInvoiceModalOpen(true);
+    } catch (err) {
+        alert('Failed to fetch invoice data. Please try again.');
+    }
     };
 
     const handleInvoiceChange = (field, value) => {
@@ -167,48 +338,11 @@ console.log(data)
     const handlePrintInvoice = () => {
         const printContent = `
             <html>
-                <head>
+                <head>    
                     <title>Invoice - Booking #${invoiceData.bookingId}</title>
-                    <style>
-                        body { font-family: Arial, sans-serif; padding: 24px; color: #222; }
-                        h1, h2 { color: #1d4ed8; }
-                        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left;}
-                        th { background: #f3f4f6; }
-                        .text-right { text-align: right; }
-                        .invoice-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;}
-                        .invoice-header h1 { margin: 0; }
-                    </style>
                 </head>
                 <body>
-                    <div class="invoice-header">
-                        <h1>Invoice</h1>
-                        <div>
-                            <p><strong>Invoice Date:</strong> ${invoiceData.invoiceDate}</p>
-                            <p><strong>Booking ID:</strong> ${invoiceData.bookingId}</p>
-                        </div>
-                    </div>
-
-                    <h2>Customer Details</h2>
-                    <table>
-                        <tr><th>Name</th><td>${invoiceData.customerName}</td></tr>
-                        <tr><th>Email</th><td>${invoiceData.customerEmail}</td></tr>
-                        <tr><th>Phone</th><td>${invoiceData.customerPhone || 'N/A'}</td></tr>
-                    </table>
-
-                    <h2>Tour Details</h2>
-                    <table>
-                        <tr><th>Tour Name</th><td>${invoiceData.tourName}</td></tr>
-                    </table>
-
-                    <h2>Payment Summary</h2>
-                    <table>
-                        <tr><th>Description</th><th class="text-right">Amount</th></tr>
-                        <tr><td>Total Booking Amount</td><td class="text-right">${formatCurrency(invoiceData.totalAmount || 0)}</td></tr>
-                        <tr><td>Amount Paid</td><td class="text-right">${formatCurrency(invoiceData.paidAmount || 0)}</td></tr>
-                        <tr><td><strong>Balance Due</strong></td><td class="text-right"><strong>${formatCurrency((invoiceData.totalAmount || 0) - (invoiceData.paidAmount || 0))}</strong></td></tr>
-                    </table>
-                    <p style="margin-top:40px;font-size:12px;color:#888;">Printed on ${new Date().toLocaleString()}</p>
+                    ${getInvoiceHtml(invoiceData)}
                 </body>
             </html>
         `;
@@ -337,8 +471,8 @@ console.log(data)
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {searchResults.map(bookingItem => (
-                                <div 
-                                    key={bookingItem._id} 
+                                <div
+                                    key={bookingItem._id}
                                     className="bg-gray-50 rounded-lg shadow-sm p-5 border border-gray-200 cursor-pointer hover:shadow-md hover:border-blue-300 transition-all duration-200 flex flex-col justify-between"
                                     onClick={() => handleViewDetails(bookingItem)}
                                 >

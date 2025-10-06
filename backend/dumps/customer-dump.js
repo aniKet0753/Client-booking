@@ -2,18 +2,15 @@ const express = require('express');
 const router = express.Router();
 const ExcelJS = require('exceljs');
 const Booking = require('../models/Booking');
+const Transaction = require('../models/Transaction'); // ✅ NEW
 
 router.get('/daily-dump', async (req, res) => {
   try {
     const today = new Date();
 
-    // Example: Hardcoded range for demo
     const startOfDay = new Date('2025-04-10T00:00:00.000Z');
-    const endOfDay = new Date('2025-08-30T23:59:59.999Z');
-    
-    // const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    // const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
-    
+    const endOfDay = new Date('2025-09-23T23:59:59.999Z');
+
     const bookings = await Booking.find({
       createdAt: { $gte: startOfDay, $lt: endOfDay }
     });
@@ -21,7 +18,7 @@ router.get('/daily-dump', async (req, res) => {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Daily Booking Dump');
 
-    // Define the columns based on the exact format of the Customer Dump CSV
+    // ✅ Added commission related headers
     worksheet.columns = [
       { header: 'S/L', key: 'sl', width: 5 },
       { header: 'Date of Dump', key: 'dateOfDump', width: 15 },
@@ -68,29 +65,74 @@ router.get('/daily-dump', async (req, res) => {
       { header: 'Total Amount paid by customer', key: 'totalPaid', width: 25 },
       { header: 'UTR Number', key: 'utrNumber', width: 20 },
       { header: 'Canceled booking of members(Only Nos.)', key: 'canceledMembers', width: 30 },
-      { header: 'Refund against cancellation', key: 'refundAmount', width: 25 }
+      { header: 'Refund against cancellation', key: 'refundAmount', width: 25 },
+
+      // ✅ New commission columns
+      { header: 'Commission rate agent', key: 'commissionRateAgent', width: 20 },
+      { header: 'Commission amount of agent', key: 'commissionAmountAgent', width: 25 },
+      { header: 'Commission amount of parent agent', key: 'commissionAmountParent', width: 25 },
+      { header: 'Commission rate of parent agent', key: 'commissionRateParent', width: 25 },
+      { header: 'Due date of payment for agent', key: 'dueDateAgent', width: 25 },
+      { header: 'Due date of payment for parent agent', key: 'dueDateParent', width: 25 },
+      { header: 'Agent Commission paid (yes/no)', key: 'agentCommissionPaid', width: 25 },
+      { header: 'Parent agent Commission paid (yes/no)', key: 'parentCommissionPaid', width: 30 },
+      { header: 'Commission paid date for agent', key: 'commissionPaidDateAgent', width: 30 },
+      { header: 'Commission paid date for parent agent', key: 'commissionPaidDateParent', width: 30 },
+      { header: 'Commission deduction amount of agent', key: 'commissionDeductionAgent', width: 30 },
+      { header: 'Commission deduction amount of parent agent', key: 'commissionDeductionParent', width: 30 },
     ];
 
-    // Helper to check if a traveler is the main customer
     const isMainCustomer = (traveler, mainCustomerEmail) => traveler.email === mainCustomerEmail;
-    
-    // Counter for the S/L column
     let slCounter = 1;
 
-    bookings.forEach((booking) => {
+    for (const booking of bookings) {
       const allTravelers = [booking.customer, ...booking.travelers];
-      const adultsCount = booking.numAdults;
-      const childrenCount = booking.numChildren;
-
-      // Flag to track first row of this booking
       let isFirstRow = true;
 
-      allTravelers.forEach((traveler) => {
+      // ✅ Find related transaction
+      const transaction = await Transaction.findOne({ transactionId: booking.utrNumber });
+
+      // Defaults
+      let commissionData = {
+        commissionRateAgent: '',
+        commissionAmountAgent: '',
+        commissionAmountParent: '',
+        commissionRateParent: '',
+        dueDateAgent: '',
+        dueDateParent: '',
+        agentCommissionPaid: 'No',
+        parentCommissionPaid: 'No',
+        commissionPaidDateAgent: '',
+        commissionPaidDateParent: '',
+        commissionDeductionAgent: '',
+        commissionDeductionParent: '',
+      };
+
+      if (transaction) {
+        const agentCommission = transaction.commissions.find(c => c.level === 1);
+        const parentCommission = transaction.commissions.find(c => c.level === 2);
+
+        commissionData = {
+          commissionRateAgent: agentCommission?.commissionRate || '',
+          commissionAmountAgent: agentCommission?.commissionAmount || '',
+          commissionAmountParent: parentCommission?.commissionAmount || '',
+          commissionRateParent: parentCommission?.commissionRate || '',
+          dueDateAgent: transaction.tourStartDate || '',
+          dueDateParent: transaction.tourStartDate || '',
+          agentCommissionPaid: agentCommission.commissionPaid ? 'Yes' : 'No',
+          parentCommissionPaid: parentCommission.commissionPaid ? 'Yes' : 'No',
+          commissionPaidDateAgent: agentCommission.commissionPaidDate,
+          commissionPaidDateParent: parentCommission.commissionPaidDate,
+          commissionDeductionAgent: agentCommission?.commissionDeductionAmount || '',
+          commissionDeductionParent: parentCommission?.commissionDeductionAmount || '',
+        };
+      }
+
+      for (const traveler of allTravelers) {
         const isCustomer = isMainCustomer(traveler, booking.customer.email);
 
         const rowData = {
           sl: slCounter++,
-          // booking-level fields only on first row
           dateOfDump: isFirstRow ? today.toLocaleDateString() : '',
           dateOfBooking: isFirstRow ? booking.createdAt.toLocaleDateString() : '',
           bookingEmailId: isFirstRow ? booking.customer.email : '',
@@ -128,24 +170,26 @@ router.get('/daily-dump', async (req, res) => {
           accountHolderName: isFirstRow ? (booking.payment?.accountHolderName || '') : '',
           bankAccountNo: isFirstRow ? (booking.payment?.bankAccountNo || '') : '',
           ifscCode: isFirstRow ? (booking.payment?.ifscCode || '') : '',
-          adults: isFirstRow ? adultsCount : '',
-          children: isFirstRow ? childrenCount : '',
+          adults: isFirstRow ? booking.numAdults : '',
+          children: isFirstRow ? booking.numChildren : '',
           adultRate: isFirstRow ? (booking.packageRates?.adultRate || booking.tour.pricePerHead) : '',
           childRate: isFirstRow ? (booking.packageRates?.childRate || 0) : '',
           totalPaid: isFirstRow ? (booking.payment?.totalAmount || 0) : '',
           utrNumber: isFirstRow ? (booking.utrNumber || '') : '',
           cancelledMembers: isFirstRow ? booking.cancelledMembers : '',
-          refundAmount: isFirstRow ? (booking.payment?.refundAmount || 0) : ''
+          refundAmount: isFirstRow ? (booking.payment?.refundAmount || 0) : '',
+
+          // ✅ Add commission data on first row
+          ...(
+            isFirstRow ? commissionData : {}
+          )
         };
 
-      worksheet.addRow(rowData);
+        worksheet.addRow(rowData);
+        isFirstRow = false;
+      }
+    }
 
-    // after first traveler, switch flag off
-    isFirstRow = false;
-  });
-});
-
-    // Set response headers for Excel download
     res.setHeader(
       'Content-Type',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'

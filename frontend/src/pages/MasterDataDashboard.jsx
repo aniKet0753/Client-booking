@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from '../api';
+import html2pdf from "html2pdf.js";
 import {
     FiUsers,
     FiUserCheck,
@@ -20,6 +21,177 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+
+// const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
+
+function getInvoiceHtml(invoice) {
+    if (!invoice) return '';
+
+    return `
+  <div style="font-family: Arial, sans-serif; margin: 0; padding: 15px; background-color: #f0f0f0;">
+    <div style="max-width:900px; width:100%; margin: 0 auto; background-color: white; padding: 25px; box-shadow: 0 0 15px rgba(0,0,0,0.1);">
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+        <tr>
+          <td style="text-align: center; padding-bottom: 10px;">
+            <span style="display: block; text-align: center; margin-bottom: 12px;">
+              <img src="https://reboot-l2g.onrender.com/assets/main-logo-03-BS_a2pPl.svg" alt="Company Logo" />
+            </span>
+            <h1 style="margin: 0; font-size: 24px; letter-spacing: 2px;">L2G CRUISE & CURE</h1>
+            <p style="margin: 5px 0; font-size: 14px; letter-spacing: 1px;"><strong>T R A V E L  M A N A G E M E N T</strong></p>
+            <p style="margin: 5px 0; font-size: 14px; letter-spacing: 1px;"><strong>P R I V A T E   L I M I T E D</strong></p>
+          </td>
+        </tr>
+      </table>
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
+        <tr>
+          <td style="width: 50%; vertical-align: top;">
+            <p style="margin: 3px 0; font-size: 13px;"><strong>Invoice No:</strong> ${invoice.invoiceNo || 'L2G/TOUR/FY2025-2026/………'}</p>
+            <p style="margin: 3px 0; font-size: 13px;"><strong>Date:</strong> ${invoice.date ? new Date(invoice.date).toLocaleDateString() : '………/………../………'}</p>
+          </td>
+          <td style="width: 50%; vertical-align: top; text-align: right;">
+            <p style="margin: 3px 0; font-size: 11px;"><strong>Office Address:</strong> H. No. 6, Netaji Path, Gobindnagar,</p>
+            <p style="margin: 3px 0; font-size: 11px;">Uliyan, Kadma, Jamshedpur 831005, Jharkhand, India</p>
+            <p style="margin: 3px 0; font-size: 11px;">+91 8209976417    ankana.l2gcruise@gmail.com</p>
+            <p style="margin: 3px 0; font-size: 11px;"><strong>CIN -US2291JH2025PTC023980    GSTIN:20AAGCL135911ZO</strong></p>
+          </td>
+        </tr>
+      </table>
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; border: 1px solid #ddd;">
+        <tr>
+          <td style="width: 50%; padding: 8px; border: 1px solid #ddd;">
+            <strong>Customer Name:</strong> ${invoice.customerName || ''}
+          </td>
+          <td style="width: 50%; padding: 8px; border: 1px solid #ddd;">
+            <strong>No. Of passengers:</strong> ${invoice.totalPassengers || ''}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 8px; border: 1px solid #ddd;">
+            <strong>Customer Booking ID:</strong> ${invoice.bookingID || ''}
+          </td>
+          <td style="padding: 8px; border: 1px solid #ddd;">
+            <strong>Date of Journey:</strong> ${invoice.journeyDate || ''}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 8px; border: 1px solid #ddd;">
+            <strong>Customer Email ID:</strong> ${invoice.customerEmail || ''}
+          </td>
+          <td style="padding: 8px; border: 1px solid #ddd;">
+            <strong>Tour Package:</strong> ${invoice.tourPackageName || ''}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 8px; border: 1px solid #ddd;" colspan="2">
+            <strong>Days / Night of Tour:</strong> ${invoice.tourDuration || ''}
+          </td>
+        </tr>
+      </table>
+
+      <table style="width: 100%; margin-bottom: 20px;">
+        <tr>
+          <td style="vertical-align: top; width: 50%;">
+            ${invoice.inclusions && invoice.inclusions.length > 0 ? `
+              <div>
+                <strong style="font-size: 15px; color: #2563eb;">What's Included:</strong>
+                <ul style="margin: 8px 0 0 18px; color: #222; font-size: 13px;">
+                  ${invoice.inclusions.map(item => `<li>${item}</li>`).join('')}
+                </ul>
+              </div>
+            ` : ''}
+          </td>
+          <td style="vertical-align: top; width: 50%;">
+            ${invoice.exclusions && invoice.exclusions.length > 0 ? `
+              <div>
+                <strong style="font-size: 15px; color: #dc2626;">What's Not Included:</strong>
+                <ul style="margin: 8px 0 0 18px; color: #444; font-size: 13px;">
+                  ${invoice.exclusions.map(item => `<li>${item}</li>`).join('')}
+                </ul>
+              </div>
+            ` : ''}
+          </td>
+        </tr>
+      </table>
+
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; border: 1px solid #ddd;">
+        <tr style="background-color: #f9f9f9;">
+          <th style="padding: 12px; border: 1px solid #ddd; text-align: left; width: 50%;">Particulars</th>
+          <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 16%;">Basic Price</th>
+          <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 17%;">No. Of passengers</th>
+          <th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 17%;">Sub-Total</th>
+        </tr>
+        <tr>
+          <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;" colspan="4">LEISURE TOUR SERVICES</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px; border: 1px solid #ddd;">Tour package</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">₹${(invoice.basePrice || 0).toFixed(2)}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${invoice.numPassengersForCalc || invoice.totalPassengers || 0}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">₹${((invoice.basePrice || 0) * (invoice.numPassengersForCalc || invoice.totalPassengers || 0)).toFixed(2)}</td>
+        </tr>
+
+        <tr>
+          <td style="padding: 10px; border: 1px solid #ddd;">Tour package (Child)</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">₹${(invoice.childBasePrice || 0).toFixed(2)}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${invoice.childPassengers || 0}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">₹${((invoice.childBasePrice || 0) * (invoice.childPassengers || 0)).toFixed(2)}</td>
+        </tr>
+
+        <tr>
+          <td style="padding: 10px; border: 1px solid #ddd;">Air Fare (Extra)</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.airFare ? `₹${invoice.airFare.toFixed(2)}` : ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${invoice.airFarePassengers || ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.airFare ? `₹${invoice.airFare.toFixed(2)}` : ''}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px; border: 1px solid #ddd;">Train Tickets from Home station and back</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.trainFare ? `₹${invoice.trainFare.toFixed(2)}` : ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${invoice.trainFarePassengers || ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.trainFare ? `₹${invoice.trainFare.toFixed(2)}` : ''}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px; border: 1px solid #ddd;">Foodings</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.foodings ? `₹${invoice.foodings.toFixed(2)}` : ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${invoice.foodingsPassengers || ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.foodings ? `₹${invoice.foodings.toFixed(2)}` : ''}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px; border: 1px solid #ddd;">Hotel / Home-stay upgradation charges</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.hotelUpgrade ? `₹${invoice.hotelUpgrade.toFixed(2)}` : ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${invoice.hotelUpgradePassengers || ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.hotelUpgrade ? `₹${invoice.hotelUpgrade.toFixed(2)}` : ''}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px; border: 1px solid #ddd;">Conveyance charges not included in basic package (Extra)</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.conveyance ? `₹${invoice.conveyance.toFixed(2)}` : ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${invoice.conveyancePassengers || ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.conveyance ? `₹${invoice.conveyance.toFixed(2)}` : ''}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right; font-weight: bold;" colspan="3">SUB-TOTAL</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right; font-weight: bold;">₹${(invoice.subTotal || 0).toFixed(2)}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right; font-weight: bold;" colspan="3">GST @${((invoice.gstRate || 0) * 100).toFixed(0)}%</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right; font-weight: bold;">₹${(invoice.gstAmount || 0).toFixed(2)}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right; font-weight: bold;" colspan="3">TOTAL</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right; font-weight: bold;">₹${(invoice.totalAmount || 0).toFixed(2)}</td>
+        </tr>
+      </table>
+      <table style="width: 100%; margin-top: 40px;">
+        <tr>
+          <td style="text-align: right; padding-right: 50px;">
+            <p style="margin-bottom: 50px; font-weight: bold;">Authorized signatory</p>
+            <p style="border-top: 1px solid #000; width: 200px; padding-top: 5px; text-align: center;">Stamp/Signature</p>
+          </td>
+        </tr>
+      </table>
+    </div>
+  </div>
+  `;
+}
 
 // --- Agent-specific desired headers for CSV export ---
 const AGENT_CSV_HEADERS = [
@@ -246,6 +418,65 @@ const MasterDataDashboard = () => {
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [commissionToPayId, setCommissionToPayId] = useState(null);
 
+    // State for Invoice Modal
+    const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+    const [selectedInvoice, setSelectedInvoice] = useState(null);
+    const [invoiceLoading, setInvoiceLoading] = useState(false);
+    const [invoiceError, setInvoiceError] = useState(null);
+
+    const handleShowInvoice = async (bookingId) => {
+        setInvoiceLoading(true)
+        setInvoiceError(null);
+
+        try {
+            const res = await axios.get(`/api/admin/booking/${bookingId}/invoice`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            setSelectedInvoice(res.data);
+            setShowInvoiceModal(true)
+        } catch (error) {
+            setInvoiceError('Failed to load invoice.', error);
+        } finally {
+            setInvoiceLoading(false);
+        }
+    }
+
+    const closeInvoiceModal = () => {
+        setShowInvoiceModal(false);
+        setSelectedInvoice(null);
+    }
+
+    const handlePrintInvoice = (invoice = selectedInvoice) => {
+        const invoiceHtml = getInvoiceHtml(invoice);
+        const printWindow = window.open('', '', 'width=900,height=600');
+        printWindow.document.write(`
+      <html>
+        <head>
+          <title>Invoice Print View</title>
+        </head>
+        <body>
+          ${invoiceHtml}
+        </body>
+      </html>
+    `);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+    };
+
+    const handleDownloadInvoice = async (invoice) => {
+        if (!invoice) return;
+        const invoiceHtml = getInvoiceHtml(invoice);
+        const blob = new Blob([invoiceHtml], { type: 'text/html' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `invoice-${invoice._id || 'preview'}.html`);
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode.removeChild(link);
+        window.URL.revokeObjectURL(url);
+    };
 
     const itemsPerPage = 5;
     const token = localStorage.getItem('Token');
@@ -317,7 +548,7 @@ const MasterDataDashboard = () => {
         const fetchCustomers = async () => {
             try {
                 setLoadingCustomers(true);
-                const response = await axios.get('/api/admin/all-customers',{
+                const response = await axios.get('/api/admin/all-customers', {
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 setCustomers(Array.isArray(response.data.customers) ? response.data.customers : []);
@@ -353,6 +584,8 @@ const MasterDataDashboard = () => {
                 headers: { Authorization: `Bearer ${token}` },
                 params: params
             });
+            
+            console.log(response); 
             setPaymentsReceived(Array.isArray(response.data.bookings) ? response.data.bookings : []);
         } catch (err) {
             setErrorPaymentsReceived('Failed to fetch received payments.');
@@ -887,7 +1120,7 @@ const MasterDataDashboard = () => {
                     </div>
                     <div>
                         <p className="text-gray-500 text-sm">Total Commission (to be paid)</p>
-                        {loadingPaymentsPaid ? <p className="text-2xl font-bold">Loading...</p> : <p className="text-2xl font-bold flex items-center gap-1"> <FaRupeeSign className='text-base'/> {totalPendingCommissionToPay.toLocaleString()}</p>}
+                        {loadingPaymentsPaid ? <p className="text-2xl font-bold">Loading...</p> : <p className="text-2xl font-bold flex items-center gap-1"> <FaRupeeSign className='text-base' /> {totalPendingCommissionToPay.toLocaleString()}</p>}
                         {errorPaymentsPaid && <p className="text-red-500 text-xs">{errorPaymentsPaid}</p>}
                     </div>
                 </div>
@@ -1060,9 +1293,9 @@ const MasterDataDashboard = () => {
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
                                                             ${agent.status === 'active' ? 'bg-green-100 text-green-800' :
-                                                              agent.status === 'inactive' ? 'bg-red-100 text-red-800' :
-                                                              agent.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                                              'bg-gray-100 text-gray-800'
+                                                                agent.status === 'inactive' ? 'bg-red-100 text-red-800' :
+                                                                    agent.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                                                        'bg-gray-100 text-gray-800'
                                                             }`}>
                                                             {agent.status}
                                                         </span>
@@ -1142,532 +1375,543 @@ const MasterDataDashboard = () => {
                     )}
 
                     {activeTab === 'payments' && (
-                    <>
-                        {/* Payment Sub-Tabs */}
-                        <div className="flex space-x-2 mb-4">
-                        <button
-                            onClick={() => { 
-                            setPaymentSubTab('received'); 
-                            setCurrentPage(1); 
-                            setTimeFilterReceived('currentMonth'); 
-                            setStartDateReceived(''); 
-                            setEndDateReceived(''); 
-                            }}
-                            className={`px-4 py-2 rounded-md ${paymentSubTab === 'received' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
-                        >
-                            Payments Received (from Customers)
-                        </button>
-                        <button
-                            onClick={() => { 
-                            setPaymentSubTab('paid'); 
-                            setCurrentPage(1); 
-                            setTimeFilterPaid('currentMonth'); 
-                            setStartDatePaid(''); 
-                            setEndDatePaid(''); 
-                            setCommissionView('table'); 
-                            }}
-                            className={`px-4 py-2 rounded-md ${paymentSubTab === 'paid' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
-                        >
-                            Payments Paid (to Agents)
-                        </button>
-                        </div>
-
-                        {paymentSubTab === 'received' ? (
                         <>
-                            {/* Payment Received Summary Cards */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                            <div className="bg-white rounded-lg shadow p-4 flex items-center">
-                                <div className="bg-green-100 p-3 rounded-full mr-4">
-                                <FaRupeeSign className="text-green-600 text-xl" />
-                                </div>
-                                <div>
-                                <p className="text-gray-500 text-sm">Total Received Amount</p>
-                                <p className="text-2xl font-bold flex items-center gap-1">
-                                    <FaRupeeSign className='text-base'/> {totalReceivedAmount.toLocaleString()}
-                                </p>
-                                </div>
-                            </div>
-                            <div className="bg-white rounded-lg shadow p-4 flex items-center">
-                                <div className="bg-orange-100 p-3 rounded-full mr-4">
-                                <FaRupeeSign className="text-orange-600 text-xl" />
-                                </div>
-                                <div>
-                                <p className="text-gray-500 text-sm">Total Pending Amount</p>
-                                <p className="text-2xl font-bold flex items-center gap-1">
-                                    <FaRupeeSign className='text-base'/> {totalPendingAmount.toLocaleString()}
-                                </p>
-                                </div>
-                            </div>
-                            <div className="bg-white rounded-lg shadow p-4 flex items-center">
-                                <div className="bg-blue-100 p-3 rounded-full mr-4">
-                                <FaRupeeSign className="text-blue-600 text-xl" />
-                                </div>
-                                <div>
-                                <p className="text-gray-500 text-sm">Total Commission (from received)</p>
-                                <p className="text-2xl font-bold flex items-center gap-1">
-                                    <FaRupeeSign className='text-base'/> {totalCommissionFromReceivedPayments.toLocaleString()}
-                                </p>
-                                </div>
-                            </div>
-                            </div>
-
-                            {/* Time Filter for Payments Received */}
-                            <div className="flex space-x-2 mb-4 items-center">
-                            <button
-                                onClick={() => { 
-                                setTimeFilterReceived('currentMonth'); 
-                                setStartDateReceived(''); 
-                                setEndDateReceived(''); 
-                                fetchPaymentsReceived(); 
-                                }}
-                                className={`px-4 py-2 rounded-md ${timeFilterReceived === 'currentMonth' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
-                            >
-                                Current Month
-                            </button>
-                            <button
-                                onClick={() => { 
-                                setTimeFilterReceived('all'); 
-                                setStartDateReceived(''); 
-                                setEndDateReceived(''); 
-                                fetchPaymentsReceived(); 
-                                }}
-                                className={`px-4 py-2 rounded-md ${timeFilterReceived === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
-                            >
-                                All Payments
-                            </button>
-                            <button
-                                onClick={() => setTimeFilterReceived('custom')}
-                                className={`px-4 py-2 rounded-md ${timeFilterReceived === 'custom' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
-                            >
-                                Custom Date Range
-                            </button>
-                            {timeFilterReceived === 'custom' && (
-                                <div className="flex space-x-2 ml-4">
-                                <input
-                                    type="date"
-                                    value={startDateReceived}
-                                    onChange={(e) => setStartDateReceived(e.target.value)}
-                                    className="p-2 border rounded-md"
-                                    placeholder="Start Date"
-                                />
-                                <input
-                                    type="date"
-                                    value={endDateReceived}
-                                    onChange={(e) => setEndDateReceived(e.target.value)}
-                                    className="p-2 border rounded-md"
-                                    placeholder="End Date"
-                                />
-                                <button
-                                    onClick={fetchPaymentsReceived}
-                                    className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-                                >
-                                    Apply
-                                </button>
-                                </div>
-                            )}
-                            </div>
-
-                            {loadingPaymentsReceived ? (
-                            <div className="text-center py-8">Loading payments received...</div>
-                            ) : errorPaymentsReceived ? (
-                            <div className="text-center py-8 text-red-500">{errorPaymentsReceived}</div>
-                            ) : (
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Booking ID</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tour Name</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commission</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Status</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Date</th>
-                                </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                {currentPaymentsReceived.length > 0 ? (
-                                    currentPaymentsReceived.map(payment => (
-                                    <tr key={payment._id}>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">#{payment.bookingID}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.tourName || 'N/A'}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm font-medium text-gray-900">{payment.agent?.name || 'N/A'}</div>
-                                        <div className="text-sm text-gray-500">ID: #{payment.agent?.agentID || 'N/A'}</div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.customer?.name || 'N/A'}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">₹{(payment.amount || 0).toLocaleString()}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">₹{(payment.commissionAmount || 0).toLocaleString()}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                                            ${payment.paymentStatus === 'Paid' ? 'bg-green-100 text-green-800' :
-                                            payment.paymentStatus === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                                            'bg-gray-100 text-gray-800'}`}>
-                                            {payment.paymentStatus}
-                                        </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {payment.paymentDate ? new Date(payment.paymentDate).toLocaleDateString() : 'N/A'}
-                                        </td>
-                                    </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                    <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500">
-                                        No received payments found
-                                    </td>
-                                    </tr>
-                                )}
-                                </tbody>
-                            </table>
-                            )}
-                        </>
-                        ) : (
-                        <>
-                            {/* Payment Paid Summary Cards */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                            <div className="bg-white rounded-lg shadow p-4 flex items-center">
-                                <div className="bg-green-100 p-3 rounded-full mr-4">
-                                <FaRupeeSign className="text-green-600 text-xl" />
-                                </div>
-                                <div>
-                                <p className="text-gray-500 text-sm">Total Commission Paid</p>
-                                <p className="text-2xl font-bold flex items-center gap-1">
-                                    <FaRupeeSign className='text-base'/> {totalPaidCommission.toLocaleString()}
-                                </p>
-                                </div>
-                            </div>
-                            <div className="bg-white rounded-lg shadow p-4 flex items-center">
-                                <div className="bg-orange-100 p-3 rounded-full mr-4">
-                                <FaRupeeSign className="text-orange-600 text-xl" />
-                                </div>
-                                <div>
-                                <p className="text-gray-500 text-sm">Total Commission Pending To Pay</p>
-                                <p className="text-2xl font-bold flex items-center gap-1">
-                                    <FaRupeeSign className='text-base'/> {totalPendingCommissionToPay.toLocaleString()}
-                                </p>
-                                </div>
-                            </div>
-                            </div>
-
-                            {/* Time Filter for Payments Paid */}
-                            <div className="flex space-x-2 mb-4 items-center">
-                            <button
-                                onClick={() => { 
-                                setTimeFilterPaid('currentMonth'); 
-                                setStartDatePaid(''); 
-                                setEndDatePaid(''); 
-                                fetchPaymentsPaid(); 
-                                }}
-                                className={`px-4 py-2 rounded-md ${timeFilterPaid === 'currentMonth' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
-                            >
-                                Current Month
-                            </button>
-                            <button
-                                onClick={() => { 
-                                setTimeFilterPaid('all'); 
-                                setStartDatePaid(''); 
-                                setEndDatePaid(''); 
-                                fetchPaymentsPaid(); 
-                                }}
-                                className={`px-4 py-2 rounded-md ${timeFilterPaid === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
-                            >
-                                All Payments
-                            </button>
-                            <button
-                                onClick={() => setTimeFilterPaid('custom')}
-                                className={`px-4 py-2 rounded-md ${timeFilterPaid === 'custom' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
-                            >
-                                Custom Date Range
-                            </button>
-                            {timeFilterPaid === 'custom' && (
-                                <div className="flex space-x-2 ml-4">
-                                <input
-                                    type="date"
-                                    value={startDatePaid}
-                                    onChange={(e) => setStartDatePaid(e.target.value)}
-                                    className="p-2 border rounded-md"
-                                    placeholder="Start Date"
-                                />
-                                <input
-                                    type="date"
-                                    value={endDatePaid}
-                                    onChange={(e) => setEndDatePaid(e.target.value)}
-                                    className="p-2 border rounded-md"
-                                    placeholder="End Date"
-                                />
-                                <button
-                                    onClick={fetchPaymentsPaid}
-                                    className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-                                >
-                                    Apply
-                                </button>
-                                </div>
-                            )}
-                            </div>
-
-                            {/* Commission View Toggles */}
+                            {/* Payment Sub-Tabs */}
                             <div className="flex space-x-2 mb-4">
-                            <button
-                                onClick={() => { 
-                                setCommissionView('table'); 
-                                setCurrentPage(1); 
-                                }}
-                                className={`px-4 py-2 rounded-md ${commissionView === 'table' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
-                            >
-                                Table View
-                            </button>
-                            <button
-                                onClick={() => { 
-                                setCommissionView('agentWise'); 
-                                setCurrentPage(1); 
-                                }}
-                                className={`px-4 py-2 rounded-md ${commissionView === 'agentWise' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
-                            >
-                                Agent-wise
-                            </button>
-                            <button
-                                onClick={() => { 
-                                setCommissionView('tourWise'); 
-                                setCurrentPage(1); 
-                                }}
-                                className={`px-4 py-2 rounded-md ${commissionView === 'tourWise' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
-                            >
-                                Tour-wise
-                            </button>
+                                <button
+                                    onClick={() => {
+                                        setPaymentSubTab('received');
+                                        setCurrentPage(1);
+                                        setTimeFilterReceived('currentMonth');
+                                        setStartDateReceived('');
+                                        setEndDateReceived('');
+                                    }}
+                                    className={`px-4 py-2 rounded-md ${paymentSubTab === 'received' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                >
+                                    Payments Received (from Customers)
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setPaymentSubTab('paid');
+                                        setCurrentPage(1);
+                                        setTimeFilterPaid('currentMonth');
+                                        setStartDatePaid('');
+                                        setEndDatePaid('');
+                                        setCommissionView('table');
+                                    }}
+                                    className={`px-4 py-2 rounded-md ${paymentSubTab === 'paid' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                >
+                                    Payments Paid (to Agents)
+                                </button>
                             </div>
 
-                            {loadingPaymentsPaid ? (
-                            <div className="text-center py-8">Loading payments paid...</div>
-                            ) : errorPaymentsPaid ? (
-                            <div className="text-center py-8 text-red-500">{errorPaymentsPaid}</div>
-                            ) : commissionView === 'table' ? (
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tour ID</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer Given</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commission</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paid Date</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                                </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                {currentPaymentsPaidTable.length > 0 ? (
-                                    currentPaymentsPaidTable.map(stat => (
-                                    <tr key={stat._id}>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{stat.tourID || 'N/A'}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm font-medium text-gray-900">{stat.agentID?.name || 'N/A'}</div>
-                                        <div className="text-sm text-gray-500">ID: #{stat.agentID?.agentID || 'N/A'}</div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {stat.tourStartDate ? new Date(stat.tourStartDate).toLocaleDateString() : 'N/A'}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{stat.customerGiven || 0}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">₹{(stat.commissionReceived || 0).toLocaleString()}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                                            ${stat.CommissionPaid ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                            {stat.CommissionPaid ? 'Paid' : 'Pending'}
-                                        </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {stat.CommissionPaidDate ? new Date(stat.CommissionPaidDate).toLocaleDateString() : 'N/A'}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        {!stat.CommissionPaid ? (
-                                            <button
-                                            onClick={() => initiatePayCommission(stat._id)}
-                                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                                            >
-                                            <FiDollarSign className="mr-1 h-4 w-4" /> Pay
-                                            </button>
-                                        ) : (
-                                            <span className="text-gray-500 text-xs">Already Paid</span>
-                                        )}
-                                        </td>
-                                    </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                    <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500">
-                                        No commission payments found
-                                    </td>
-                                    </tr>
-                                )}
-                                </tbody>
-                            </table>
-                            ) : commissionView === 'agentWise' ? (
-                            <div className="space-y-4">
-                                {Object.keys(groupedPaymentsPaidByAgent).length > 0 ? (
-                                Object.entries(groupedPaymentsPaidByAgent).map(([agentKey, agentData]) => (
-                                    <div key={agentKey} className="border border-gray-200 rounded-lg shadow-sm">
-                                    <button
-                                        className="flex justify-between items-center w-full p-4 bg-gray-50 hover:bg-gray-100 focus:outline-none"
-                                        onClick={() => toggleAgentAccordion(agentKey)}
-                                    >
-                                        <h3 className="text-lg font-semibold text-gray-800">
-                                        {agentData.agentName} (ID: #{agentData.agentID})
-                                        </h3>
-                                        <div className="flex items-center space-x-4">
-                                        <span className="text-sm text-gray-600">Total Commission: <FaRupeeSign className='inline-block text-xs'/>{agentData.totalCommission.toLocaleString()}</span>
-                                        <span className="text-sm text-green-600">Paid: <FaRupeeSign className='inline-block text-xs'/>{agentData.totalPaid.toLocaleString()}</span>
-                                        <span className="text-sm text-orange-600">Pending: <FaRupeeSign className='inline-block text-xs'/>{agentData.totalPending.toLocaleString()}</span>
-                                        {expandedAgents[agentKey] ? <FiChevronUp /> : <FiChevronDown />}
+                            {paymentSubTab === 'received' ? (
+                                <>
+                                    {/* Payment Received Summary Cards */}
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                                        <div className="bg-white rounded-lg shadow p-4 flex items-center">
+                                            <div className="bg-green-100 p-3 rounded-full mr-4">
+                                                <FaRupeeSign className="text-green-600 text-xl" />
+                                            </div>
+                                            <div>
+                                                <p className="text-gray-500 text-sm">Total Received Amount</p>
+                                                <p className="text-2xl font-bold flex items-center gap-1">
+                                                    <FaRupeeSign className='text-base' /> {totalReceivedAmount.toLocaleString()}
+                                                </p>
+                                            </div>
                                         </div>
-                                    </button>
-                                    {expandedAgents[agentKey] && (
-                                        <div className="p-4 border-t border-gray-200">
-                                        {agentData.tours.length > 0 ? (
-                                            <table className="min-w-full divide-y divide-gray-200">
+                                        <div className="bg-white rounded-lg shadow p-4 flex items-center">
+                                            <div className="bg-orange-100 p-3 rounded-full mr-4">
+                                                <FaRupeeSign className="text-orange-600 text-xl" />
+                                            </div>
+                                            <div>
+                                                <p className="text-gray-500 text-sm">Total Pending Amount</p>
+                                                <p className="text-2xl font-bold flex items-center gap-1">
+                                                    <FaRupeeSign className='text-base' /> {totalPendingAmount.toLocaleString()}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="bg-white rounded-lg shadow p-4 flex items-center">
+                                            <div className="bg-blue-100 p-3 rounded-full mr-4">
+                                                <FaRupeeSign className="text-blue-600 text-xl" />
+                                            </div>
+                                            <div>
+                                                <p className="text-gray-500 text-sm">Total Commission (from received)</p>
+                                                <p className="text-2xl font-bold flex items-center gap-1">
+                                                    <FaRupeeSign className='text-base' /> {totalCommissionFromReceivedPayments.toLocaleString()}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Time Filter for Payments Received */}
+                                    <div className="flex space-x-2 mb-4 items-center">
+                                        <button
+                                            onClick={() => {
+                                                setTimeFilterReceived('currentMonth');
+                                                setStartDateReceived('');
+                                                setEndDateReceived('');
+                                                fetchPaymentsReceived();
+                                            }}
+                                            className={`px-4 py-2 rounded-md ${timeFilterReceived === 'currentMonth' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                        >
+                                            Current Month
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setTimeFilterReceived('all');
+                                                setStartDateReceived('');
+                                                setEndDateReceived('');
+                                                fetchPaymentsReceived();
+                                            }}
+                                            className={`px-4 py-2 rounded-md ${timeFilterReceived === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                        >
+                                            All Payments
+                                        </button>
+                                        <button
+                                            onClick={() => setTimeFilterReceived('custom')}
+                                            className={`px-4 py-2 rounded-md ${timeFilterReceived === 'custom' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                        >
+                                            Custom Date Range
+                                        </button>
+                                        {timeFilterReceived === 'custom' && (
+                                            <div className="flex space-x-2 ml-4">
+                                                <input
+                                                    type="date"
+                                                    value={startDateReceived}
+                                                    onChange={(e) => setStartDateReceived(e.target.value)}
+                                                    className="p-2 border rounded-md"
+                                                    placeholder="Start Date"
+                                                />
+                                                <input
+                                                    type="date"
+                                                    value={endDateReceived}
+                                                    onChange={(e) => setEndDateReceived(e.target.value)}
+                                                    className="p-2 border rounded-md"
+                                                    placeholder="End Date"
+                                                />
+                                                <button
+                                                    onClick={fetchPaymentsReceived}
+                                                    className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                                                >
+                                                    Apply
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {loadingPaymentsReceived ? (
+                                        <div className="text-center py-8">Loading payments received...</div>
+                                    ) : errorPaymentsReceived ? (
+                                        <div className="text-center py-8 text-red-500">{errorPaymentsReceived}</div>
+                                    ) : (
+                                        <table className="min-w-full divide-y divide-gray-200">
                                             <thead className="bg-gray-50">
                                                 <tr>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tour ID</th>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer Given</th>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commission</th>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paid Date</th>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Booking ID</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tour Name</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commission</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Status</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Date</th>
+                                                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="bg-white divide-y divide-gray-200">
-                                                {agentData.tours.map(tourStat => (
-                                                <tr key={tourStat._id}>
-                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{tourStat.tourID || 'N/A'}</td>
-                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{tourStat.tourStartDate ? new Date(tourStat.tourStartDate).toLocaleDateString() : 'N/A'}</td>
-                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{tourStat.customerGiven || 0}</td>
-                                                    <td className="px-4 py-2 whitespace-nowrap text-sm font-medium">₹{(tourStat.commissionReceived || 0).toLocaleString()}</td>
-                                                    <td className="px-4 py-2 whitespace-nowrap">
-                                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                                                        ${tourStat.CommissionPaid ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                                        {tourStat.CommissionPaid ? 'Paid' : 'Pending'}
-                                                    </span>
-                                                    </td>
-                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                                                    {tourStat.CommissionPaidDate ? new Date(tourStat.CommissionPaidDate).toLocaleDateString() : 'N/A'}
-                                                    </td>
-                                                    <td className="px-4 py-2 whitespace-nowrap text-right text-sm font-medium">
-                                                    {!tourStat.CommissionPaid ? (
-                                                        <button
-                                                        onClick={() => initiatePayCommission(tourStat._id)}
-                                                        className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
-                                                        >
-                                                        <FiDollarSign className="mr-1 h-3 w-3" /> Pay
-                                                        </button>
-                                                    ) : (
-                                                        <span className="text-gray-500 text-xs">Already Paid</span>
-                                                    )}
-                                                    </td>
-                                                </tr>
-                                                ))}
+                                                {currentPaymentsReceived.length > 0 ? (
+                                                    currentPaymentsReceived.map(payment => (
+                                                        <tr key={payment._id}>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">#{payment.bookingID}</td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.tourName || 'N/A'}</td>
+                                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                                <div className="text-sm font-medium text-gray-900">{payment.agent?.name || 'N/A'}</div>
+                                                                <div className="text-sm text-gray-500">ID: #{payment.agent?.agentID || 'N/A'}</div>
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.customer?.name || 'N/A'}</td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">₹{(payment.amount || 0).toLocaleString()}</td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">₹{(payment.commissionAmount || 0).toLocaleString()}</td>
+                                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                                            ${payment.paymentStatus === 'Paid' ? 'bg-green-100 text-green-800' :
+                                                                        payment.paymentStatus === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                                                                            'bg-gray-100 text-gray-800'}`}>
+                                                                    {payment.paymentStatus}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                                {payment.paymentDate ? new Date(payment.paymentDate).toLocaleDateString() : 'N/A'}
+                                                            </td>
+                                                            <td>
+                                                                <button
+                                                                    className='bg-green-600 hover:bg-green-700 text-white px-3
+                                                 py-1 rounded-full text-sm font-semibold shadow transition'
+                                                                    onClick={() => handleShowInvoice(payment._id)}
+                                                                    title='View Invoice'
+                                                                >
+                                                                    Invoice
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))
+                                                ) : (
+                                                    <tr>
+                                                        <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500">
+                                                            No received payments found
+                                                        </td>
+                                                    </tr>
+                                                )}
                                             </tbody>
-                                            </table>
-                                        ) : (
-                                            <p className="text-center text-gray-500 py-2">No tours for this agent.</p>
-                                        )}
-                                        </div>
+                                        </table>
                                     )}
-                                    </div>
-                                ))
-                                ) : (
-                                <div className="text-center py-8 text-gray-500">No agent commission data found.</div>
-                                )}
-                            </div>
+                                </>
                             ) : (
-                            <div className="space-y-4">
-                                {Object.keys(groupedPaymentsPaidByTour).length > 0 ? (
-                                Object.entries(groupedPaymentsPaidByTour).map(([tourKey, tourData]) => (
-                                    <div key={tourKey} className="border border-gray-200 rounded-lg shadow-sm">
-                                    <button
-                                        className="flex justify-between items-center w-full p-4 bg-gray-50 hover:bg-gray-100 focus:outline-none"
-                                        onClick={() => toggleTourAccordion(tourKey)}
-                                    >
-                                        <h3 className="text-lg font-semibold text-gray-800">
-                                        Tour ID: {tourData.tourName}
-                                        </h3>
-                                        <div className="flex items-center space-x-4">
-                                        <span className="text-sm text-gray-600">Total Commission: <FaRupeeSign className='inline-block text-xs'/>{tourData.totalCommission.toLocaleString()}</span>
-                                        <span className="text-sm text-green-600">Paid: <FaRupeeSign className='inline-block text-xs'/>{tourData.totalPaid.toLocaleString()}</span>
-                                        <span className="text-sm text-orange-600">Pending: <FaRupeeSign className='inline-block text-xs'/>{tourData.totalPending.toLocaleString()}</span>
-                                        {expandedTours[tourKey] ? <FiChevronUp /> : <FiChevronDown />}
+                                <>
+                                    {/* Payment Paid Summary Cards */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                        <div className="bg-white rounded-lg shadow p-4 flex items-center">
+                                            <div className="bg-green-100 p-3 rounded-full mr-4">
+                                                <FaRupeeSign className="text-green-600 text-xl" />
+                                            </div>
+                                            <div>
+                                                <p className="text-gray-500 text-sm">Total Commission Paid</p>
+                                                <p className="text-2xl font-bold flex items-center gap-1">
+                                                    <FaRupeeSign className='text-base' /> {totalPaidCommission.toLocaleString()}
+                                                </p>
+                                            </div>
                                         </div>
-                                    </button>
-                                    {expandedTours[tourKey] && (
-                                        <div className="p-4 border-t border-gray-200">
-                                        {tourData.agents.length > 0 ? (
-                                            <table className="min-w-full divide-y divide-gray-200">
+                                        <div className="bg-white rounded-lg shadow p-4 flex items-center">
+                                            <div className="bg-orange-100 p-3 rounded-full mr-4">
+                                                <FaRupeeSign className="text-orange-600 text-xl" />
+                                            </div>
+                                            <div>
+                                                <p className="text-gray-500 text-sm">Total Commission Pending To Pay</p>
+                                                <p className="text-2xl font-bold flex items-center gap-1">
+                                                    <FaRupeeSign className='text-base' /> {totalPendingCommissionToPay.toLocaleString()}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Time Filter for Payments Paid */}
+                                    <div className="flex space-x-2 mb-4 items-center">
+                                        <button
+                                            onClick={() => {
+                                                setTimeFilterPaid('currentMonth');
+                                                setStartDatePaid('');
+                                                setEndDatePaid('');
+                                                fetchPaymentsPaid();
+                                            }}
+                                            className={`px-4 py-2 rounded-md ${timeFilterPaid === 'currentMonth' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                        >
+                                            Current Month
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setTimeFilterPaid('all');
+                                                setStartDatePaid('');
+                                                setEndDatePaid('');
+                                                fetchPaymentsPaid();
+                                            }}
+                                            className={`px-4 py-2 rounded-md ${timeFilterPaid === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                        >
+                                            All Payments
+                                        </button>
+                                        <button
+                                            onClick={() => setTimeFilterPaid('custom')}
+                                            className={`px-4 py-2 rounded-md ${timeFilterPaid === 'custom' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                        >
+                                            Custom Date Range
+                                        </button>
+                                        {timeFilterPaid === 'custom' && (
+                                            <div className="flex space-x-2 ml-4">
+                                                <input
+                                                    type="date"
+                                                    value={startDatePaid}
+                                                    onChange={(e) => setStartDatePaid(e.target.value)}
+                                                    className="p-2 border rounded-md"
+                                                    placeholder="Start Date"
+                                                />
+                                                <input
+                                                    type="date"
+                                                    value={endDatePaid}
+                                                    onChange={(e) => setEndDatePaid(e.target.value)}
+                                                    className="p-2 border rounded-md"
+                                                    placeholder="End Date"
+                                                />
+                                                <button
+                                                    onClick={fetchPaymentsPaid}
+                                                    className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                                                >
+                                                    Apply
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Commission View Toggles */}
+                                    <div className="flex space-x-2 mb-4">
+                                        <button
+                                            onClick={() => {
+                                                setCommissionView('table');
+                                                setCurrentPage(1);
+                                            }}
+                                            className={`px-4 py-2 rounded-md ${commissionView === 'table' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                        >
+                                            Table View
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setCommissionView('agentWise');
+                                                setCurrentPage(1);
+                                            }}
+                                            className={`px-4 py-2 rounded-md ${commissionView === 'agentWise' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                        >
+                                            Agent-wise
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setCommissionView('tourWise');
+                                                setCurrentPage(1);
+                                            }}
+                                            className={`px-4 py-2 rounded-md ${commissionView === 'tourWise' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                                        >
+                                            Tour-wise
+                                        </button>
+                                    </div>
+
+                                    {loadingPaymentsPaid ? (
+                                        <div className="text-center py-8">Loading payments paid...</div>
+                                    ) : errorPaymentsPaid ? (
+                                        <div className="text-center py-8 text-red-500">{errorPaymentsPaid}</div>
+                                    ) : commissionView === 'table' ? (
+                                        <table className="min-w-full divide-y divide-gray-200">
                                             <thead className="bg-gray-50">
                                                 <tr>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent Name</th>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent ID</th>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer Given</th>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commission</th>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paid Date</th>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tour ID</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer Given</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commission</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paid Date</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="bg-white divide-y divide-gray-200">
-                                                {tourData.agents.map(agentStat => (
-                                                <tr key={agentStat._id}>
-                                                    <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{agentStat.agentID?.name || 'N/A'}</td>
-                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">#{agentStat.agentID?.agentID || 'N/A'}</td>
-                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{agentStat.tourStartDate ? new Date(agentStat.tourStartDate).toLocaleDateString() : 'N/A'}</td>
-                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{agentStat.customerGiven || 0}</td>
-                                                    <td className="px-4 py-2 whitespace-nowrap text-sm font-medium">₹{(agentStat.commissionReceived || 0).toLocaleString()}</td>
-                                                    <td className="px-4 py-2 whitespace-nowrap">
-                                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                                                        ${agentStat.CommissionPaid ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                                        {agentStat.CommissionPaid ? 'Paid' : 'Pending'}
-                                                    </span>
-                                                    </td>
-                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                                                    {agentStat.CommissionPaidDate ? new Date(agentStat.CommissionPaidDate).toLocaleDateString() : 'N/A'}
-                                                    </td>
-                                                    <td className="px-4 py-2 whitespace-nowrap text-right text-sm font-medium">
-                                                    {!agentStat.CommissionPaid ? (
-                                                        <button
-                                                        onClick={() => initiatePayCommission(agentStat._id)}
-                                                        className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
-                                                        >
-                                                        <FiDollarSign className="mr-1 h-3 w-3" /> Pay
-                                                        </button>
-                                                    ) : (
-                                                        <span className="text-gray-500 text-xs">Already Paid</span>
-                                                    )}
-                                                    </td>
-                                                </tr>
-                                                ))}
+                                                {currentPaymentsPaidTable.length > 0 ? (
+                                                    currentPaymentsPaidTable.map(stat => (
+                                                        <tr key={stat._id}>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{stat.tourID || 'N/A'}</td>
+                                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                                <div className="text-sm font-medium text-gray-900">{stat.agentID?.name || 'N/A'}</div>
+                                                                <div className="text-sm text-gray-500">ID: #{stat.agentID?.agentID || 'N/A'}</div>
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                                {stat.tourStartDate ? new Date(stat.tourStartDate).toLocaleDateString() : 'N/A'}
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{stat.customerGiven || 0}</td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">₹{(stat.commissionReceived || 0).toLocaleString()}</td>
+                                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                                            ${stat.CommissionPaid ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                                    {stat.CommissionPaid ? 'Paid' : 'Pending'}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                                {stat.CommissionPaidDate ? new Date(stat.CommissionPaidDate).toLocaleDateString() : 'N/A'}
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                                {!stat.CommissionPaid ? (
+                                                                    <button
+                                                                        onClick={() => initiatePayCommission(stat._id)}
+                                                                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                                                    >
+                                                                        <FiDollarSign className="mr-1 h-4 w-4" /> Pay
+                                                                    </button>
+                                                                ) : (
+                                                                    <span className="text-gray-500 text-xs">Already Paid</span>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    ))
+                                                ) : (
+                                                    <tr>
+                                                        <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500">
+                                                            No commission payments found
+                                                        </td>
+                                                    </tr>
+                                                )}
                                             </tbody>
-                                            </table>
-                                        ) : (
-                                            <p className="text-center text-gray-500 py-2">No agents for this tour.</p>
-                                        )}
+                                        </table>
+                                    ) : commissionView === 'agentWise' ? (
+                                        <div className="space-y-4">
+                                            {Object.keys(groupedPaymentsPaidByAgent).length > 0 ? (
+                                                Object.entries(groupedPaymentsPaidByAgent).map(([agentKey, agentData]) => (
+                                                    <div key={agentKey} className="border border-gray-200 rounded-lg shadow-sm">
+                                                        <button
+                                                            className="flex justify-between items-center w-full p-4 bg-gray-50 hover:bg-gray-100 focus:outline-none"
+                                                            onClick={() => toggleAgentAccordion(agentKey)}
+                                                        >
+                                                            <h3 className="text-lg font-semibold text-gray-800">
+                                                                {agentData.agentName} (ID: #{agentData.agentID})
+                                                            </h3>
+                                                            <div className="flex items-center space-x-4">
+                                                                <span className="text-sm text-gray-600">Total Commission: <FaRupeeSign className='inline-block text-xs' />{agentData.totalCommission.toLocaleString()}</span>
+                                                                <span className="text-sm text-green-600">Paid: <FaRupeeSign className='inline-block text-xs' />{agentData.totalPaid.toLocaleString()}</span>
+                                                                <span className="text-sm text-orange-600">Pending: <FaRupeeSign className='inline-block text-xs' />{agentData.totalPending.toLocaleString()}</span>
+                                                                {expandedAgents[agentKey] ? <FiChevronUp /> : <FiChevronDown />}
+                                                            </div>
+                                                        </button>
+                                                        {expandedAgents[agentKey] && (
+                                                            <div className="p-4 border-t border-gray-200">
+                                                                {agentData.tours.length > 0 ? (
+                                                                    <table className="min-w-full divide-y divide-gray-200">
+                                                                        <thead className="bg-gray-50">
+                                                                            <tr>
+                                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tour ID</th>
+                                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
+                                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer Given</th>
+                                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commission</th>
+                                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paid Date</th>
+                                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody className="bg-white divide-y divide-gray-200">
+                                                                            {agentData.tours.map(tourStat => (
+                                                                                <tr key={tourStat._id}>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{tourStat.tourID || 'N/A'}</td>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{tourStat.tourStartDate ? new Date(tourStat.tourStartDate).toLocaleDateString() : 'N/A'}</td>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{tourStat.customerGiven || 0}</td>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap text-sm font-medium">₹{(tourStat.commissionReceived || 0).toLocaleString()}</td>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap">
+                                                                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                                                        ${tourStat.CommissionPaid ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                                                            {tourStat.CommissionPaid ? 'Paid' : 'Pending'}
+                                                                                        </span>
+                                                                                    </td>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                                                                                        {tourStat.CommissionPaidDate ? new Date(tourStat.CommissionPaidDate).toLocaleDateString() : 'N/A'}
+                                                                                    </td>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap text-right text-sm font-medium">
+                                                                                        {!tourStat.CommissionPaid ? (
+                                                                                            <button
+                                                                                                onClick={() => initiatePayCommission(tourStat._id)}
+                                                                                                className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
+                                                                                            >
+                                                                                                <FiDollarSign className="mr-1 h-3 w-3" /> Pay
+                                                                                            </button>
+                                                                                        ) : (
+                                                                                            <span className="text-gray-500 text-xs">Already Paid</span>
+                                                                                        )}
+                                                                                    </td>
+                                                                                </tr>
+                                                                            ))}
+                                                                        </tbody>
+                                                                    </table>
+                                                                ) : (
+                                                                    <p className="text-center text-gray-500 py-2">No tours for this agent.</p>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="text-center py-8 text-gray-500">No agent commission data found.</div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            {Object.keys(groupedPaymentsPaidByTour).length > 0 ? (
+                                                Object.entries(groupedPaymentsPaidByTour).map(([tourKey, tourData]) => (
+                                                    <div key={tourKey} className="border border-gray-200 rounded-lg shadow-sm">
+                                                        <button
+                                                            className="flex justify-between items-center w-full p-4 bg-gray-50 hover:bg-gray-100 focus:outline-none"
+                                                            onClick={() => toggleTourAccordion(tourKey)}
+                                                        >
+                                                            <h3 className="text-lg font-semibold text-gray-800">
+                                                                Tour ID: {tourData.tourName}
+                                                            </h3>
+                                                            <div className="flex items-center space-x-4">
+                                                                <span className="text-sm text-gray-600">Total Commission: <FaRupeeSign className='inline-block text-xs' />{tourData.totalCommission.toLocaleString()}</span>
+                                                                <span className="text-sm text-green-600">Paid: <FaRupeeSign className='inline-block text-xs' />{tourData.totalPaid.toLocaleString()}</span>
+                                                                <span className="text-sm text-orange-600">Pending: <FaRupeeSign className='inline-block text-xs' />{tourData.totalPending.toLocaleString()}</span>
+                                                                {expandedTours[tourKey] ? <FiChevronUp /> : <FiChevronDown />}
+                                                            </div>
+                                                        </button>
+                                                        {expandedTours[tourKey] && (
+                                                            <div className="p-4 border-t border-gray-200">
+                                                                {tourData.agents.length > 0 ? (
+                                                                    <table className="min-w-full divide-y divide-gray-200">
+                                                                        <thead className="bg-gray-50">
+                                                                            <tr>
+                                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent Name</th>
+                                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent ID</th>
+                                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
+                                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer Given</th>
+                                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commission</th>
+                                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paid Date</th>
+                                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody className="bg-white divide-y divide-gray-200">
+                                                                            {tourData.agents.map(agentStat => (
+                                                                                <tr key={agentStat._id}>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{agentStat.agentID?.name || 'N/A'}</td>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">#{agentStat.agentID?.agentID || 'N/A'}</td>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{agentStat.tourStartDate ? new Date(agentStat.tourStartDate).toLocaleDateString() : 'N/A'}</td>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{agentStat.customerGiven || 0}</td>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap text-sm font-medium">₹{(agentStat.commissionReceived || 0).toLocaleString()}</td>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap">
+                                                                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                                                        ${agentStat.CommissionPaid ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                                                            {agentStat.CommissionPaid ? 'Paid' : 'Pending'}
+                                                                                        </span>
+                                                                                    </td>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                                                                                        {agentStat.CommissionPaidDate ? new Date(agentStat.CommissionPaidDate).toLocaleDateString() : 'N/A'}
+                                                                                    </td>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap text-right text-sm font-medium">
+                                                                                        {!agentStat.CommissionPaid ? (
+                                                                                            <button
+                                                                                                onClick={() => initiatePayCommission(agentStat._id)}
+                                                                                                className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
+                                                                                            >
+                                                                                                <FiDollarSign className="mr-1 h-3 w-3" /> Pay
+                                                                                            </button>
+                                                                                        ) : (
+                                                                                            <span className="text-gray-500 text-xs">Already Paid</span>
+                                                                                        )}
+                                                                                    </td>
+                                                                                </tr>
+                                                                            ))}
+                                                                        </tbody>
+                                                                    </table>
+                                                                ) : (
+                                                                    <p className="text-center text-gray-500 py-2">No agents for this tour.</p>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="text-center py-8 text-gray-500">No tour commission data found.</div>
+                                            )}
                                         </div>
                                     )}
-                                    </div>
-                                ))
-                                ) : (
-                                <div className="text-center py-8 text-gray-500">No tour commission data found.</div>
-                                )}
-                            </div>
+                                </>
                             )}
                         </>
-                        )}
-                    </>
                     )}
 
                     {/* Pagination */}
                     {(activeTab === 'agents' && filteredAgents.length > itemsPerPage) ||
-                     (activeTab === 'customers' && filteredCustomers.length > itemsPerPage) ||
-                     (activeTab === 'payments' && paymentSubTab === 'received' && filteredPaymentsReceived.length > itemsPerPage) ||
-                     (activeTab === 'payments' && paymentSubTab === 'paid' && commissionView === 'table' && filteredPaymentsPaid.length > itemsPerPage) ? (
+                        (activeTab === 'customers' && filteredCustomers.length > itemsPerPage) ||
+                        (activeTab === 'payments' && paymentSubTab === 'received' && filteredPaymentsReceived.length > itemsPerPage) ||
+                        (activeTab === 'payments' && paymentSubTab === 'paid' && commissionView === 'table' && filteredPaymentsPaid.length > itemsPerPage) ? (
                         <div className="flex justify-center items-center space-x-2 mt-6">
                             <button
                                 onClick={() => paginate(currentPage - 1)}
@@ -1693,6 +1937,37 @@ const MasterDataDashboard = () => {
                     ) : null}
                 </div>
             </div>
+
+            {showInvoiceModal && selectedInvoice && (
+                <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl shadow-lg p-8 max-w-4xl w-full relative">
+                        <button
+                            className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-xl"
+                            onClick={closeInvoiceModal}
+                        >
+                            &times;
+                        </button>
+                        <h2 className="text-2xl font-bold mb-4 text-gray-800">Invoice Preview</h2>
+                        <div className="overflow-x-auto max-h-[70vh] border rounded-lg p-6 bg-gray-50">
+                            <div dangerouslySetInnerHTML={{ __html: getInvoiceHtml(selectedInvoice) }} />
+                        </div>
+                        <div className="flex gap-4 mt-6 justify-end">
+                            <button
+                                className="px-5 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold"
+                                onClick={() => handlePrintInvoice(selectedInvoice)}
+                            >
+                                Print
+                            </button>
+                            <button
+                                className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
+                                onClick={() => handleDownloadInvoice(selectedInvoice)}
+                            >
+                                Download
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             {/* <Footer /> */}
         </div>
     );

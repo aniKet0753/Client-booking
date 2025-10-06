@@ -11,16 +11,18 @@ import {
 import Footer from "../components/Footer";
 import Navbar from "../components/Navbar";
 
-
+// const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
 function getInvoiceHtml(invoice) {
+  if (!invoice) return '';
+
   return `
   <div style="font-family: Arial, sans-serif; margin: 0; padding: 15px; background-color: #f0f0f0;">
-    <div style="width: 800px; margin: 0 auto; background-color: white; padding: 25px; box-shadow: 0 0 15px rgba(0,0,0,0.1);">
+    <div style="max-width:900px; width:100%; margin: 0 auto; background-color: white; padding: 25px; box-shadow: 0 0 15px rgba(0,0,0,0.1);">
       <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
         <tr>
           <td style="text-align: center; padding-bottom: 10px;">
             <span style="display: block; text-align: center; margin-bottom: 12px;">
-              <img src="https://reboot-l2g.onrender.com/assets/main-logo-03-BS_a2pPl.svg" alt="" />
+              <img src="https://reboot-l2g.onrender.com/assets/main-logo-03-BS_a2pPl.svg" alt="Company Logo" />
             </span>
             <h1 style="margin: 0; font-size: 24px; letter-spacing: 2px;">L2G CRUISE & CURE</h1>
             <p style="margin: 5px 0; font-size: 14px; letter-spacing: 1px;"><strong>T R A V E L  M A N A G E M E N T</strong></p>
@@ -31,8 +33,8 @@ function getInvoiceHtml(invoice) {
       <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
         <tr>
           <td style="width: 50%; vertical-align: top;">
-            <p style="margin: 3px 0; font-size: 13px;"><strong>Invoice No:</strong> ${invoice.invoiceNumber || ''}</p>
-            <p style="margin: 3px 0; font-size: 13px;"><strong>Date:</strong> ${invoice.createdAt ? (new Date(invoice.createdAt)).toLocaleDateString() : ''}</p>
+            <p style="margin: 3px 0; font-size: 13px;"><strong>Invoice No:</strong> ${invoice.invoiceNo || 'L2G/TOUR/FY2025-2026/………'}</p>
+            <p style="margin: 3px 0; font-size: 13px;"><strong>Date:</strong> ${invoice.date ? new Date(invoice.date).toLocaleDateString() : '………/………../………'}</p>
           </td>
           <td style="width: 50%; vertical-align: top; text-align: right;">
             <p style="margin: 3px 0; font-size: 11px;"><strong>Office Address:</strong> H. No. 6, Netaji Path, Gobindnagar,</p>
@@ -48,15 +50,15 @@ function getInvoiceHtml(invoice) {
             <strong>Customer Name:</strong> ${invoice.customerName || ''}
           </td>
           <td style="width: 50%; padding: 8px; border: 1px solid #ddd;">
-            <strong>No. Of passengers:</strong> ${invoice.passengers || ''}
+            <strong>No. Of passengers:</strong> ${invoice.totalPassengers || ''}
           </td>
         </tr>
         <tr>
           <td style="padding: 8px; border: 1px solid #ddd;">
-            <strong>Customer Booking ID:</strong> ${invoice.customerBookingId || ''}
+            <strong>Customer Booking ID:</strong> ${invoice.bookingID || ''}
           </td>
           <td style="padding: 8px; border: 1px solid #ddd;">
-            <strong>Date of Journey:</strong> ${invoice.dateOfJourney || ''}
+            <strong>Date of Journey:</strong> ${invoice.journeyDate || ''}
           </td>
         </tr>
         <tr>
@@ -64,15 +66,41 @@ function getInvoiceHtml(invoice) {
             <strong>Customer Email ID:</strong> ${invoice.customerEmail || ''}
           </td>
           <td style="padding: 8px; border: 1px solid #ddd;">
-            <strong>Tour Package:</strong> ${invoice.tour?.name || ''}
+            <strong>Tour Package:</strong> ${invoice.tourPackageName || ''}
           </td>
         </tr>
         <tr>
           <td style="padding: 8px; border: 1px solid #ddd;" colspan="2">
-            <strong>Days / Night of Tour:</strong> ${invoice.daysNights || ''}
+            <strong>Days / Night of Tour:</strong> ${invoice.tourDuration || ''}
           </td>
         </tr>
       </table>
+
+      <table style="width: 100%; margin-bottom: 20px;">
+        <tr>
+          <td style="vertical-align: top; width: 50%;">
+            ${invoice.inclusions && invoice.inclusions.length > 0 ? `
+              <div>
+                <strong style="font-size: 15px; color: #2563eb;">What's Included:</strong>
+                <ul style="margin: 8px 0 0 18px; color: #222; font-size: 13px;">
+                  ${invoice.inclusions.map(item => `<li>${item}</li>`).join('')}
+                </ul>
+              </div>
+            ` : ''}
+          </td>
+          <td style="vertical-align: top; width: 50%;">
+            ${invoice.exclusions && invoice.exclusions.length > 0 ? `
+              <div>
+                <strong style="font-size: 15px; color: #dc2626;">What's Not Included:</strong>
+                <ul style="margin: 8px 0 0 18px; color: #444; font-size: 13px;">
+                  ${invoice.exclusions.map(item => `<li>${item}</li>`).join('')}
+                </ul>
+              </div>
+            ` : ''}
+          </td>
+        </tr>
+      </table>
+
       <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; border: 1px solid #ddd;">
         <tr style="background-color: #f9f9f9;">
           <th style="padding: 12px; border: 1px solid #ddd; text-align: left; width: 50%;">Particulars</th>
@@ -85,51 +113,59 @@ function getInvoiceHtml(invoice) {
         </tr>
         <tr>
           <td style="padding: 10px; border: 1px solid #ddd;">Tour package</td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.tourPackagePrice || ''}</td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${invoice.passengers || ''}</td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.tourPackageSubTotal || ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">₹${(invoice.basePrice || 0).toFixed(2)}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${invoice.numPassengersForCalc || invoice.totalPassengers || 0}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">₹${((invoice.basePrice || 0) * (invoice.numPassengersForCalc || invoice.totalPassengers || 0)).toFixed(2)}</td>
         </tr>
+
+        <tr>
+          <td style="padding: 10px; border: 1px solid #ddd;">Tour package (Child)</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">₹${(invoice.childBasePrice || 0).toFixed(2)}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${invoice.childPassengers || 0}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">₹${((invoice.childBasePrice || 0) * (invoice.childPassengers || 0)).toFixed(2)}</td>
+        </tr>
+
         <tr>
           <td style="padding: 10px; border: 1px solid #ddd;">Air Fare (Extra)</td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;"></td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;"></td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;"></td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.airFare ? `₹${invoice.airFare.toFixed(2)}` : ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${invoice.airFarePassengers || ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.airFare ? `₹${invoice.airFare.toFixed(2)}` : ''}</td>
         </tr>
         <tr>
           <td style="padding: 10px; border: 1px solid #ddd;">Train Tickets from Home station and back</td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;"></td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;"></td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;"></td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.trainFare ? `₹${invoice.trainFare.toFixed(2)}` : ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${invoice.trainFarePassengers || ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.trainFare ? `₹${invoice.trainFare.toFixed(2)}` : ''}</td>
         </tr>
         <tr>
           <td style="padding: 10px; border: 1px solid #ddd;">Foodings</td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;"></td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;"></td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;"></td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.foodings ? `₹${invoice.foodings.toFixed(2)}` : ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${invoice.foodingsPassengers || ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.foodings ? `₹${invoice.foodings.toFixed(2)}` : ''}</td>
         </tr>
         <tr>
           <td style="padding: 10px; border: 1px solid #ddd;">Hotel / Home-stay upgradation charges</td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;"></td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;"></td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;"></td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.hotelUpgrade ? `₹${invoice.hotelUpgrade.toFixed(2)}` : ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${invoice.hotelUpgradePassengers || ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.hotelUpgrade ? `₹${invoice.hotelUpgrade.toFixed(2)}` : ''}</td>
         </tr>
         <tr>
           <td style="padding: 10px; border: 1px solid #ddd;">Conveyance charges not included in basic package (Extra)</td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;"></td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;"></td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;"></td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.conveyance ? `₹${invoice.conveyance.toFixed(2)}` : ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${invoice.conveyancePassengers || ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${invoice.conveyance ? `₹${invoice.conveyance.toFixed(2)}` : ''}</td>
         </tr>
         <tr>
           <td style="padding: 10px; border: 1px solid #ddd; text-align: right; font-weight: bold;" colspan="3">SUB-TOTAL</td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: right; font-weight: bold;">${invoice.subTotal || ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right; font-weight: bold;">₹${(invoice.subTotal || 0).toFixed(2)}</td>
         </tr>
         <tr>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: right; font-weight: bold;" colspan="3">GST @18%</td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: right; font-weight: bold;">${invoice.gst || ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right; font-weight: bold;" colspan="3">GST @${((invoice.gstRate || 0) * 100).toFixed(0)}%</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right; font-weight: bold;">₹${(invoice.gstAmount || 0).toFixed(2)}</td>
         </tr>
         <tr>
           <td style="padding: 10px; border: 1px solid #ddd; text-align: right; font-weight: bold;" colspan="3">TOTAL</td>
-          <td style="padding: 10px; border: 1px solid #ddd; text-align: right; font-weight: bold;">${invoice.amount ? '₹' + invoice.amount : ''}</td>
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: right; font-weight: bold;">₹${(invoice.totalAmount || 0).toFixed(2)}</td>
         </tr>
       </table>
       <table style="width: 100%; margin-top: 40px;">
@@ -144,7 +180,6 @@ function getInvoiceHtml(invoice) {
   </div>
   `;
 }
-
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming', 'previous', 'complaints'
   const [expandedTour, setExpandedTour] = useState(null);
@@ -355,10 +390,37 @@ const Dashboard = () => {
     setExpandedComplaintId(expandedComplaintId === id ? null : id);
   };
 
-  const openInvoiceModal = (invoice) => {
-    setSelectedInvoice(invoice);
-    setShowInvoiceModal(true);
+  const openInvoiceModal = async (bookingId) => {
+    setInvoiceLoading(true);
+    setInvoiceError(null);
+    try {
+      const token = localStorage.getItem("Token");
+
+      const res = await axios.get(`/api/bookings/${bookingId}/invoice`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      setSelectedInvoice(res.data);
+      setShowInvoiceModal(true);
+    } catch (error) {
+      // handle axios error correctly
+      const message =
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to load invoice data";
+      setInvoiceError(message);
+      console.error("Invoice fetch error:", error);
+    } finally {
+      setInvoiceLoading(false);
+    }
   };
+
+  const closeInvoiceModal = () => {
+    setShowInvoiceModal(false);
+    setSelectedInvoice(null);
+  }
 
   // Print invoice modal content
   const handlePrintInvoice = (invoice = selectedInvoice) => {
@@ -380,15 +442,14 @@ const Dashboard = () => {
   };
 
   // Download Invoice as HTML
-  const handleDownloadInvoice = async (invoiceId) => {
-    const invoice = invoices.find(inv => inv._id === invoiceId);
+  const handleDownloadInvoice = async (invoice) => {
     if (!invoice) return;
     const invoiceHtml = getInvoiceHtml(invoice);
     const blob = new Blob([invoiceHtml], { type: 'text/html' });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `invoice-${invoiceId}.html`);
+    link.setAttribute('download', `invoice-${invoice._id || 'preview'}.html`);
     document.body.appendChild(link);
     link.click();
     link.parentNode.removeChild(link);
@@ -478,11 +539,21 @@ const Dashboard = () => {
                                       <span>{tour.location}</span>
                                     </div>
                                   </div>
-                                  <div className="flex items-center bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-                                    <FiStar className="mr-1 text-base" />
-                                    <span>{tour.rating === 0 ? 'N/A' : tour.rating.toFixed(1)}</span>
+                                  <div className="flex items-center space-x-2">
+                                    <div className="flex items-center bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                                      <FiStar className="mr-1 text-base" />
+                                      <span>{tour.rating === 0 ? 'N/A' : tour.rating.toFixed(1)}</span>
+                                    </div>
+                                    <button
+                                      className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-full text-sm font-semibold shadow transition cursor-pointer"
+                                      onClick={() => openInvoiceModal(tour.id)}
+                                      title="View Invoice"
+                                    >
+                                      Invoice
+                                    </button>
                                   </div>
                                 </div>
+
 
                                 <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-4 text-gray-700 text-base">
                                   <div className="flex items-center">
@@ -749,8 +820,7 @@ const Dashboard = () => {
               ) : activeTab === 'invoice' && (
                 invoiceError ? (
                   <div className="text-center py-20 text-red-600">
-                    <FiInfo className="mx-auto text-5xl mb-6 text-red-500" />
-                    <p className="text-xl font-medium">{invoiceError}</p>
+                    {/* ... error display ... */}
                   </div>
                 ) : (
                   <div className="mt-8">
@@ -759,29 +829,26 @@ const Dashboard = () => {
                       <div className="text-center py-16 text-gray-600">Loading invoices...</div>
                     ) : invoices.length === 0 ? (
                       <div className="text-center py-16 text-gray-600">
-                        <FiFile className="mx-auto text-6xl text-gray-400 mb-6" />
-                        <h3 className="text-2xl font-semibold text-gray-700 mb-2">No invoices found.</h3>
-                        <p className="text-gray-500 text-lg mt-2">Your invoices will appear here after booking tours.</p>
+                        {/* ... no invoices display ... */}
                       </div>
                     ) : (
                       <div className="space-y-6">
                         {invoices.map(inv => (
-                          <div key={inv._id} className="bg-white rounded-xl shadow-lg border border-gray-100 p-6 flex flex-col md:flex-row md:items-center justify-between">
+                          <div key={inv._id} className="bg-white rounded-xl shadow-lg ...">
                             <div>
-                              <p className="font-bold text-lg text-gray-800 mb-1">Invoice No: {inv.invoiceNumber}</p>
-                              <p className="text-gray-600 text-sm mb-1">Date: {inv.createdAt ? new Date(inv.createdAt).toLocaleDateString() : ''}</p>
-                              <p className="text-gray-600 text-sm mb-1">Tour: {inv.tour?.name || 'N/A'}</p>
-                              <p className="text-gray-600 text-sm mb-1">Amount: ₹{inv.amount}</p>
+                              <p className="font-bold ...">Invoice No: {inv.invoiceNumber}</p>
+                              {/* ... other invoice summary details ... */}
                             </div>
                             <div className="flex gap-3 mt-4 md:mt-0">
                               <button
-                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
-                                onClick={() => openInvoiceModal(inv)}
+                                className="px-4 py-2 bg-blue-600 ..."
+                                // ✅ KEY CHANGE HERE: Pass the ID instead of the whole object
+                                onClick={() => openInvoiceModal(inv._id)}
                               >
                                 View
                               </button>
                               <button
-                                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold"
+                                className="px-4 py-2 bg-green-600 ..."
                                 onClick={() => handlePrintInvoice(inv)}
                               >
                                 Print
@@ -789,35 +856,6 @@ const Dashboard = () => {
                             </div>
                           </div>
                         ))}
-                      </div>
-                    )}
-                    {showInvoiceModal && selectedInvoice && (
-                      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-4">
-                        <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-lg relative">
-                          <button
-                            onClick={() => setShowInvoiceModal(false)}
-                            className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-2xl"
-                          >
-                            &times;
-                          </button>
-                          <div ref={invoicePrintRef}>
-                            <div dangerouslySetInnerHTML={{ __html: getInvoiceHtml(selectedInvoice) }} />
-                          </div>
-                          <div className="mt-6 text-center">
-                            <button
-                              onClick={handlePrintInvoice}
-                              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 mr-3"
-                            >
-                              Print Invoice
-                            </button>
-                            <button
-                              onClick={() => setShowInvoiceModal(false)}
-                              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100"
-                            >
-                              Close
-                            </button>
-                          </div>
-                        </div>
                       </div>
                     )}
                   </div>
@@ -828,6 +866,39 @@ const Dashboard = () => {
         </div>
       </div>
       <Footer />
+
+
+      {showInvoiceModal && selectedInvoice && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-lg p-12 max-w-4xl w-full relative">
+            <button
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-xl"
+              onClick={closeInvoiceModal}
+            >
+              &times;
+            </button>
+            <h2 className="text-3xl font-bold mb-6 text-gray-800">Invoice Preview</h2>
+            <div className="overflow-x-auto max-h-[70vh] border rounded-lg p-6 bg-gray-50">
+              <div dangerouslySetInnerHTML={{ __html: getInvoiceHtml(selectedInvoice) }} />
+            </div>
+            <div className="flex gap-4 mt-8 justify-end">
+              <button
+                className="px-5 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold"
+                onClick={() => handlePrintInvoice(selectedInvoice)}
+              >
+                Print
+              </button>
+              <button
+                className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
+                onClick={() => handleDownloadInvoice(selectedInvoice)}
+              >
+                Download
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </>
   );
 };
