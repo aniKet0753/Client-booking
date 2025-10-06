@@ -23,7 +23,7 @@ const medicalTourismPackages = [
             "Comfortable Living Spaces",
             "Nutritional Meal Plans"
         ],
-        price: "Starting from ₹ 2099/night"
+        price: "Custom packages available"
     },
     {
         id: 2,
