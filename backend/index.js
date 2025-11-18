@@ -31,7 +31,7 @@ app.use(
 );
 
 app.use(cors({
-  origin: ['https://reboot-l2g.onrender.com', 'http://localhost:5173'], // both production and local frontend
+  origin: ['https://reboot-l2g.onrender.com', 'http://localhost:5173', 'https://l2gcruise.com'], // both production and local frontend
   credentials: true,
 }));
 
