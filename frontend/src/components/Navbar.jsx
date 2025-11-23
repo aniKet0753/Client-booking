@@ -93,8 +93,8 @@ const Navbar = () => {
           >
             <defs>
               <linearGradient id="halfStroke" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="50%" stop-color="white" />
-                <stop offset="50%" stop-color="transparent" />
+                <stop offset="50%" stopColor="white" />
+                <stop offset="50%" stopColor="transparent" />
               </linearGradient>
             </defs>
             <text
@@ -102,13 +102,13 @@ const Navbar = () => {
               y="50%"
               fill="url(#halfStroke)"
               stroke="white"
-              stroke-width="0.6"
-              stroke-linejoin="round"
-              text-anchor="middle"
-              dominant-baseline="middle"
-              font-size="40"
-              font-weight="bold"
-              letter-spacing="3"
+              strokeWidth="0.6"
+              strokeLinejoin="round"
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fontSize="40"
+              fontWeight="bold"
+              letterSpacing="3"
               className="xl:text-5xl lg:text-xl"
             >
               L2G Cruise & Cure
@@ -352,7 +352,7 @@ const Navbar = () => {
         )}
       </header>
 
-      <style jsx global>{`
+      <style>{`
         .ocean { 
           height: 0%;
           width:100%;
