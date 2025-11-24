@@ -48,7 +48,7 @@ const experiences = [
     image: "https://images.unsplash.com/photo-1603712725038-e9334ae8f39f?q=80&w=2071&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
   },
   {
-    title: "Wildlife Tour",
+    title: "Eco Tour",
     description: "Explore India's diverse wildlife and national parks",
     icon: GiTiger,
     places: ["Jim Corbett", "Kaziranga"],
@@ -69,7 +69,7 @@ const experiences = [
     image: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
   },
   {
-    title: "MICE Tour",
+    title: "Business Tour",
     description: "Perfect venues for corporate events and meetings",
     icon: FaBuilding,
     places: ["Mumbai", "Bangalore"],
