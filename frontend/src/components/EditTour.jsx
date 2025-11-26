@@ -120,9 +120,25 @@ function EditTour() {
 
     const handleGalleryImageChange = (e) => {
         const files = Array.from(e.target.files);
-        setFormData(prevData => ({ ...prevData, gallery: [...prevData.gallery, ...files] }));
+        const totalImages = formData.gallery.length + files.length;
+
+        if (totalImages > 10) {
+            Swal.fire({
+                icon: "error",
+                title: "Limit Exceeded",
+                text: "You can only upload a maximum of 10 images at once in the gallery. You can upload rest images later.",
+            });
+            return;
+        }
+
+        setFormData(prevData => ({
+            ...prevData,
+            gallery: [...prevData.gallery, ...files]
+        }));
+
         setErrors({ ...errors, gallery: '' });
     };
+
 
     const removeNewGalleryImage = (indexToRemove) => {
         setFormData(prevData => ({
