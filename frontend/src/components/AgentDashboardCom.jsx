@@ -217,7 +217,7 @@ function AgentDashboard() {
                     {/* Add New Item */}
                     {/* <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg shadow-lg hover:opacity-90 transform transition-all duration-300">
                         <FontAwesomeIcon icon={faPlus} className="mr-2" />
-                        Add New Item
+                        Add New Item 
                     </button> */}
                 </div>
 
