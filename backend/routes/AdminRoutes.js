@@ -563,20 +563,18 @@ router.post('/tours', authenticateSuperAdmin,
       }
 
       // Access files from req.files
-      const mainImageFile = req.files && req.files['image'] ? req.files['image'][0] : null;
-      const galleryFiles = req.files && req.files['galleryImages'] ? req.files['galleryImages'] : [];
+      const mainImageFile = req.files && req.files?.image?.[0];
+      const galleryFiles = req.files && req.files?.galleryImages || [];
 
-      let mainImageBase64 = null;
-      if (mainImageFile) {
-        mainImageBase64 = mainImageFile.buffer.toString('base64');
-      } else {
+      if (!mainImageFile) {
         return res.status(400).json({ message: 'Main tour image is required.' });
       }
-
-      const galleryBase64 = galleryFiles.map(file => file.buffer.toString('base64'));
-      if (galleryBase64.length === 0) {
-          return res.status(400).json({ message: 'At least one gallery image is required.' });
+      if (!galleryFiles.length) {
+        return res.status(400).json({ message: 'At least one gallery image is required.' });
       }
+
+      const mainImageUrl = mainImageFile.location; // ⭐ S3 URL
+      const galleryUrls = galleryFiles.map(file => file.location);
 
       const parsedHighlights = Array.isArray(highlights) ? highlights : (highlights ? highlights.split(',').map(s => s.trim()) : []);
       const parsedInclusions = Array.isArray(inclusions) ? inclusions : (inclusions ? inclusions.split(',').map(s => s.trim()) : []);
@@ -595,7 +593,7 @@ router.post('/tours', authenticateSuperAdmin,
 
       const newTour = await Tour.create({
         name: name,
-        image: mainImageBase64, // Base64 string
+        image: mainImageUrl, // Base64 string
         categoryType: categoryType,
         country: country,
         tourType: tourType,
@@ -615,7 +613,7 @@ router.post('/tours', authenticateSuperAdmin,
         exclusions: parsedExclusions,
         thingsToPack: parsedThingsToPack,
         itinerary: parsedItinerary,
-        gallery: galleryBase64, // Array of Base64 strings
+        gallery: galleryUrls,
       });
 
       res.status(201).json({ message: 'Tour added successfully!', tour: newTour });
