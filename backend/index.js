@@ -32,9 +32,10 @@ app.use(
 
 app.use(cors({
   origin: [
-    "https://l2gcruise.com",
-    "https://www.l2gcruise.com",
-    "http://localhost:3000"
+    "https://client-booking-1.onrender.com"
+    // "https://l2gcruise.com",
+    // "https://www.l2gcruise.com",
+    // "http://localhost:3000"
   ],
   methods: "GET,POST,PUT,PATCH,DELETE,OPTIONS",
   allowedHeaders: "Content-Type,Authorization,role",
