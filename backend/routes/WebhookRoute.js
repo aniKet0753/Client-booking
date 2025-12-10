@@ -18,11 +18,11 @@ const RAZORPAY_WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET;
 
 function getCommissionRate(percentageOnboarded, level) {
     if (percentageOnboarded >= 65) {
-        return level === 1 ? 10 : 5;
+        return level === 1 ? 10 : 5;// 10% for agent, 5% for parent
     } else if (percentageOnboarded >= 45) {
-        return level === 1 ? 8.5 : 3.5;
+        return level === 1 ? 8.5 : 3.5;// 8.5% for agent, 3.5% for parent
     } else {
-        return level === 1 ? 7 : 2.5;
+        return level === 1 ? 7 : 2.5;// 7% for agent, 2.5% for parentc
     }
 }
 

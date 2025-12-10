@@ -19,27 +19,43 @@ const transporter = nodemailer.createTransport({
 });
 
 // ✅ Utility function to send dump email
-async function sendDumpMail(toEmail, subject, filePath) {
+// Safe sendDumpMail: supports either filePath OR buffer+filename
+async function sendDumpMail(toEmail, subject, options = {}) {
+  // options: { filePath } OR { buffer, filename }
   try {
+    const attachments = [];
+
+    if (options.buffer && options.filename) {
+      attachments.push({
+        filename: options.filename,
+        content: options.buffer,
+      });
+    } else if (options.filePath) {
+      if (fs.existsSync(options.filePath)) {
+        attachments.push({
+          filename: path.basename(options.filePath),
+          path: options.filePath,
+        });
+      } else {
+        console.log(`⚠️ Attachment missing, sending email without file: ${options.filePath}`);
+      }
+    }
+
     const mailOptions = {
       from: `"L2G Dump Bot" <${process.env.EMAIL_USER}>`,
       to: toEmail,
       subject,
       text: `Attached is the ${subject} file.`,
-      attachments: [
-        {
-          filename: path.basename(filePath),
-          path: filePath,
-        },
-      ],
+      attachments,
     };
 
     await transporter.sendMail(mailOptions);
     console.log(`📧 ${subject} email sent successfully to ${toEmail}`);
   } catch (error) {
-    console.error('❌ Error sending email:', error);
+    console.error("❌ Error sending email:", error);
   }
 }
+
 
 // ===============================
 // ✅ DAILY DUMP
@@ -135,16 +151,74 @@ router.get('/quarterly-dump', async (req, res) => {
 
 // ✅ Reuse the same logic for all dumps
 async function generateDump(req, res, startDate, endDate, sheetName, filenamePrefix) {
-  try {
-    const today = new Date();
-    const bookings = await Booking.find({
-      createdAt: { $gte: startDate, $lt: endDate }
+  // Helper: safe unlink
+  const safeUnlink = (p) => {
+    if (!p) return;
+    fs.unlink(p, (err) => {
+      if (err) {
+        if (err.code === 'ENOENT') {
+          console.log(`🗑️ Temp file already gone (ENOENT): ${p}`);
+        } else {
+          console.error('❌ Failed to delete temp file:', err);
+        }
+      } else {
+        console.log('🗑️ Temp dump file deleted:', p);
+      }
     });
+  };
 
+  try {
+    // --- Support explicit debug / custom start-end via query params ---
+    const queryStart = req.query.start; // YYYY-MM-DD
+    const queryEnd = req.query.end;
+
+    // --- IST-safe start / next day calculation ---
+    function toISTDate(date = new Date()) {
+      // Convert to string in IST then create a Date from it — reliable for day boundaries
+      const localeStr = date.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
+      return new Date(localeStr);
+    }
+
+    // allow override via query params
+    let start = queryStart ? new Date(queryStart) : startDate;
+    start = toISTDate(start);
+    start.setHours(0, 0, 0, 0);
+
+    // end as next day's 00:00 (exclusive)
+    let nextDay = new Date(start);
+    nextDay.setDate(nextDay.getDate() + 1);
+
+    // if user provided explicit end, use it (make it exclusive)
+    if (queryEnd) {
+      nextDay = toISTDate(new Date(queryEnd));
+      nextDay.setHours(0, 0, 0, 0);
+      nextDay.setDate(nextDay.getDate() + 1);
+    }
+
+    console.log('DEBUG: generateDump date range (ISO):', { start: start.toISOString(), endExclusive: nextDay.toISOString() });
+
+    // Query DB
+    const bookings = await Booking.find({
+      createdAt: { $gte: start, $lt: nextDay }
+    }).lean();
+
+    console.log(`DEBUG: bookings found: ${bookings.length}`);
+
+    // If debug=true return JSON sample immediately (useful in Postman)
+    if (req.query.debug === 'true') {
+      return res.json({
+        start: start.toISOString(),
+        endExclusive: nextDay.toISOString(),
+        count: bookings.length,
+        sample: bookings.slice(0, 10)
+      });
+    }
+
+    // Create workbook and sheet
     const workbook = new ExcelJS.Workbook();
     const dailySheet = workbook.addWorksheet(sheetName);
 
-    // ✅ Reuse same column headers as daily dump
+    // Keep your original columns (copy from your code)
     dailySheet.columns = [
       { header: 'S/L', key: 'sl', width: 5 },
       { header: 'Date of Dump', key: 'dateOfDump', width: 15 },
@@ -206,14 +280,17 @@ async function generateDump(req, res, startDate, endDate, sheetName, filenamePre
       { header: 'Commission deduction amount of parent agent', key: 'commissionDeductionParent', width: 30 },
     ];
 
+    // --- Build rows ---
     const isMainCustomer = (traveler, mainCustomerEmail) => traveler.email === mainCustomerEmail;
     let slCounter = 1;
 
     for (const booking of bookings) {
-      const allTravelers = [booking.customer, ...booking.travelers];
+      const allTravelers = [booking.customer, ...(booking.travelers || [])];
       let isFirstRow = true;
 
-      const transaction = await Transaction.findOne({ transactionId: booking.utrNumber });
+      // Fetch transaction (if exists) - note: using transaction query inside loop is okay for modest volumes;
+      // for big volumes consider prefetching transactions in bulk by utrNumber.
+      const transaction = await Transaction.findOne({ transactionId: booking.utrNumber }).lean();
       let commissionData = {
         commissionRateAgent: '',
         commissionAmountAgent: '',
@@ -230,8 +307,8 @@ async function generateDump(req, res, startDate, endDate, sheetName, filenamePre
       };
 
       if (transaction) {
-        const agentCommission = transaction.commissions.find(c => c.level === 1);
-        const parentCommission = transaction.commissions.find(c => c.level === 2);
+        const agentCommission = (transaction.commissions || []).find(c => c.level === 1);
+        const parentCommission = (transaction.commissions || []).find(c => c.level === 2);
 
         commissionData = {
           commissionRateAgent: agentCommission?.commissionRate || '',
@@ -254,11 +331,11 @@ async function generateDump(req, res, startDate, endDate, sheetName, filenamePre
 
         const rowData = {
           sl: slCounter++,
-          dateOfDump: isFirstRow ? today.toLocaleDateString() : '',
-          dateOfBooking: isFirstRow ? booking.createdAt.toLocaleDateString() : '',
+          dateOfDump: isFirstRow ? toISTDate(new Date()).toLocaleDateString('en-GB') : '',
+          dateOfBooking: isFirstRow ? (new Date(booking.createdAt)).toLocaleDateString('en-GB') : '',
           bookingEmailId: isFirstRow ? booking.customer.email : '',
           bookingId: isFirstRow ? booking.bookingID : '',
-          dateOfJourney: isFirstRow ? (booking.tour.startDate?.toLocaleDateString() || 'N/A') : '',
+          dateOfJourney: isFirstRow ? (booking.tour?.startDate ? new Date(booking.tour.startDate).toLocaleDateString('en-GB') : 'N/A') : '',
           nameOfCustomer: isCustomer ? traveler.name : '',
           coPassengers: isCustomer ? '' : traveler.name,
           gender: traveler.gender || '',
@@ -267,24 +344,24 @@ async function generateDump(req, res, startDate, endDate, sheetName, filenamePre
           phoneCalling: traveler.phone || '',
           emergencyContact: isFirstRow ? (booking.customer.emergencyContact || 'N/A') : '',
           phoneWhatsapp: traveler.whatsapp || '',
-          flatNo: isFirstRow ? (booking.customer.homeAddress.flatNo || 'N/A') : '',
-          locality: isFirstRow ? (booking.customer.homeAddress.locality || 'N/A') : '',
-          city: isFirstRow ? (booking.customer.homeAddress.city || 'N/A') : '',
-          pincode: isFirstRow ? (booking.customer.homeAddress.pincode || 'N/A') : '',
-          ps: isFirstRow ? (booking.customer.homeAddress.ps || 'N/A') : '',
-          state: isFirstRow ? (booking.customer.homeAddress.state || 'N/A') : '',
-          country: isFirstRow ? booking.tour.country : '',
+          flatNo: isFirstRow ? (booking.customer.homeAddress?.flatNo || 'N/A') : '',
+          locality: isFirstRow ? (booking.customer.homeAddress?.locality || 'N/A') : '',
+          city: isFirstRow ? (booking.customer.homeAddress?.city || 'N/A') : '',
+          pincode: isFirstRow ? (booking.customer.homeAddress?.pincode || 'N/A') : '',
+          ps: isFirstRow ? (booking.customer.homeAddress?.ps || 'N/A') : '',
+          state: isFirstRow ? (booking.customer.homeAddress?.state || 'N/A') : '',
+          country: isFirstRow ? booking.tour?.country || '' : '',
           aadharNumber: traveler.aadhar || '',
           panNumber: traveler.pan || '',
           birthCertificate: traveler.birthCertificate || '',
           disability: traveler.disability || '',
           medicalCondition: traveler.medicalCondition || '',
-          tourType: isFirstRow ? booking.tour.tourType : '',
-          packageSelected: isFirstRow ? booking.tour.name : '',
+          tourType: isFirstRow ? booking.tour?.tourType || '' : '',
+          packageSelected: isFirstRow ? booking.tour?.name || '' : '',
           agentName: isFirstRow ? (booking.agent?.name || '') : '',
           agentId: isFirstRow ? (booking.agent?.agentID || '') : '',
-          selectedTrip: isFirstRow ? booking.tour.name : '',
-          coPassengerCount: isFirstRow ? booking.travelers.length : '',
+          selectedTrip: isFirstRow ? booking.tour?.name || '' : '',
+          coPassengerCount: isFirstRow ? (booking.travelers ? booking.travelers.length : 0) : '',
           aadharJpg: traveler.aadharJpg || '',
           panJpg: traveler.panJpg || '',
           bankName: isFirstRow ? (booking.payment?.bankName || '') : '',
@@ -293,7 +370,7 @@ async function generateDump(req, res, startDate, endDate, sheetName, filenamePre
           ifscCode: isFirstRow ? (booking.payment?.ifscCode || '') : '',
           adults: isFirstRow ? booking.numAdults : '',
           children: isFirstRow ? booking.numChildren : '',
-          adultRate: isFirstRow ? (booking.packageRates?.adultRate || booking.tour.pricePerHead) : '',
+          adultRate: isFirstRow ? (booking.packageRates?.adultRate || booking.tour?.pricePerHead || '') : '',
           childRate: isFirstRow ? (booking.packageRates?.childRate || 0) : '',
           totalPaid: isFirstRow ? (booking.payment?.totalAmount || 0) : '',
           utrNumber: isFirstRow ? (booking.utrNumber || '') : '',
@@ -307,15 +384,13 @@ async function generateDump(req, res, startDate, endDate, sheetName, filenamePre
       }
     }
 
-    // res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    // res.setHeader('Content-Disposition', `attachment; filename=${filenamePrefix}_${today.toISOString().slice(0, 10)}.xlsx`);
+    // If no bookings found, add a friendly message row so file isn't empty
+    if (bookings.length === 0) {
+      dailySheet.addRow([]);
+      dailySheet.addRow(['No bookings found for the selected date range']);
+    }
 
-    // await workbook.xlsx.write(res);
-    // ===============================
-    // ✅ ALSO GENERATE TOUR-WISE DUMP
-    // -------------------------------
-    // Tour-wise Booking Dump sheet
-    // -------------------------------
+    // ========== Tour-wise sheet (same as before) ==========
     const tourSheet = workbook.addWorksheet('Tour-wise Booking Dump');
     tourSheet.columns = dailySheet.columns;
 
@@ -333,10 +408,10 @@ async function generateDump(req, res, startDate, endDate, sheetName, filenamePre
       tourSheet.addRow([]);
 
       for (const booking of tourBookings) {
-        const allTravelers = [booking.customer, ...booking.travelers];
+        const allTravelers = [booking.customer, ...(booking.travelers || [])];
         let isFirstRow = true;
 
-        const transaction = await Transaction.findOne({ transactionId: booking.utrNumber });
+        const transaction = await Transaction.findOne({ transactionId: booking.utrNumber }).lean();
         let commissionData = {
           commissionRateAgent: '',
           commissionAmountAgent: '',
@@ -353,8 +428,8 @@ async function generateDump(req, res, startDate, endDate, sheetName, filenamePre
         };
 
         if (transaction) {
-          const agentCommission = transaction.commissions.find(c => c.level === 1);
-          const parentCommission = transaction.commissions.find(c => c.level === 2);
+          const agentCommission = (transaction.commissions || []).find(c => c.level === 1);
+          const parentCommission = (transaction.commissions || []).find(c => c.level === 2);
           commissionData = {
             commissionRateAgent: agentCommission?.commissionRate || '',
             commissionAmountAgent: agentCommission?.commissionAmount || '',
@@ -375,11 +450,11 @@ async function generateDump(req, res, startDate, endDate, sheetName, filenamePre
           const isCustomer = traveler.email === booking.customer.email;
           const rowData = {
             sl: slCounterTour++,
-            dateOfDump: isFirstRow ? today.toLocaleDateString() : '',
-            dateOfBooking: isFirstRow ? booking.createdAt.toLocaleDateString() : '',
+            dateOfDump: isFirstRow ? toISTDate(new Date()).toLocaleDateString('en-GB') : '',
+            dateOfBooking: isFirstRow ? (new Date(booking.createdAt)).toLocaleDateString('en-GB') : '',
             bookingEmailId: isFirstRow ? booking.customer.email : '',
             bookingId: isFirstRow ? booking.bookingID : '',
-            dateOfJourney: isFirstRow ? (booking.tour.startDate?.toLocaleDateString() || 'N/A') : '',
+            dateOfJourney: isFirstRow ? (booking.tour?.startDate ? new Date(booking.tour.startDate).toLocaleDateString('en-GB') : 'N/A') : '',
             nameOfCustomer: isCustomer ? traveler.name : '',
             coPassengers: isCustomer ? '' : traveler.name,
             gender: traveler.gender || '',
@@ -388,24 +463,24 @@ async function generateDump(req, res, startDate, endDate, sheetName, filenamePre
             phoneCalling: traveler.phone || '',
             emergencyContact: isFirstRow ? (booking.customer.emergencyContact || 'N/A') : '',
             phoneWhatsapp: traveler.whatsapp || '',
-            flatNo: isFirstRow ? (booking.customer.homeAddress.flatNo || 'N/A') : '',
-            locality: isFirstRow ? (booking.customer.homeAddress.locality || 'N/A') : '',
-            city: isFirstRow ? (booking.customer.homeAddress.city || 'N/A') : '',
-            pincode: isFirstRow ? (booking.customer.homeAddress.pincode || 'N/A') : '',
-            ps: isFirstRow ? (booking.customer.homeAddress.ps || 'N/A') : '',
-            state: isFirstRow ? (booking.customer.homeAddress.state || 'N/A') : '',
-            country: isFirstRow ? booking.tour.country : '',
+            flatNo: isFirstRow ? (booking.customer.homeAddress?.flatNo || 'N/A') : '',
+            locality: isFirstRow ? (booking.customer.homeAddress?.locality || 'N/A') : '',
+            city: isFirstRow ? (booking.customer.homeAddress?.city || 'N/A') : '',
+            pincode: isFirstRow ? (booking.customer.homeAddress?.pincode || 'N/A') : '',
+            ps: isFirstRow ? (booking.customer.homeAddress?.ps || 'N/A') : '',
+            state: isFirstRow ? (booking.customer.homeAddress?.state || 'N/A') : '',
+            country: isFirstRow ? booking.tour?.country || '' : '',
             aadharNumber: traveler.aadhar || '',
             panNumber: traveler.pan || '',
             birthCertificate: traveler.birthCertificate || '',
             disability: traveler.disability || '',
             medicalCondition: traveler.medicalCondition || '',
-            tourType: isFirstRow ? booking.tour.tourType : '',
-            packageSelected: isFirstRow ? booking.tour.name : '',
+            tourType: isFirstRow ? booking.tour?.tourType || '' : '',
+            packageSelected: isFirstRow ? booking.tour?.name || '' : '',
             agentName: isFirstRow ? (booking.agent?.name || '') : '',
             agentId: isFirstRow ? (booking.agent?.agentID || '') : '',
-            selectedTrip: isFirstRow ? booking.tour.name : '',
-            coPassengerCount: isFirstRow ? booking.travelers.length : '',
+            selectedTrip: isFirstRow ? booking.tour?.name || '' : '',
+            coPassengerCount: isFirstRow ? (booking.travelers ? booking.travelers.length : 0) : '',
             aadharJpg: traveler.aadharJpg || '',
             panJpg: traveler.panJpg || '',
             bankName: isFirstRow ? (booking.payment?.bankName || '') : '',
@@ -414,7 +489,7 @@ async function generateDump(req, res, startDate, endDate, sheetName, filenamePre
             ifscCode: isFirstRow ? (booking.payment?.ifscCode || '') : '',
             adults: isFirstRow ? booking.numAdults : '',
             children: isFirstRow ? booking.numChildren : '',
-            adultRate: isFirstRow ? (booking.packageRates?.adultRate || booking.tour.pricePerHead) : '',
+            adultRate: isFirstRow ? (booking.packageRates?.adultRate || booking.tour?.pricePerHead || '') : '',
             childRate: isFirstRow ? (booking.packageRates?.childRate || 0) : '',
             totalPaid: isFirstRow ? (booking.payment?.totalAmount || 0) : '',
             utrNumber: isFirstRow ? booking.utrNumber : '',
@@ -428,25 +503,55 @@ async function generateDump(req, res, startDate, endDate, sheetName, filenamePre
       }
     }
 
-    // ✅ Send single workbook with both sheets
-    // ✅ Save Excel temporarily to file for email attachment
-    const filePath = req.filePath || path.join(__dirname, `../../temp/${filenamePrefix}_${today.toISOString().slice(0, 10)}.xlsx`);
-    
-    // Ensure temp directory exists
-    fs.mkdirSync(path.join(__dirname, '../../temp'), { recursive: true });
+    // --- Determine mode: cron=true means we should NOT stream a file back (cron only triggers + email) ---
+    const isCron = req.query.cron === 'true';
 
-    await workbook.xlsx.writeFile(filePath);
+    // Ensure temp dir exists (used only for non-cron mode)
+    const tempDir = path.join(__dirname, '../../temp');
+    fs.mkdirSync(tempDir, { recursive: true });
 
-    // ✅ Also send file in response (optional)
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=${path.basename(filePath)}`);
-    await workbook.xlsx.write(res);
-    res.end();
+    const today = new Date();
+    const outFile = req.filePath || path.join(tempDir, `${filenamePrefix}_${today.toISOString().slice(0, 10)}.xlsx`);
+
+    if (isCron) {
+      // Write to buffer and send email with buffer — no disk dependency for cron
+      const buffer = await workbook.xlsx.writeBuffer();
+
+      // Send mail using buffer
+      await sendDumpMail(process.env.REPORT_RECEIVER || 'yourfallback@gmail.com', `L2G-${filenamePrefix.replace(/_/g, ' ')} ${today.getFullYear()} Dump`, {
+        buffer,
+        filename: path.basename(outFile)
+      });
+
+      // Return JSON success for cron
+      return res.json({ status: 'ok', message: 'Cron dump executed and emailed' });
+    } else {
+      // Non-cron: write to disk and stream file in response (download in Postman/browser)
+      await workbook.xlsx.writeFile(outFile);
+
+      // Send email out (attempt, but if file missing send without)
+      // Using sendDumpMail with filePath is safe (it checks existence)
+      sendDumpMail(process.env.REPORT_RECEIVER || 'yourfallback@gmail.com', `L2G-${filenamePrefix.replace(/_/g, ' ')} ${today.getFullYear()} Dump`, {
+        filePath: outFile
+      }).catch(err => console.error('Error sending dump mail (background):', err));
+
+      // Stream file to response
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename=${path.basename(outFile)}`);
+      await workbook.xlsx.write(res);
+      res.end();
+
+      // Attempt immediate cleanup (non-blocking)
+      safeUnlink(outFile);
+      return;
+    }
 
   } catch (error) {
     console.error('Error generating Excel file:', error);
-    res.status(500).send('Error generating dump.');
+    if (!res.headersSent) return res.status(500).send('Error generating dump.');
+    // if response already started, just log
   }
 }
+
 
 module.exports = router;

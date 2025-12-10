@@ -8,7 +8,7 @@ const BASE_URL = process.env.BASE_URL || "http://localhost:5001";
 cron.schedule("59 23 * * *", async () => {
   try {
     console.log("⏳ Running Daily Dump...");
-    await axios.get(`${BASE_URL}/api/customer-dump/daily-dump`);
+    await axios.get(`${BASE_URL}/api/customer-dump/daily-dump?cron=true`);
     console.log("✅ Daily dump triggered successfully.");
   } catch (err) {
     console.error("❌ Error triggering Daily Dump:", err.message);
